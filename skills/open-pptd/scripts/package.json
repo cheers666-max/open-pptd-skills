@@ -1,0 +1,11 @@
+{
+  "name": "open-pptd-scripts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "yaml": "^2.4.2",
+    "sharp": "^0.33.2",
+    "jszip": "^3.10.1",
+    "fontkit": "^2.0.2"
+  }
+}

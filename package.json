@@ -1,0 +1,50 @@
+{
+  "name": "open-pptd-skills",
+  "version": "2.0.0",
+  "description": "Local-first PPTD slide-deck skill for AI coding agents — create, edit, preview and export presentations to PPTX/HTML/images, fully offline.",
+  "license": "MIT",
+  "author": "binaryify",
+  "keywords": [
+    "ppt",
+    "pptx",
+    "slides",
+    "presentation",
+    "pptd",
+    "ooxml",
+    "local-first",
+    "offline",
+    "agent-skill",
+    "codex",
+    "claude-code",
+    "cursor",
+    "codebuddy"
+  ],
+  "type": "module",
+  "bin": {
+    "open-pptd-skills": "bin/open-pptd-skills.js"
+  },
+  "files": [
+    "bin/",
+    "editor/",
+    "lib/",
+    "skills/open-pptd/SKILL.md",
+    "skills/open-pptd/reference/",
+    "skills/open-pptd/scripts/",
+    "README.md",
+    "README_EN.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "fontkit": "^2.0.2",
+    "jszip": "^3.10.1",
+    "sharp": "^0.33.2",
+    "yaml": "^2.4.2"
+  }
+}
