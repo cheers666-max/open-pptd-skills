@@ -12,7 +12,8 @@
  *   --output, -o <path>     Output .pptx path (default: <project>/<manifest name>.pptx)
  *   --force                 Overwrite an existing output file
  *   --transition <fade|none>  Slide transition written to every slide (default: fade)
- *   --embed-fonts           Embed font assets when the deck provides them (default: off)
+ *   --embed-fonts           Embed font assets (default: on, auto-downloads missing fonts)
+ *   --no-embed-fonts        Disable font embedding
  *   --font-profile <name>   Engine font profile, e.g. "open-source" (Noto Sans SC)
  *   --json                  Print a JSON summary instead of human-readable output
  *   -h, --help              Show this help
@@ -117,7 +118,7 @@ function parseArgs(argv) {
     output: null,
     force: false,
     transition: "fade",
-    embedFonts: false,
+    embedFonts: true,
     fontProfile: undefined,
     json: false,
     help: false,
@@ -146,6 +147,9 @@ function parseArgs(argv) {
       }
       case "--embed-fonts":
         options.embedFonts = true;
+        break;
+      case "--no-embed-fonts":
+        options.embedFonts = false;
         break;
       case "--font-profile": {
         const value = args.shift();
@@ -210,13 +214,80 @@ async function main() {
   }
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
+  // Font embedding: default ON unless --no-embed-fonts
+  const shouldEmbedFonts = options.embedFonts !== false;
+  let fontAssets = [];
+
+  if (shouldEmbedFonts) {
+    // Scan deck for fontFamily references and resolve to local files
+    const downloadFontsPath = path.join(SCRIPTS_DIR, "download-fonts.py");
+
+    // Read all .page files + manifest to find font names
+    const fontNames = new Set();
+    try {
+      const manifestText = fs.readFileSync(manifestPath, "utf-8");
+      for (const m of manifestText.matchAll(/fontFamily:\s*(?:["']([^"']+)["']|(\{[^}]+\}))/g)) {
+        if (m[1]) fontNames.add(m[1]);
+        else if (m[2]) {
+          // {latin: "X", ea: "Y"} → extract both
+          const latin = m[2].match(/latin:\s*["']([^"']+)["']/);
+          const ea = m[2].match(/ea:\s*["']([^"']+)["']/);
+          if (latin) fontNames.add(latin[1]);
+          if (ea) fontNames.add(ea[1]);
+        }
+      }
+      for (const entry of fs.readdirSync(path.join(projectDir, "pages"))) {
+        if (!entry.endsWith(".page")) continue;
+        const text = fs.readFileSync(path.join(projectDir, "pages", entry), "utf-8");
+        for (const m of text.matchAll(/fontFamily:\s*(?:["']([^"']+)["']|(\{[^}]+\}))/g)) {
+          if (m[1]) fontNames.add(m[1]);
+          else if (m[2]) {
+            const latin = m[2].match(/latin:\s*["']([^"']+)["']/);
+            const ea = m[2].match(/ea:\s*["']([^"']+)["']/);
+            if (latin) fontNames.add(latin[1]);
+            if (ea) fontNames.add(ea[1]);
+          }
+        }
+        // Also catch font-family in HTML styles
+        for (const m of text.matchAll(/font-family:\s*([^;"'\n>]+)/g)) {
+          const name = m[1].trim();
+          if (name && !name.startsWith("-") && !name.startsWith("inherit")) fontNames.add(name);
+        }
+      }
+    } catch { /* ignore scan errors */ }
+
+    // Resolve each font name to a local file via download-fonts.py
+    for (const name of fontNames) {
+      try {
+        const result = spawnSync("python3", [downloadFontsPath, "--path", name], {
+          encoding: "utf-8", timeout: 30000,
+        });
+        const fontPath = (result.stdout || "").trim();
+        if (result.status === 0 && fontPath && fs.existsSync(fontPath)) {
+          fontAssets.push({
+            path: fontPath,
+            family: name,
+            style: "regular",
+          });
+        }
+      } catch { /* skip fonts that can't be resolved */ }
+    }
+
+    if (fontAssets.length > 0) {
+      console.error(`[fonts] resolved ${fontAssets.length} font(s) for embedding`);
+    } else {
+      console.error("[fonts] no fonts resolved, skipping embedding");
+    }
+  }
+
   const { exportPptdProject } = await importEngine();
   const { report } = await exportPptdProject(manifestPath, outputPath, {
     transition:
       options.transition === "none"
         ? false
         : { type: "fade", speed: "fast", advanceOnClick: true },
-    embedFonts: options.embedFonts,
+    embedFonts: shouldEmbedFonts && fontAssets.length > 0,
+    fontAssets,
     fontProfile: options.fontProfile,
   });
 
@@ -228,6 +299,7 @@ async function main() {
     output: outputPath,
     bytes: stat.size,
     warnings: warnings.length,
+    fonts: fontAssets.length,
   };
   if (report?.prefetch) {
     summary.prefetch = {
@@ -243,6 +315,9 @@ async function main() {
     return;
   }
   console.log(`✅ PPTX exported → ${outputPath} (${stat.size} bytes)`);
+  if (fontAssets.length > 0) {
+    console.log(`   fonts: ${fontAssets.length} embedded`);
+  }
   if (summary.prefetch) {
     const p = summary.prefetch;
     console.log(

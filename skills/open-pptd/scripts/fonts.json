@@ -1,0 +1,16 @@
+{
+  "fonts": {
+    "Oranienbaum": {
+      "file": "Oranienbaum-Regular.ttf",
+      "sha256": "d0c2527f106d",
+      "license": "SIL OFL 1.1",
+      "source_url": "https://github.com/google/fonts/raw/main/ofl/oranienbaum/Oranienbaum-Regular.ttf"
+    },
+    "Noto Serif SC": {
+      "file": "NotoSerifSC-Regular.ttf",
+      "sha256": "2a2eae2628df",
+      "license": "SIL OFL 1.1",
+      "source_url": "https://github.com/notofonts/noto-cjk/raw/main/Serif/OTF/SimplifiedChinese/NotoSerifCJKsc-Regular.otf"
+    }
+  }
+}

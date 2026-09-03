@@ -159,6 +159,8 @@ When generating a PPT, adopt different production approaches for different user 
 5. Default PPTX options:
    - page transition: `fade` (淡入淡出), written to every slide by the engine;
    - override with `--transition none` to disable transitions.
+   - font embedding: enabled by default. The exporter scans the deck for `fontFamily` references, resolves each to a local font file (auto-downloading open-source fonts on first use), and embeds subsetted font data into the PPTX so it renders correctly on machines without those fonts installed.
+   - override with `--no-embed-fonts` to disable font embedding.
    - after PPTX export, also run HTML export (step 5.10) by default to produce `html/` alongside the PPTX.
 6. Export command:
 
@@ -176,6 +178,12 @@ When generating a PPT, adopt different production approaches for different user 
    - remote images referenced by the deck are fetched from their respective hosts during export;
    - local PNG/JPEG/GIF/SVG files inside the PPTD project are embedded directly;
    - do not claim PowerPoint/WPS/Keynote playback compatibility solely because ZIP validation succeeds.
+8. Font strategy:
+   - Fonts are embedded into the PPTX by default. The exporter scans the deck for `fontFamily` references and resolves each to a local font file.
+   - Open-source fonts (Noto Sans SC, Noto Serif SC, Oranienbaum, etc.) are auto-downloaded on first use to `scripts/fonts/` and cached for reuse. See `scripts/download-fonts.py --check` for the registry.
+   - If a font cannot be auto-downloaded (e.g., CDN unavailable), the exporter falls back to: (1) manually placed files in `scripts/fonts/`, (2) system font directories. You can also pre-download fonts with `python3 scripts/download-fonts.py --download-all`.
+   - To disable font embedding, pass `--no-embed-fonts` to the exporter. The resulting PPTX will reference font names only and depend on the viewer's machine having those fonts installed.
+   - The HTML export and browser preview always use the system's local font stack (MiSans, PingFang SC, Microsoft YaHei, etc.) and do not embed fonts.
 8. After export, verify that the output exists and report the generated path. The PPTX ZIP passes integrity checks and every slide has a root-level fade transition in valid CT_Slide order. For higher-risk decks, additionally inspect font parts and representative rendered/opened pages as appropriate.
 9. When the user wants to open, edit, or preview a PPTD project manually, start the local viewer with `npx open-pptd-skills serve`. Ask the user to open `http://127.0.0.1:55173/` and select the complete PPTD project directory. The viewer runs entirely in the browser with no server-side processing.
 10. Static HTML export (default deliverable): use `scripts/export_html.py` to produce a `html/` folder next to the deck. It renders through the skill's own deterministic HTML5 renderer (`scripts/viewer.html`) via headless Chrome, with no network access:
