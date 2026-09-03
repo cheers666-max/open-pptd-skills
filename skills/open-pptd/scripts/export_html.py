@@ -97,24 +97,35 @@ def run_viewer_export(viewer: Path, deck: Path, chrome: str, timeout: int) -> by
     try:
         url = f"http://127.0.0.1:{port}/viewer?deck=http://127.0.0.1:{port}/deck/{deck.name}&export-test=1"
 
-        # Launch Chrome with remote debugging
-        chrome_proc = subprocess.Popen(
-            [chrome, "--headless=new", "--disable-gpu", "--remote-debugging-port=0", "about:blank"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        )
-        # Parse the DevTools WS URL from stderr
+        # Launch Chrome with remote debugging — retry up to 3 times
         ws_url = None
-        deadline = time.monotonic() + 15
-        for raw_line in iter(chrome_proc.stderr.readline, b""):
-            line = raw_line.decode("utf-8", errors="replace")
-            m = re.search(r"ws://\S+", line)
-            if m:
-                ws_url = m.group(0)
+        for attempt in range(3):
+            chrome_proc = subprocess.Popen(
+                [chrome, "--headless=new", "--disable-gpu", "--remote-debugging-port=0", "about:blank"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+            # Parse the DevTools WS URL from stderr
+            deadline = time.monotonic() + 15
+            for raw_line in iter(chrome_proc.stderr.readline, b""):
+                line = raw_line.decode("utf-8", errors="replace")
+                m = re.search(r"ws://\S+", line)
+                if m:
+                    ws_url = m.group(0)
+                    break
+                if time.monotonic() > deadline:
+                    break
+            if ws_url:
                 break
-            if time.monotonic() > deadline:
-                break
+            # Chrome failed to start or output WS URL — clean up and retry
+            chrome_proc.terminate()
+            try:
+                chrome_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                chrome_proc.kill()
+            if attempt < 2:
+                time.sleep(1)
         if not ws_url:
-            raise RuntimeError("could not determine Chrome DevTools WebSocket URL")
+            raise RuntimeError("could not determine Chrome DevTools WebSocket URL after 3 attempts")
 
         # Connect to the browser-level WebSocket, create a page target
         proxy_env = ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")

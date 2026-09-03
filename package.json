@@ -25,11 +25,13 @@
   },
   "files": [
     "bin/",
-    "editor/",
     "lib/",
     "skills/open-pptd/SKILL.md",
     "skills/open-pptd/reference/",
     "skills/open-pptd/scripts/",
+    "!skills/open-pptd/scripts/node_modules/",
+    "!**/__pycache__/",
+    "!**/.DS_Store",
     "README.md",
     "README_EN.md"
   ],
@@ -40,11 +42,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "fontkit": "^2.0.2",
-    "jszip": "^3.10.1",
-    "sharp": "^0.33.2",
-    "yaml": "^2.4.2"
   }
 }

@@ -1,0 +1,226 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: 发电与减碳效益：年均发电6.5亿千瓦时，折节约标煤约19.8万吨、减排CO2约36.2万吨（按公开转换系数测算）。
+elements:
+  - elementId: kicker-tick
+    elementType: shape
+    bounds: [64, 32, 4, 16]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: kicker
+    elementType: text
+    bounds: [76, 30, 400, 20]
+    content:
+      style: "$kicker"
+      text: "05 · 发电与减碳效益"
+
+  - elementId: pageno
+    elementType: text
+    bounds: [800, 30, 96, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      fontFamily: MiSans
+      align: [right, top]
+      text: "07 / 11"
+
+  - elementId: title
+    elementType: text
+    bounds: [64, 54, 832, 36]
+    content:
+      style: "$pageTitle"
+      text: "年均发电6.5亿千瓦时，相当于节约标煤近20万吨"
+
+  - elementId: title-rule
+    elementType: shape
+    bounds: [64, 102, 832, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  # 左栏：发电量 hero
+  - elementId: hero-num
+    elementType: text
+    bounds: [64, 136, 300, 100]
+    content:
+      text: |
+        <p style="font-size:88px; color:$primary; font-family:阿里妈妈数黑体; font-weight:bold; line-height:1;">6.5<span style="font-size:20px; color:$secondary;"> 亿千瓦时</span></p>
+
+  - elementId: hero-label
+    elementType: text
+    bounds: [64, 240, 280, 18]
+    content:
+      fontSize: 12
+      color: "$muted"
+      fontFamily: MiSans
+      text: "年均发电量（投产后）"
+
+  - elementId: hero-rule
+    elementType: shape
+    bounds: [64, 276, 280, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: mini-1
+    elementType: text
+    bounds: [64, 296, 280, 44]
+    content:
+      text: |
+        <p style="font-size:16px; color:$primary; font-family:MiSans;"><strong>2168 千瓦时/千瓦·年</strong></p>
+        <p style="font-size:11px; color:$muted; font-family:MiSans; margin-top:3px;">单位装机年发电量（测算）</p>
+
+  - elementId: mini-rule
+    elementType: shape
+    bounds: [64, 352, 280, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: mini-2
+    elementType: text
+    bounds: [64, 372, 280, 44]
+    content:
+      text: |
+        <p style="font-size:16px; color:$primary; font-family:MiSans;"><strong>≈ 260 万户家庭</strong></p>
+        <p style="font-size:11px; color:$muted; font-family:MiSans; margin-top:3px;">年用电量当量（按户均2500千瓦时测算）</p>
+
+  # 右栏：环境效益三行
+  - elementId: env-1-icon
+    elementType: icon
+    bounds: [420, 152, 34, 34]
+    content:
+      iconName: fas:fire
+      color: "$accentDeep"
+
+  - elementId: env-1-value
+    elementType: text
+    bounds: [472, 140, 210, 44]
+    content:
+      fontSize: 28
+      color: "$primary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "≈ 19.8 万吨"
+
+  - elementId: env-1-label
+    elementType: text
+    bounds: [472, 186, 210, 20]
+    content:
+      fontSize: 13
+      color: "$ink"
+      fontFamily: MiSans
+      bold: true
+      text: "年节约标准煤"
+
+  - elementId: env-1-basis
+    elementType: text
+    bounds: [690, 148, 206, 56]
+    content:
+      fontSize: 10.5
+      color: "$muted"
+      fontFamily: MiSans
+      lineHeight: 1.5
+      align: [right, middle]
+      text: "按 0.305 千克标准煤/千瓦时折算"
+
+  - elementId: env-rule-1
+    elementType: shape
+    bounds: [420, 236, 476, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: env-2-icon
+    elementType: icon
+    bounds: [420, 256, 34, 34]
+    content:
+      iconName: fas:leaf
+      color: "$accentDeep"
+
+  - elementId: env-2-value
+    elementType: text
+    bounds: [472, 244, 210, 44]
+    content:
+      fontSize: 28
+      color: "$primary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "≈ 36.2 万吨"
+
+  - elementId: env-2-label
+    elementType: text
+    bounds: [472, 290, 210, 20]
+    content:
+      fontSize: 13
+      color: "$ink"
+      fontFamily: MiSans
+      bold: true
+      text: "年减少二氧化碳排放"
+
+  - elementId: env-2-basis
+    elementType: text
+    bounds: [690, 252, 206, 56]
+    content:
+      fontSize: 10.5
+      color: "$muted"
+      fontFamily: MiSans
+      lineHeight: 1.5
+      align: [right, middle]
+      text: "按全国电网平均排放因子 0.5568 千克/千瓦时"
+
+  - elementId: env-rule-2
+    elementType: shape
+    bounds: [420, 340, 476, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: env-3-icon
+    elementType: icon
+    bounds: [420, 360, 34, 34]
+    content:
+      iconName: fas:tree
+      color: "$accentDeep"
+
+  - elementId: env-3-value
+    elementType: text
+    bounds: [472, 348, 210, 44]
+    content:
+      fontSize: 28
+      color: "$primary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "≈ 1970 万棵"
+
+  - elementId: env-3-label
+    elementType: text
+    bounds: [472, 394, 210, 20]
+    content:
+      fontSize: 13
+      color: "$ink"
+      fontFamily: MiSans
+      bold: true
+      text: "年吸碳当量（植树）"
+
+  - elementId: env-3-basis
+    elementType: text
+    bounds: [690, 356, 206, 56]
+    content:
+      fontSize: 10.5
+      color: "$muted"
+      fontFamily: MiSans
+      lineHeight: 1.5
+      align: [right, middle]
+      text: "按单株树年吸收 CO₂ 约 18.33 千克"
+
+  - elementId: footer-rule
+    elementType: shape
+    bounds: [64, 505, 832, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: source-note
+    elementType: text
+    bounds: [64, 512, 832, 20]
+    content:
+      style: "$caption"
+      text: "注：发电量来源为公开报道；减排量为按公开转换系数的测算值，仅供参考"

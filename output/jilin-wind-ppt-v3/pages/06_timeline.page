@@ -1,0 +1,312 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: 建设历程：2024.04核准 → 2025.02中标 → 2025.04开工 → 2025.07首台吊装 → 2025.10全部吊装 → 2025.12.13并网，8个月纪录，质量安全双零。
+elements:
+  - elementId: kicker-tick
+    elementType: shape
+    bounds: [64, 32, 4, 16]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: kicker
+    elementType: text
+    bounds: [76, 30, 400, 20]
+    content:
+      style: "$kicker"
+      text: "04 · 建设历程"
+
+  - elementId: pageno
+    elementType: text
+    bounds: [800, 30, 96, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      fontFamily: MiSans
+      align: [right, top]
+      text: "06 / 11"
+
+  - elementId: title
+    elementType: text
+    bounds: [64, 54, 832, 36]
+    content:
+      style: "$pageTitle"
+      text: "从核准到并网，8个月高效冲刺"
+
+  - elementId: title-rule
+    elementType: shape
+    bounds: [64, 102, 832, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  # 时间轴主线
+  - elementId: axis
+    elementType: shape
+    bounds: [80, 279, 800, 2]
+    shapeName: rect
+    fill: {type: solid, color: "$secondary"}
+
+  # 节点1（上）：2024.04 核准
+  - elementId: tick-1
+    elementType: shape
+    bounds: [99, 258, 1, 17]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+  - elementId: dot-1
+    elementType: shape
+    bounds: [95, 275, 10, 10]
+    shapeName: ellipse
+    fill: {type: solid, color: "$accent"}
+    border: {style: solid, width: 1.5, color: "$primary"}
+  - elementId: date-1
+    elementType: text
+    bounds: [35, 226, 130, 18]
+    content:
+      fontSize: 12
+      color: "$secondary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      align: [center, top]
+      text: "2024.04"
+  - elementId: label-1
+    elementType: text
+    bounds: [35, 244, 130, 16]
+    content:
+      fontSize: 11.5
+      color: "$ink"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "省发改委核准批复"
+
+  # 节点2（下）：2025.02 中标
+  - elementId: tick-2
+    elementType: shape
+    bounds: [239, 285, 1, 17]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+  - elementId: dot-2
+    elementType: shape
+    bounds: [235, 275, 10, 10]
+    shapeName: ellipse
+    fill: {type: solid, color: "$accent"}
+    border: {style: solid, width: 1.5, color: "$primary"}
+  - elementId: date-2
+    elementType: text
+    bounds: [175, 306, 130, 18]
+    content:
+      fontSize: 12
+      color: "$secondary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      align: [center, top]
+      text: "2025.02"
+  - elementId: label-2
+    elementType: text
+    bounds: [175, 324, 130, 16]
+    content:
+      fontSize: 11.5
+      color: "$ink"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "EPC总承包中标"
+
+  # 节点3（上）：2025.04 开工
+  - elementId: tick-3
+    elementType: shape
+    bounds: [379, 258, 1, 17]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+  - elementId: dot-3
+    elementType: shape
+    bounds: [375, 275, 10, 10]
+    shapeName: ellipse
+    fill: {type: solid, color: "$accent"}
+    border: {style: solid, width: 1.5, color: "$primary"}
+  - elementId: date-3
+    elementType: text
+    bounds: [315, 226, 130, 18]
+    content:
+      fontSize: 12
+      color: "$secondary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      align: [center, top]
+      text: "2025.04"
+  - elementId: label-3
+    elementType: text
+    bounds: [315, 244, 130, 16]
+    content:
+      fontSize: 11.5
+      color: "$ink"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "主体工程开工"
+
+  # 节点4（下）：2025.07 首台吊装
+  - elementId: tick-4
+    elementType: shape
+    bounds: [519, 285, 1, 17]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+  - elementId: dot-4
+    elementType: shape
+    bounds: [515, 275, 10, 10]
+    shapeName: ellipse
+    fill: {type: solid, color: "$accent"}
+    border: {style: solid, width: 1.5, color: "$primary"}
+  - elementId: date-4
+    elementType: text
+    bounds: [455, 306, 130, 18]
+    content:
+      fontSize: 12
+      color: "$secondary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      align: [center, top]
+      text: "2025.07"
+  - elementId: label-4
+    elementType: text
+    bounds: [455, 324, 130, 16]
+    content:
+      fontSize: 11.5
+      color: "$ink"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "首台风机吊装完成"
+
+  # 节点5（上）：2025.10 全部吊装
+  - elementId: tick-5
+    elementType: shape
+    bounds: [659, 258, 1, 17]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+  - elementId: dot-5
+    elementType: shape
+    bounds: [655, 275, 10, 10]
+    shapeName: ellipse
+    fill: {type: solid, color: "$accent"}
+    border: {style: solid, width: 1.5, color: "$primary"}
+  - elementId: date-5
+    elementType: text
+    bounds: [595, 226, 130, 18]
+    content:
+      fontSize: 12
+      color: "$secondary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      align: [center, top]
+      text: "2025.10"
+  - elementId: label-5
+    elementType: text
+    bounds: [595, 244, 130, 16]
+    content:
+      fontSize: 11.5
+      color: "$ink"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "Ⅰ标段全部吊装完成"
+
+  # 节点6（下，高亮）：2025.12.13 并网
+  - elementId: tick-6
+    elementType: shape
+    bounds: [799, 285, 1, 17]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+  - elementId: dot-6
+    elementType: shape
+    bounds: [793, 272, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$accent"}
+    border: {style: solid, width: 2, color: "$primary"}
+  - elementId: date-6
+    elementType: text
+    bounds: [735, 306, 130, 18]
+    content:
+      fontSize: 12
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      align: [center, top]
+      text: "2025.12.13"
+  - elementId: label-6
+    elementType: text
+    bounds: [735, 324, 130, 16]
+    content:
+      fontSize: 11.5
+      color: "$primary"
+      fontFamily: MiSans
+      bold: true
+      align: [center, top]
+      text: "正式并网发电"
+
+  # 底部高亮条
+  - elementId: highlight-band
+    elementType: shape
+    bounds: [80, 380, 800, 84]
+    shapeName: rect
+    fill: {type: solid, color: "$panel"}
+
+  - elementId: highlight-icon
+    elementType: icon
+    bounds: [104, 406, 30, 30]
+    content:
+      iconName: fas:flag-checkered
+      color: "$accentDeep"
+
+  - elementId: highlight-title
+    elementType: text
+    bounds: [148, 398, 320, 28]
+    content:
+      fontSize: 19
+      color: "$primary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "8个月高效并网纪录"
+
+  - elementId: highlight-desc
+    elementType: text
+    bounds: [148, 428, 420, 20]
+    content:
+      fontSize: 12
+      color: "$muted"
+      fontFamily: MiSans
+      text: "2025年4月主体开工至12月13日并网，创区域同类项目高效纪录"
+
+  - elementId: highlight-div
+    elementType: shape
+    bounds: [596, 396, 1, 52]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: highlight-2-title
+    elementType: text
+    bounds: [620, 404, 240, 24]
+    content:
+      fontSize: 15
+      color: "$primary"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "质量安全「双零」"
+
+  - elementId: highlight-2-desc
+    elementType: text
+    bounds: [620, 430, 240, 18]
+    content:
+      fontSize: 11.5
+      color: "$muted"
+      fontFamily: MiSans
+      text: "安全零事故 · 质量零缺陷"
+
+  - elementId: footer-rule
+    elementType: shape
+    bounds: [64, 505, 832, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: source-note
+    elementType: text
+    bounds: [64, 512, 560, 20]
+    content:
+      style: "$caption"
+      text: "资料来源：中国能建、重庆工程公司公开报道（2025）"

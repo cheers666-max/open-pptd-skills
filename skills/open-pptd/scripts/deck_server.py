@@ -48,9 +48,15 @@ class _DeckHTTPHandler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB — 防止大文件耗尽内存
+
     def _send_file(self, path: Path, content_type: str | None = None) -> None:
         if not path.is_file():
             self.send_error(404)
+            return
+        size = path.stat().st_size
+        if size > self.MAX_FILE_SIZE:
+            self.send_error(413)
             return
         if content_type is None:
             content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"

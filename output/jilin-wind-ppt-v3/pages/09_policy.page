@@ -1,0 +1,249 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: 政策与机制：发改能源〔2025〕650号绿电直连政策要点，负荷主责、以荷定源、自发自用比例、多年期购电协议、整体参与市场。
+elements:
+  - elementId: kicker-tick
+    elementType: shape
+    bounds: [64, 32, 4, 16]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: kicker
+    elementType: text
+    bounds: [76, 30, 400, 20]
+    content:
+      style: "$kicker"
+      text: "07 · 政策与机制"
+
+  - elementId: pageno
+    elementType: text
+    bounds: [800, 30, 96, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      fontFamily: MiSans
+      align: [right, top]
+      text: "09 / 11"
+
+  - elementId: title
+    elementType: text
+    bounds: [64, 54, 832, 36]
+    content:
+      style: "$pageTitle"
+      text: "650号文立规矩：绿电直连的制度化空间"
+
+  - elementId: title-rule
+    elementType: shape
+    bounds: [64, 102, 832, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  # 左栏：政策摘要
+  - elementId: policy-tag
+    elementType: text
+    bounds: [64, 126, 340, 18]
+    content:
+      fontSize: 12
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "发改能源〔2025〕650号"
+
+  - elementId: policy-name
+    elementType: text
+    bounds: [64, 148, 340, 40]
+    content:
+      fontSize: 16
+      color: "$ink"
+      fontFamily: MiSans
+      bold: true
+      lineHeight: 1.4
+      text: "《关于有序推动绿电直连发展有关事项的通知》"
+
+  - elementId: policy-issuer
+    elementType: text
+    bounds: [64, 192, 340, 16]
+    content:
+      fontSize: 11
+      color: "$muted"
+      fontFamily: MiSans
+      text: "国家发展改革委 · 国家能源局 · 2025年5月21日"
+
+  - elementId: policy-rule
+    elementType: shape
+    bounds: [64, 220, 340, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: policy-def
+    elementType: text
+    bounds: [64, 236, 340, 110]
+    content:
+      fontSize: 12.5
+      color: "$ink"
+      fontFamily: MiSans
+      lineHeight: 1.7
+      text: "绿电直连：风电、光伏、生物质等新能源不直接接入公共电网，通过直连线路向单一电力用户供给绿电，供给电量可实现清晰物理溯源。分并网型与离网型两类。"
+
+  # 关键参数
+  - elementId: param-1-dot
+    elementType: shape
+    bounds: [64, 366, 6, 6]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+  - elementId: param-1
+    elementType: text
+    bounds: [78, 360, 326, 18]
+    content:
+      fontSize: 12
+      color: "$ink"
+      fontFamily: MiSans
+      text: "接入电压等级 ≤ 220(330) kV"
+
+  - elementId: param-2-dot
+    elementType: shape
+    bounds: [64, 394, 6, 6]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+  - elementId: param-2
+    elementType: text
+    bounds: [78, 388, 326, 18]
+    content:
+      fontSize: 12
+      color: "$ink"
+      fontFamily: MiSans
+      text: "自发自用 ≥ 60% 可用发电量、≥ 30% 总用电量"
+
+  - elementId: param-3-dot
+    elementType: shape
+    bounds: [64, 422, 6, 6]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+  - elementId: param-3
+    elementType: text
+    bounds: [78, 416, 326, 18]
+    content:
+      fontSize: 12
+      color: "$ink"
+      fontFamily: MiSans
+      text: "2030年起自发自用比例 ≥ 35%"
+
+  - elementId: param-4-dot
+    elementType: shape
+    bounds: [64, 450, 6, 6]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+  - elementId: param-4
+    elementType: text
+    bounds: [78, 444, 326, 18]
+    content:
+      fontSize: 12
+      color: "$ink"
+      fontFamily: MiSans
+      text: "上网电量比例一般不超过 20%"
+
+  # 右栏：五项机制
+  - elementId: mech-1-num
+    elementType: text
+    bounds: [460, 128, 36, 24]
+    content:
+      fontSize: 18
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "01"
+
+  - elementId: mech-1
+    elementType: text
+    bounds: [504, 128, 392, 50]
+    content:
+      text: |
+        <p style="font-size:14.5px; color:$ink; font-family:MiSans;"><strong>负荷主责</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:3px; line-height:1.5;">项目原则上由负荷作为主责单位，各类经营主体均可投资</p>
+
+  - elementId: mech-2-num
+    elementType: text
+    bounds: [460, 194, 36, 24]
+    content:
+      fontSize: 18
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "02"
+
+  - elementId: mech-2
+    elementType: text
+    bounds: [504, 194, 392, 50]
+    content:
+      text: |
+        <p style="font-size:14.5px; color:$ink; font-family:MiSans;"><strong>以荷定源</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:3px; line-height:1.5;">科学确定电源类型与装机规模，整体统一建设、同步投产</p>
+
+  - elementId: mech-3-num
+    elementType: text
+    bounds: [460, 260, 36, 24]
+    content:
+      fontSize: 18
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "03"
+
+  - elementId: mech-3
+    elementType: text
+    bounds: [504, 260, 392, 50]
+    content:
+      text: |
+        <p style="font-size:14.5px; color:$ink; font-family:MiSans;"><strong>多年期购电协议</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:3px; line-height:1.5;">电源与负荷不同主体时，签订多年期购电协议或合同能源管理协议</p>
+
+  - elementId: mech-4-num
+    elementType: text
+    bounds: [460, 326, 36, 24]
+    content:
+      fontSize: 18
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "04"
+
+  - elementId: mech-4
+    elementType: text
+    bounds: [504, 326, 392, 50]
+    content:
+      text: |
+        <p style="font-size:14.5px; color:$ink; font-family:MiSans;"><strong>整体参与市场</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:3px; line-height:1.5;">作为整体注册参与电力市场交易，按与公共电网交换功率结算</p>
+
+  - elementId: mech-5-num
+    elementType: text
+    bounds: [460, 392, 36, 24]
+    content:
+      fontSize: 18
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "05"
+
+  - elementId: mech-5
+    elementType: text
+    bounds: [504, 392, 392, 50]
+    content:
+      text: |
+        <p style="font-size:14.5px; color:$ink; font-family:MiSans;"><strong>费用照章缴纳</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:3px; line-height:1.5;">输配电费、系统运行费用、政府性基金及附加按规定缴纳</p>
+
+  - elementId: footer-rule
+    elementType: shape
+    bounds: [64, 505, 832, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  - elementId: source-note
+    elementType: text
+    bounds: [64, 512, 832, 20]
+    content:
+      style: "$caption"
+      text: "本项目为吉林省首批自带负荷配置新能源指标风电项目（中国能建，2025.02）；政策原文见国家发改委官网"

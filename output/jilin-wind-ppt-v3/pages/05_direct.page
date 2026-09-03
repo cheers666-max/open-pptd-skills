@@ -1,0 +1,222 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: 绿电直供模式：风电场经直连线路向吉林化纤单一用户供电，物理溯源；以荷定源、央地协同。
+elements:
+  - elementId: kicker-tick
+    elementType: shape
+    bounds: [64, 32, 4, 16]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: kicker
+    elementType: text
+    bounds: [76, 30, 400, 20]
+    content:
+      style: "$kicker"
+      text: "03 · 绿电直供模式"
+
+  - elementId: pageno
+    elementType: text
+    bounds: [800, 30, 96, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      fontFamily: MiSans
+      align: [right, top]
+      text: "05 / 11"
+
+  - elementId: title
+    elementType: text
+    bounds: [64, 54, 832, 36]
+    content:
+      style: "$pageTitle"
+      text: "风电场与工厂专线相连，绿电物理可溯源"
+
+  - elementId: title-rule
+    elementType: shape
+    bounds: [64, 102, 832, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$line"}
+
+  # 流程图：风电场 → 直连线路 → 化纤厂区
+  - elementId: node-a
+    elementType: shape
+    bounds: [80, 150, 200, 88]
+    shapeName: rect
+    fill: {type: solid, color: "#FFFFFF"}
+    border: {style: solid, width: 1, color: "$secondary"}
+
+  - elementId: node-a-tick
+    elementType: shape
+    bounds: [80, 150, 200, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: node-a-icon
+    elementType: icon
+    bounds: [100, 166, 30, 30]
+    content:
+      iconName: fas:wind
+      color: "$secondary"
+
+  - elementId: node-a-text
+    elementType: text
+    bounds: [100, 202, 170, 30]
+    content:
+      text: |
+        <p style="font-size:15px; color:$ink; font-family:MiSans;"><strong>风电场</strong></p>
+        <p style="font-size:10.5px; color:$muted; font-family:MiSans; margin-top:2px;">299.85 MW · 42台机组</p>
+
+  - elementId: arrow-1-label
+    elementType: text
+    bounds: [296, 168, 80, 16]
+    content:
+      fontSize: 11
+      color: "$muted"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "集电线路"
+
+  - elementId: arrow-1
+    elementType: line
+    bounds: [280, 193, 112, 1]
+    border: {style: solid, width: 2, color: "$secondary"}
+    arrow: [null, arrow]
+
+  - elementId: node-b
+    elementType: shape
+    bounds: [392, 150, 176, 88]
+    shapeName: rect
+    fill: {type: solid, color: "#FFFFFF"}
+    border: {style: solid, width: 1, color: "$secondary"}
+
+  - elementId: node-b-tick
+    elementType: shape
+    bounds: [392, 150, 176, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: node-b-icon
+    elementType: icon
+    bounds: [410, 166, 30, 30]
+    content:
+      iconName: fas:plug-circle-bolt
+      color: "$secondary"
+
+  - elementId: node-b-text
+    elementType: text
+    bounds: [410, 202, 150, 30]
+    content:
+      text: |
+        <p style="font-size:15px; color:$ink; font-family:MiSans;"><strong>直连线路</strong></p>
+        <p style="font-size:10.5px; color:$muted; font-family:MiSans; margin-top:2px;">专用电力线路 · 物理溯源</p>
+
+  - elementId: arrow-2-label
+    elementType: text
+    bounds: [584, 168, 80, 16]
+    content:
+      fontSize: 11
+      color: "$muted"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "绿电直供"
+
+  - elementId: arrow-2
+    elementType: line
+    bounds: [568, 193, 112, 1]
+    border: {style: solid, width: 2, color: "$secondary"}
+    arrow: [null, arrow]
+
+  - elementId: node-c
+    elementType: shape
+    bounds: [680, 150, 200, 88]
+    shapeName: rect
+    fill: {type: solid, color: "$primary"}
+
+  - elementId: node-c-tick
+    elementType: shape
+    bounds: [680, 150, 200, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: node-c-icon
+    elementType: icon
+    bounds: [700, 166, 30, 30]
+    content:
+      iconName: fas:factory
+      color: "$accentLight"
+
+  - elementId: node-c-text
+    elementType: text
+    bounds: [700, 202, 170, 30]
+    content:
+      text: |
+        <p style="font-size:15px; color:#FFFFFF; font-family:MiSans;"><strong>吉林化纤厂区</strong></p>
+        <p style="font-size:10.5px; color:$frost; font-family:MiSans; margin-top:2px;">碳纤维生产负荷</p>
+
+  # 三个要点
+  - elementId: point-1-num
+    elementType: text
+    bounds: [80, 280, 40, 26]
+    content:
+      fontSize: 20
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "01"
+
+  - elementId: point-1
+    elementType: text
+    bounds: [132, 280, 760, 52]
+    content:
+      text: |
+        <p style="font-size:15px; color:$ink; font-family:MiSans;"><strong>以荷定源 · 源荷匹配</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:4px; line-height:1.5;">新能源指标与自有负荷绑定，按“以荷定源”原则确定电源类型与装机规模，就近就地消纳。</p>
+
+  - elementId: point-2-num
+    elementType: text
+    bounds: [80, 344, 40, 26]
+    content:
+      fontSize: 20
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "02"
+
+  - elementId: point-2
+    elementType: text
+    bounds: [132, 344, 760, 52]
+    content:
+      text: |
+        <p style="font-size:15px; color:$ink; font-family:MiSans;"><strong>物理溯源 · 清晰界面</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:4px; line-height:1.5;">绿电不直接接入公共电网，经直连线路向单一用户供电，供给电量实现清晰物理溯源。</p>
+
+  - elementId: point-3-num
+    elementType: text
+    bounds: [80, 408, 40, 26]
+    content:
+      fontSize: 20
+      color: "$accentDeep"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "03"
+
+  - elementId: point-3
+    elementType: text
+    bounds: [132, 408, 760, 52]
+    content:
+      text: |
+        <p style="font-size:15px; color:$ink; font-family:MiSans;"><strong>央地协同 · 多元投资</strong></p>
+        <p style="font-size:12px; color:$muted; font-family:MiSans; margin-top:4px; line-height:1.5;">国家能源集团（国能）投资建设电源，吉林化纤作为负荷主体消纳，央地协同推进绿色转型。</p>
+
+  - elementId: policy-tag
+    elementType: text
+    bounds: [300, 480, 596, 16]
+    content:
+      fontSize: 10
+      color: "$muted"
+      fontFamily: MiSans
+      align: [right, top]
+      text: "政策依据：发改能源〔2025〕650号《关于有序推动绿电直连发展有关事项的通知》"

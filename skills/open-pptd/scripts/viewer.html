@@ -857,7 +857,15 @@
     if (!/\.pptd\s*$/.test(deckPath)) {
       throw new Error(`?deck= 需要传 .pptd 主文件路径（当前: ${deckPath}）`);
     }
-    const abs = deckPath.startsWith("/") ? `file://${deckPath}` : new URL(deckPath, location.href).href;
+    // 支持 file://、http(s):// 和相对路径
+    let abs;
+    if (deckPath.startsWith("http://") || deckPath.startsWith("https://")) {
+      abs = deckPath;
+    } else if (deckPath.startsWith("/")) {
+      abs = `file://${deckPath}`;
+    } else {
+      abs = new URL(deckPath, location.href).href;
+    }
     const dir = abs.replace(/[^/]*$/, "");
     const manifestText = await (await fetch(abs)).text();
     const manifest = jsyaml.load(manifestText);

@@ -48,6 +48,10 @@ function isModuleNotFound(error) {
 }
 
 function bootstrapDependencies() {
+  const nodeModulesPath = path.join(SCRIPTS_DIR, "node_modules");
+  if (fs.existsSync(nodeModulesPath)) {
+    return; // dependencies already installed
+  }
   const pkgPath = path.join(SCRIPTS_DIR, "package.json");
   if (!fs.existsSync(pkgPath)) {
     fs.writeFileSync(

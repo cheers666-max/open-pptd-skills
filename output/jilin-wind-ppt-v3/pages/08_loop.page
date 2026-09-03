@@ -1,0 +1,234 @@
+pageType: content
+background:
+  type: solid
+  color: "$primary"
+notes: 产业闭环：绿电—碳纤维—风电装备循环。2026.04 2.5万吨碳纤维项目开工，2026.06 海上风电叶片大丝束产线开车成功。
+elements:
+  # 装饰风机（低透明度）
+  - elementId: deco-blade-up
+    elementType: shape
+    bounds: [793, 110, 14, 150]
+    shapeName: ellipse
+    rotation: 0
+    fill: {type: solid, color: "#FFFFFF", opacity: 0.07}
+
+  - elementId: deco-blade-120
+    elementType: shape
+    bounds: [858, 222.5, 14, 150]
+    shapeName: ellipse
+    rotation: 120
+    fill: {type: solid, color: "#FFFFFF", opacity: 0.07}
+
+  - elementId: deco-blade-240
+    elementType: shape
+    bounds: [728, 222.5, 14, 150]
+    shapeName: ellipse
+    rotation: 240
+    fill: {type: solid, color: "#FFFFFF", opacity: 0.07}
+
+  - elementId: deco-hub
+    elementType: shape
+    bounds: [792, 252, 16, 16]
+    shapeName: ellipse
+    fill: {type: solid, color: "#FFFFFF", opacity: 0.07}
+
+  - elementId: kicker-tick
+    elementType: shape
+    bounds: [64, 44, 4, 16]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: kicker
+    elementType: text
+    bounds: [76, 42, 300, 20]
+    content:
+      fontSize: 12
+      color: "$accentLight"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      letterSpacing: 3
+      text: "06 · 产业闭环"
+
+  - elementId: pageno
+    elementType: text
+    bounds: [800, 42, 96, 18]
+    content:
+      fontSize: 11
+      color: "$frost"
+      fontFamily: MiSans
+      align: [right, top]
+      text: "08 / 11"
+
+  - elementId: title
+    elementType: text
+    bounds: [64, 66, 700, 36]
+    content:
+      fontSize: 25
+      color: "#FFFFFF"
+      fontFamily: 阿里妈妈数黑体
+      bold: true
+      text: "绿电织黑丝：一条低碳循环产业链"
+
+  - elementId: subtitle
+    elementType: text
+    bounds: [64, 106, 700, 20]
+    content:
+      fontSize: 13
+      color: "$frost"
+      fontFamily: MiSans
+      text: "用绿电生产绿材——绿电—碳纤维—风电装备闭环"
+
+  # 循环图：三个节点
+  - elementId: node-a
+    elementType: shape
+    bounds: [170, 171, 140, 58]
+    shapeName: rect
+    fill: {type: solid, color: "#1B2C5C"}
+    border: {style: solid, width: 1, color: "$secondary"}
+
+  - elementId: node-a-tick
+    elementType: shape
+    bounds: [170, 171, 140, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: node-a-text
+    elementType: text
+    bounds: [180, 183, 120, 40]
+    content:
+      text: |
+        <p style="font-size:14px; color:#FFFFFF; font-family:MiSans;"><strong>绿电 · 风电场</strong></p>
+        <p style="font-size:10.5px; color:$frost; font-family:MiSans; margin-top:3px;">299.85 MW 直供</p>
+
+  - elementId: node-b
+    elementType: shape
+    bounds: [350, 321, 140, 58]
+    shapeName: rect
+    fill: {type: solid, color: "#1B2C5C"}
+    border: {style: solid, width: 1, color: "$secondary"}
+
+  - elementId: node-b-tick
+    elementType: shape
+    bounds: [350, 321, 140, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: node-b-text
+    elementType: text
+    bounds: [360, 333, 120, 40]
+    content:
+      text: |
+        <p style="font-size:14px; color:#FFFFFF; font-family:MiSans;"><strong>碳纤维 · 吉林化纤</strong></p>
+        <p style="font-size:10.5px; color:$frost; font-family:MiSans; margin-top:3px;">高端材料生产</p>
+
+  - elementId: node-c
+    elementType: shape
+    bounds: [530, 171, 140, 58]
+    shapeName: rect
+    fill: {type: solid, color: "#1B2C5C"}
+    border: {style: solid, width: 1, color: "$secondary"}
+
+  - elementId: node-c-tick
+    elementType: shape
+    bounds: [530, 171, 140, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$accent"}
+
+  - elementId: node-c-text
+    elementType: text
+    bounds: [540, 183, 120, 40]
+    content:
+      text: |
+        <p style="font-size:14px; color:#FFFFFF; font-family:MiSans;"><strong>风电装备 · 叶片</strong></p>
+        <p style="font-size:10.5px; color:$frost; font-family:MiSans; margin-top:3px;">碳纤维复合材料</p>
+
+  # 循环箭头
+  - elementId: arrow-ab
+    elementType: line
+    bounds: [290, 225, 105, 105]
+    viewBox: [105, 105]
+    points: "0,0 105,105"
+    border: {style: solid, width: 2, color: "$accent"}
+    arrow: [null, arrow]
+
+  - elementId: arrow-ab-label
+    elementType: text
+    bounds: [296, 268, 90, 16]
+    content:
+      fontSize: 10.5
+      color: "$frost"
+      fontFamily: MiSans
+      text: "清洁电力直供"
+
+  - elementId: arrow-bc
+    elementType: line
+    bounds: [445, 225, 105, 105]
+    viewBox: [105, 105]
+    points: "0,105 105,0"
+    border: {style: solid, width: 2, color: "$accent"}
+    arrow: [null, arrow]
+
+  - elementId: arrow-bc-label
+    elementType: text
+    bounds: [470, 268, 100, 16]
+    content:
+      fontSize: 10.5
+      color: "$frost"
+      fontFamily: MiSans
+      text: "碳纤维用于叶片"
+
+  - elementId: arrow-ca
+    elementType: line
+    bounds: [310, 150, 220, 45]
+    viewBox: [220, 45]
+    points: "220,45 110,0 0,45"
+    curve: smooth
+    border: {style: solid, width: 2, color: "$accent"}
+    arrow: [null, arrow]
+
+  - elementId: arrow-ca-label
+    elementType: text
+    bounds: [400, 128, 110, 16]
+    content:
+      fontSize: 10.5
+      color: "$frost"
+      fontFamily: MiSans
+      align: [center, top]
+      text: "装备再捕风能"
+
+  # 底部注记
+  - elementId: note-1
+    elementType: text
+    bounds: [64, 428, 832, 18]
+    content:
+      fontSize: 12
+      color: "$frost"
+      fontFamily: MiSans
+      text: "2026.04　年产2.5万吨碳纤维项目开工，配套绿电直连示范工程同步推进"
+
+  - elementId: note-2
+    elementType: text
+    bounds: [64, 452, 832, 18]
+    content:
+      fontSize: 12
+      color: "$frost"
+      fontFamily: MiSans
+      text: "2026.06　4000吨/年海上风电叶片专供大丝束碳纤维产线一次开车成功"
+
+  - elementId: quote
+    elementType: text
+    bounds: [64, 482, 832, 20]
+    content:
+      fontSize: 13
+      color: "$accentLight"
+      fontFamily: MiSans
+      text: "“用绿电生产绿材”，正成为吉林化纤蹚出的一条新路 —— 吉林化纤集团"
+
+  - elementId: source-note
+    elementType: text
+    bounds: [64, 510, 832, 16]
+    content:
+      fontSize: 10
+      color: "#8FA0C8"
+      fontFamily: MiSans
+      text: "资料来源：人民网（2026.08）、吉林化纤集团官网"

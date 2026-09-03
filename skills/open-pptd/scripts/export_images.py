@@ -31,10 +31,20 @@ from export_html import find_chrome, find_deck
 SKILL_DIR = Path(__file__).resolve().parent.parent
 VIEWER_DEFAULT = SKILL_DIR / "scripts" / "viewer.html"
 
-OVERVIEW_COLUMNS = 3
 OVERVIEW_THUMB_WIDTH = 640
 OVERVIEW_LABEL_HEIGHT = 32
 OVERVIEW_GAP = 12
+
+
+def _overview_columns(page_count: int) -> int:
+    """Pick a sensible column count based on the number of pages."""
+    if page_count <= 3:
+        return page_count
+    if page_count <= 6:
+        return 3
+    if page_count <= 12:
+        return 4
+    return 5
 
 
 class ExportError(Exception):
@@ -180,7 +190,7 @@ def stitch_overview(
             )
         thumbs.append((f"P{index}", thumb))
 
-    columns = OVERVIEW_COLUMNS
+    columns = _overview_columns(len(thumbs))
     rows = math.ceil(len(thumbs) / columns)
     cell_height = OVERVIEW_LABEL_HEIGHT + max(thumb.height for _, thumb in thumbs)
     width = columns * OVERVIEW_THUMB_WIDTH + (columns + 1) * OVERVIEW_GAP
@@ -209,7 +219,7 @@ def export_images(
     source: Path,
     output: Path,
     scale: float = 2.0,
-    virtual_time_ms: int = 15000,
+        virtual_time_ms: int = 30000,
     timeout: int = 90,
     force: bool = False,
 ) -> Dict[str, Any]:
@@ -295,8 +305,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--virtual-time",
         type=int,
-        default=15000,
-        help="virtual-time budget per page in ms (default: 15000)",
+        default=30000,
+        help="virtual-time budget per page in ms (default: 30000)",
     )
     parser.add_argument(
         "--timeout",
