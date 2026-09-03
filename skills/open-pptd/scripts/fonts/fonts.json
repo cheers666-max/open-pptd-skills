@@ -1,0 +1,22 @@
+{
+  "fonts": {
+    "Noto Sans SC": {
+      "file": "NotoSansSC-Regular.ttf",
+      "sha256": "2c76254f6fc3",
+      "license": "SIL OFL 1.1",
+      "source_url": "https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf"
+    },
+    "Noto Sans SC Bold": {
+      "file": "NotoSansSC-Bold.ttf",
+      "sha256": "b5f0d1a190a7",
+      "license": "SIL OFL 1.1",
+      "source_url": "https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Bold.otf"
+    },
+    "Noto Serif SC Bold": {
+      "file": "NotoSerifSC-Bold.ttf",
+      "sha256": "8af07d4b6c2e",
+      "license": "SIL OFL 1.1",
+      "source_url": "https://github.com/notofonts/noto-cjk/raw/main/Serif/OTF/SimplifiedChinese/NotoSerifCJKsc-Bold.otf"
+    }
+  }
+}

@@ -22,6 +22,7 @@ import json
 import math
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -219,9 +220,10 @@ def export_images(
     source: Path,
     output: Path,
     scale: float = 2.0,
-        virtual_time_ms: int = 30000,
+    virtual_time_ms: int = 30000,
     timeout: int = 90,
     force: bool = False,
+    workers: int = 1,
 ) -> Dict[str, Any]:
     deck = find_deck(str(source))
     yaml = ensure_yaml()
@@ -253,15 +255,35 @@ def export_images(
         pages_dir.mkdir(parents=True, exist_ok=True)
 
         images: List[Path] = []
-        for index in range(1, len(page_files) + 1):
-            target = pages_dir / f"page_{index:02d}.png"
-            screenshot_page(
-                chrome, viewer_url, index, width, height, scale,
-                virtual_time_ms, target, timeout,
-            )
-            check_not_blank(target, image_cls, index)
-            images.append(target)
-            log(f"page {index}/{len(page_files)} → {target.name}")
+        if workers > 1 and len(page_files) > 1:
+            # Parallel: launch multiple Chrome processes concurrently
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {}
+                for index in range(1, len(page_files) + 1):
+                    target = pages_dir / f"page_{index:02d}.png"
+                    fut = pool.submit(
+                        screenshot_page, chrome, viewer_url, index,
+                        width, height, scale, virtual_time_ms, target, timeout,
+                    )
+                    futures[fut] = (index, target)
+                for fut in as_completed(futures):
+                    index, target = futures[fut]
+                    fut.result()  # raises on error
+                    check_not_blank(target, image_cls, index)
+                    images.append(target)
+                    log(f"page {index}/{len(page_files)} → {target.name}")
+            # Restore page order (as_completed returns in completion order)
+            images.sort(key=lambda p: int(p.stem.split("_")[1]))
+        else:
+            for index in range(1, len(page_files) + 1):
+                target = pages_dir / f"page_{index:02d}.png"
+                screenshot_page(
+                    chrome, viewer_url, index, width, height, scale,
+                    virtual_time_ms, target, timeout,
+                )
+                check_not_blank(target, image_cls, index)
+                images.append(target)
+                log(f"page {index}/{len(page_files)} → {target.name}")
     finally:
         server.shutdown()
         server.server_close()
@@ -315,6 +337,12 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="per-page Chrome timeout in seconds (default: 90)",
     )
     parser.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help="parallel Chrome screenshot workers (default: 4, set 1 for serial)",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="replace an existing output directory",
@@ -329,7 +357,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         deck = find_deck(str(args.input))
         output = args.output or deck.parent / ".qa-images"
         summary = export_images(
-            deck, output, args.scale, args.virtual_time, args.timeout, args.force
+            deck, output, args.scale, args.virtual_time, args.timeout, args.force, args.workers
         )
     except (ExportError, OSError, subprocess.SubprocessError, SystemExit) as exc:
         message = exc if isinstance(exc, SystemExit) else str(exc)

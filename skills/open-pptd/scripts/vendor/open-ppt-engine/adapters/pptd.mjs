@@ -87,6 +87,11 @@ function resolveStyle(value, theme, field = "textStyles") {
 
 function normalizeFontFamily(value, fallback = "Aptos") {
   if (Array.isArray(value)) return String(value[0] ?? fallback);
+  if (value && typeof value === "object") {
+    const latin = String(value.latin ?? value.ea ?? fallback);
+    const ea = String(value.ea ?? value.latin ?? fallback);
+    return ea === latin ? latin : { fontFamily: latin, eastAsiaFontFamily: ea };
+  }
   return String(value ?? fallback);
 }
 
@@ -205,8 +210,9 @@ function normalizeTextStyle(content, theme, scale, warnings, context) {
   const align = Array.isArray(source.align) ? source.align : [source.align ?? "left", source.valign ?? "top"];
   if (source.gradient) warnings.push({ code: "text-gradient-fallback", context });
   if (source.backgroundColor) warnings.push({ code: "text-highlight-fallback", context });
+  const font = normalizeFontFamily(source.fontFamily, theme.fonts?.body ?? "Aptos");
   return {
-    fontFamily: normalizeFontFamily(source.fontFamily, theme.fonts?.body ?? "Aptos"),
+    ...(typeof font === "string" ? { fontFamily: font } : font),
     fontSize,
     color: colorWithOpacity(source.color, source.opacity ?? 1, colors, theme.colors?.ink ?? "#1E1E1E"),
     bold: Boolean(source.bold),

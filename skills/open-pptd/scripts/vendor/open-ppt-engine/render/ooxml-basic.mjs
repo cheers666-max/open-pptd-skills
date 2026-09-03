@@ -383,6 +383,7 @@ function transformXml(position, options = {}) {
 function textStyle(run, baseStyle = {}) {
   return {
     fontFamily: run?.fontFamily ?? baseStyle.fontFamily ?? "Aptos",
+    eastAsiaFontFamily: run?.eastAsiaFontFamily ?? baseStyle.eastAsiaFontFamily ?? undefined,
     fontSize: Number(run?.fontSize ?? baseStyle.fontSize ?? 16),
     color: run?.color ?? baseStyle.color ?? "#1E1E1E",
     bold: run?.bold ?? baseStyle.bold ?? false,
@@ -1286,7 +1287,7 @@ function presentationXml(slides, slideSize, theme = {}, embeddedFonts = [], text
   const body = escapeXml(fonts.body ?? "Aptos");
   const cjk = escapeXml(fonts.cjk ?? fonts.fallbacks?.cjk?.[0] ?? body);
   const size = Math.round(Number(theme.type?.body ?? 16) * 100);
-  const fontAttributes = embeddedFonts.length ? ` embedTrueTypeFonts="1" saveSubsetFonts="0"` : "";
+  const fontAttributes = embeddedFonts.length ? ` embedTrueTypeFonts="1"` : "";
   const sections = presentationSectionsXml(slides);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation${fontAttributes} saveSubsetFonts="1" autoCompressPictures="0" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"${sections.namespaces}><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>${slideIds}</p:sldIdLst><p:notesMasterIdLst><p:notesMasterId r:id="rId${slides.length + 2}"/></p:notesMasterIdLst>${embeddedFontListXml(embeddedFonts, slides.length)}<p:sldSz cx="${emu(slideSize.width)}" cy="${emu(slideSize.height)}"/><p:notesSz cx="${emu(720)}" cy="${emu(slideSize.width)}"/>${presentationDefaultTextStyleXml({ ...theme, type: { ...theme.type, body: theme.type?.body ?? size / 100 } }, textStyles)}${sections.xml}</p:presentation>`;
 }

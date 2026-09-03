@@ -58,6 +58,15 @@ Understand the user's requirements based on the context:
 
 Before generating, first read `reference/pptd.md` to understand the pptd format definition and constraints.
 
+> **Parallel generation strategy.** Once you have the page-by-page outline and shared context (theme, fonts, content plan), **dispatch independent subagents to write each `.page` file concurrently** rather than writing them sequentially. Each subagent receives:
+>
+> 1. The page number and outline content for that page.
+> 2. Shared design context: theme tokens, fonts, color scheme, common component patterns.
+> 3. The `reference/pptd.md` format rules.
+> 4. Any page-specific media references (resolved image paths from step3.5).
+>
+> This turns O(n) page writes into O(1) wall-clock time. For decks with ≤ 4 pages you may write directly; for larger decks use the task tool to fan out. After all pages are written, do a quick structural validation pass (step4) before proceeding to visual QA.
+
 #### Replicating a PPT
 - Analyze the images to estimate element positions, fonts and sizes, etc., and **replicate 1:1 as closely as possible**.
 - When an image contains elements that are hard to replicate directly and cannot be approximated with icons/shapes (e.g., photos, avatars), you may use tools such as bash or python to crop and screenshot the original image
@@ -115,7 +124,8 @@ When generating a PPT, adopt different production approaches for different user 
      ```bash
      python3 ~/.agents/skills/open-pptd/scripts/export_images.py \
        /abs/path/project/deck.pptd \
-       --output /abs/path/project/.qa-images
+       --output /abs/path/project/.qa-images \
+       --workers 4
      ```
 
      The script prints a JSON summary mapping each stitched label (`P1`…`Pn`, 1-based page order) to its `.page` file.
