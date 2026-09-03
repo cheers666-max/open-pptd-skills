@@ -115,7 +115,8 @@ def run(project: str, *, backend: str = "auto", workers: int = 4, use_vlm: bool 
           + (" [dry-run]" if dry_run else ""))
     if dry_run:
         for s in all_slots:
-            print(f"  - {s.page}:{s.line_no} [{s.kind}] {s.element_id or '-'} want={s.want} :: {s.raw_src[:60]}")
+            r = f" ratio={s.ratio:.3f}" if s.ratio else ""
+            print(f"  - {s.page}:{s.line_no} [{s.kind}] {s.element_id or '-'} want={s.want}{r} :: {s.raw_src[:60]}")
         return 0
 
     # 全 deck 级去重集合
@@ -143,6 +144,7 @@ def run(project: str, *, backend: str = "auto", workers: int = 4, use_vlm: bool 
         snippet = re.sub(r"\s+", " ", re.sub(r"[{}#*\[\]]", " ", page_text))[:400]
         winner, tried = pool.acquire(
             s.query, backend=backend, want=s.want, min_dim=min_dim, use_vlm=use_vlm,
+            ratio=s.ratio,
             deck_brief=brief, page_text=snippet, seen_hashes=seen_hashes, seen_urls=seen_urls)
         s.tried = tried
         if winner:

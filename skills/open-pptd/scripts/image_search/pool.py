@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 import struct
@@ -542,17 +543,33 @@ def _aspect_ok(w: int, h: int, want: str) -> bool:
     return r > 1.0 if want == "landscape" else r < 1.0
 
 
+def _aspect_match_bonus(w: int, h: int, target_ratio: Optional[float]) -> float:
+    """图片宽高比与目标 bounds 比例的匹配加分（0~3 分）。
+
+    用对数偏差衡量：dev = |ln(img_ratio / target)|。
+    dev=0(完全一致) → +3；dev≈0.22(差25%) → +2.1；dev≈0.69(差2倍) → +0.2。
+    目的：优先选与卡槽比例一致的图，避免 fit:cover 截断。
+    """
+    if not target_ratio or target_ratio <= 0 or not w or not h:
+        return 0.0
+    try:
+        dev = abs(math.log((w / h) / target_ratio))
+    except Exception:  # noqa: BLE001
+        return 0.0
+    return max(0.0, 3.0 - dev * 4.0)
+
+
 def acquire(query: str, *, backend: str = "auto", want: str = "any",
-            min_dim: int = DEFAULT_MIN_DIM, use_vlm: bool = True,
-            deck_brief: str = "", page_text: str = "",
-            seen_hashes: Optional[set] = None, seen_urls: Optional[set] = None,
-            limit: int = 8) -> Tuple[Optional[Dict], List[Dict]]:
+             min_dim: int = DEFAULT_MIN_DIM, use_vlm: bool = True,
+             deck_brief: str = "", page_text: str = "",
+             seen_hashes: Optional[set] = None, seen_urls: Optional[set] = None,
+             ratio: Optional[float] = None,
+             limit: int = 8) -> Tuple[Optional[Dict], List[Dict]]:
     """检索→过滤→下载→(VLM)选优。
 
     返回 (winner, tried)。winner={url,bytes,w,h,fmt,backend,license,landing,score,vlm}。
     无合适返回 (None, tried)。tried 记录每个候选的命运（诊断/报告用）。
     """
-    ratio = None  # 由调用方按 bounds 推（可选）
     cands = search(query, limit=limit, backend=backend, ratio=ratio)
     tried: List[Dict] = []
     if not cands:
@@ -629,6 +646,7 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
             s += 0.5  # 有明确授权信息加分
         if c.get("backend") in ("openverse", "wikimedia"):
             s += 0.3  # 授权干净源加分
+        s += _aspect_match_bonus(c["w"], c["h"], ratio)  # 宽高比匹配（防截断）
         return s
 
     winner = None
@@ -648,7 +666,9 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
                 judged.append(c)
         ok = [c for c in judged if not c["vlm"].get("reject")]
         pool_pick = ok or judged
-        winner = max(pool_pick, key=lambda c: c.get("score", -1)) if pool_pick else None
+        # 主排序 VLM 分；同分时用宽高比匹配做 tiebreaker（防截断）
+        winner = max(pool_pick, key=lambda c: (c.get("score", -1),
+                                              _aspect_match_bonus(c["w"], c["h"], ratio))) if pool_pick else None
         if winner and winner["vlm"].get("reject") and winner["vlm"].get("relevance", 0) == 0:
             winner = None  # 全部不相关 → 不硬塞
     else:

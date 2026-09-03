@@ -103,6 +103,20 @@ When generating a PPT, adopt different production approaches for different user 
 2. Produce the presentation using the reference file's style characteristics. You are encouraged to reuse illustrations, fonts, font-size hierarchies, elements, etc. from the original pdf/url
 
 ### step3.5. Resolve image placeholders (required when pages use `search:` or remote image URLs)
+
+**Page-type background constraints:**
+
+- **Cover page** (`pageType: cover`): MUST have a full-page background image. Place an `image` element spanning `[0, 0, W, H]` with `fit: {mode: cover}` as the bottom-most element, or use `background: {type: image, src: ...}`. Do NOT leave the cover with only a solid/gradient background.
+- **End page** (`pageType: final` or last page): same rule — MUST have a full-page background image.
+- **Chapter/section divider pages** (`pageType: chapter`): MUST have a background image or a large side image covering ≥ 30% of the page area. Use the same `fit: {mode: cover}` technique.
+- When searching for background images, use queries that describe the overall theme (e.g., `search:tang dynasty palace sunset` for a Tang dynasty deck), not generic or overly specific objects.
+
+**Image sizing strategy:**
+
+- Plan `bounds` aspect ratio **before** writing `src: search:...`. The image search pipeline (since v2.1) passes the exact `bounds` ratio to backends that support it and gives strong scoring preference to candidates matching that ratio, which prevents `fit: cover` truncation.
+- For full-page backgrounds, always use `bounds: [0, 0, W, H]` (the slide dimensions) so the search targets the correct aspect ratio.
+- For side images, use the actual planned aspect ratio (e.g., `[560, 0, 400, 540]` → ratio ≈ 0.74, portrait-ish) so the search returns images that don't need heavy cropping.
+
 1. When generated pages need real photos or illustrations, write `src: "search:<query>"` for image elements and background image fills instead of guessing URLs, then resolve them with `scripts/image_search/search_images.py` (pure stdlib; no pip installs):
 
    ```bash

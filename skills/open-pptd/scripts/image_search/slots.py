@@ -53,12 +53,24 @@ def parse_bounds_ratio(bounds: Optional[List[float]]) -> str:
     return "any"
 
 
+def parse_bounds_aspect(bounds: Optional[List[float]]) -> Optional[float]:
+    """bounds=[x,y,w,h] → 精确宽高比 w/h；无效返回 None。"""
+    try:
+        if bounds and len(bounds) >= 4:
+            w, h = float(bounds[2]), float(bounds[3])
+            if w > 0 and h > 0:
+                return w / h
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 class Slot:
     __slots__ = ("page", "line_no", "kind", "element_id", "raw_src", "query",
-                 "want", "fit", "bounds", "status", "local_path", "winner", "tried")
+                 "want", "ratio", "fit", "bounds", "status", "local_path", "winner", "tried")
 
     def __init__(self, page: str, line_no: int, kind: str, element_id: str,
-                 raw_src: str, want: str, fit: str, bounds: Optional[List[float]]):
+                 raw_src: str, want: str, ratio: float | None, fit: str, bounds: Optional[List[float]]):
         self.page = page                # 相对项目根的 page 路径
         self.line_no = line_no          # src 所在行（0 基）
         self.kind = kind                # image | background | fill
@@ -66,6 +78,7 @@ class Slot:
         self.raw_src = raw_src          # 原始 src 字符串（search:... 或 http...）
         self.query = raw_src[len(SEARCH_PREFIX):].strip() if raw_src.startswith(SEARCH_PREFIX) else ""
         self.want = want                # landscape|portrait|any
+        self.ratio = ratio              # bounds w/h（精确宽高比，可为 None）
         self.fit = fit                  # cover|contain|fill|"" （未知）
         self.bounds = bounds
         self.status = "pending"         # pending|resolved|remote|failed
@@ -151,7 +164,8 @@ def extract_slots(page_text: str, page_rel: str) -> List[Slot]:
         else:
             kind = "fill"
         want = parse_bounds_ratio(cur_bounds)
-        slots.append(Slot(page_rel, i, kind, cur_elem_id, val, want, cur_fit, cur_bounds))
+        slots.append(Slot(page_rel, i, kind, cur_elem_id, val, want,
+                          parse_bounds_aspect(cur_bounds), cur_fit, cur_bounds))
     return slots
 
 
