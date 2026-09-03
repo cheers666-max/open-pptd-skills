@@ -121,6 +121,11 @@
     color: #c0392b; font-size: 12px; display: flex; align-items: center; justify-content: center;
     text-align: center; padding: 4px; overflow: hidden;
   }
+  .el-icon {
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; overflow: visible;
+  }
+  .el-icon svg { width: 100%; height: 100%; }
   .el-bg { position: absolute; inset: 0; }
 
   /* ---------- 干净模式（?bare=1） ---------- */
@@ -173,6 +178,17 @@
   </div>
 
   <input type="file" id="dir-picker" webkitdirectory multiple hidden />
+
+<script type="module">
+  // Font Awesome 离线图标 sprite（2883 个图标）
+  // fa-icons.mjs 由 build-fa-icons.mjs 生成
+  // 通过 deck_server 服务时路径为 /scripts/fa-icons.mjs
+  // 通过 file:// 直接打开时路径为 ./fa-icons.mjs
+  const faPath = location.protocol === "file:" ? "./fa-icons.mjs" : "/scripts/fa-icons.mjs";
+  const { ICONS, injectSprite } = await import(faPath);
+  window.FA_ICONS = ICONS;
+  window.FA_INJECT = injectSprite;
+</script>
 
 <script>
 /* ---------- js-yaml (UMD build, offline) ---------- */
@@ -384,7 +400,7 @@
     line: renderLine,
     image: renderImage,
     table: renderTable,
-    icon: renderIconPlaceholder,
+    icon: renderIcon,
     chart: renderChartPlaceholder,
   };
 
@@ -746,9 +762,28 @@
     return node;
   }
 
-  function renderIconPlaceholder(elem, deck) {
-    warn(deck, "icon", `图标 "${elem.iconName}" 暂不支持渲染（离线无 Font Awesome 字体），已占位`);
-    return placeholder(elem, deck, `icon: ${elem.iconName}`);
+  function renderIcon(elem, deck) {
+    const name = String(elem.iconName ?? "").toLowerCase();
+    const ICONS = window.FA_ICONS || {};
+    const icon = ICONS[name];
+    const node = baseEl(elem, deck);
+    node.className = "el el-icon";
+    if (!icon) {
+      warn(deck, "icon", `图标 "${elem.iconName}" 不在离线 sprite 中，已占位`);
+      node.className = "el el-icon el-icon-fallback";
+      node.textContent = "?";
+      return node;
+    }
+    const fill = elem.fill?.color || elem.fill?.colors?.[0] || "currentColor";
+    const svg = svgEl("svg", {
+      viewBox: icon.viewBox,
+      "aria-label": elem.iconName,
+    });
+    svg.style.color = cssColor(fill, deck);
+    const use = svgEl("use", { href: `#${name}` });
+    svg.appendChild(use);
+    node.appendChild(svg);
+    return node;
   }
 
   function renderChartPlaceholder(elem, deck) {
@@ -1182,6 +1217,21 @@ body { margin: 0; background: #eceff3; }
     // 注意：非当前页 slide 带内联 display:none，克隆后强制 display:block
     const clone = slide.cloneNode(true);
     clone.style.display = "block";
+    // 把 <use href="#fas:xxx"> 替换为实际 SVG 内容（导出单页 HTML 时 sprite 不在文档里）
+    const uses = clone.querySelectorAll("use[href]");
+    for (const use of uses) {
+      const href = use.getAttribute("href");
+      const id = href.replace(/^#/, "");
+      const ICONS = window.FA_ICONS || {};
+      const icon = ICONS[id];
+      if (icon) {
+        const svg = document.createElementNS(SVG_NS, "svg");
+        svg.setAttribute("viewBox", icon.viewBox);
+        svg.setAttribute("fill", use.closest("svg")?.style?.color || "currentColor");
+        svg.innerHTML = icon.inner;
+        use.replaceWith(svg);
+      }
+    }
     let html = clone.outerHTML;
     // blob URL → data URL（HTML 字符串全局替换，覆盖 img src 与 background-image）
     for (const [rel, url] of Object.entries(deck.images)) {
@@ -1336,6 +1386,16 @@ ${sections.join("\n")}
   /* ---------- 启动 ---------- */
 
   (async function boot() {
+    // 注入 Font Awesome sprite（离线图标支持）
+    // window.FA_INJECT 由上方 type="module" 脚本异步设置，需等待
+    await new Promise((resolve) => {
+      if (typeof window.FA_INJECT === "function") return resolve();
+      const timer = setInterval(() => {
+        if (typeof window.FA_INJECT === "function") { clearInterval(timer); resolve(); }
+      }, 50);
+      setTimeout(() => { clearInterval(timer); resolve(); }, 5000); // 5s 超时降级
+    });
+    if (typeof window.FA_INJECT === "function") window.FA_INJECT();
     const params = new URLSearchParams(location.search);
     if (params.get("bare")) {
       // 干净模式：隐藏 UI，slide 1:1 铺满窗口（用于截图/对比）

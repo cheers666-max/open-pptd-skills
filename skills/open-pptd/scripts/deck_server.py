@@ -32,6 +32,7 @@ class _DeckHTTPHandler(http.server.BaseHTTPRequestHandler):
 
     viewer_path: Path = Path()  # set by start_deck_server
     deck_dir: Path = Path()     # set by start_deck_server
+    scripts_dir: Path = Path()  # set by start_deck_server (viewer.html parent)
 
     def do_GET(self) -> None:  # noqa: N802
         url_path = self.path.split("?")[0].split("#")[0]
@@ -42,6 +43,14 @@ class _DeckHTTPHandler(http.server.BaseHTTPRequestHandler):
             # Prevent directory traversal
             resolved = (self.deck_dir / rel).resolve()
             if not str(resolved).startswith(str(self.deck_dir.resolve())):
+                self.send_error(403)
+                return
+            self._send_file(resolved)
+        elif url_path.startswith("/scripts/"):
+            # Serve static assets from scripts/ (fa-icons.mjs, etc.)
+            rel = url_path[len("/scripts/"):]
+            resolved = (self.scripts_dir / rel).resolve()
+            if not str(resolved).startswith(str(self.scripts_dir.resolve())):
                 self.send_error(403)
                 return
             self._send_file(resolved)
@@ -81,10 +90,11 @@ def start_deck_server(viewer: Path, deck_dir: Path) -> Tuple[http.server.HTTPSer
     The caller must call ``server.shutdown()`` + ``server.server_close()``
     when done.
     """
+    scripts_dir = viewer.parent  # viewer.html lives in scripts/
     handler_cls = type(
         "DeckHandler",
         (_DeckHTTPHandler,),
-        {"viewer_path": viewer, "deck_dir": deck_dir},
+        {"viewer_path": viewer, "deck_dir": deck_dir, "scripts_dir": scripts_dir},
     )
     server = http.server.HTTPServer(("127.0.0.1", 0), handler_cls)
     port = server.server_address[1]
