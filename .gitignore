@@ -21,3 +21,6 @@ skills/open-pptd/scripts/package-lock.json
 
 # Local QA / demo output
 output/
+
+# Local config
+.pi/
