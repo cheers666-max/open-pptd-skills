@@ -54,6 +54,55 @@ BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
 SEARCH_RE = re.compile(r"^search:", re.IGNORECASE)
 REMOTE_RE = re.compile(r"^https?://", re.IGNORECASE)
 
+# Anti-AI-slop banned phrases (merged from kimi-slides SKILL.md Content Guidelines)
+# 只收真正的 AI 腔/套话，不收行业术语（术语本身不是问题，滥用才是）
+BANNED_PHRASES_CN = [
+    "不是.*而是",       # "不是X而是Y" 转折腔
+    "闭环", "打通.*闭环", "形成闭环",
+    "第.件事",          # "第一件事/第二件事"
+    "弹药", "武器库",
+    "组合拳",
+    "颗粒度",
+    "降维打击", "升维思考",
+    "认知升级", "认知迭代", "认知觉醒",
+    "赋能", "抓手",
+    "顶层设计", "底层逻辑",
+    "从0到1", "从1到N",
+    "第二曲线",
+    "生态化反",
+    "飞轮效应", "增长飞轮",
+    "全链路", "端到端",
+    "一站式",
+    "从.*到.*的闭环",
+    "感知度", "心智占领",
+    "品效合一",
+    "私域流量", "公域流量",
+    "护城河",
+]
+
+# English AI clichés (regex patterns)
+BANNED_PHRASES_EN = [
+    r"\bnot\s+\w+,\s*but\s+\w+\b",      # "not X, but Y"
+    r"\bX\s+is\s+Y\b",
+    r"\bclosed\s+loop\b",
+    r"\bkey\s+takeaway\b",
+    r"\bthe\s+\d+(?:st|nd|rd|th)\s+thing\b",
+    r"\bN\s+battlefronts?\b",
+    r"\bN\s+paths?\b",
+    r"\bwall\s+clock\b",
+    r"\bhands-on\s+practice\b",
+    r"\bsecond-class\s+citizens?\b",
+    r"\bpoison\s+pill\b",
+    r"\ban\s+N-step\s+argument\b",
+    r"\beverything\s+at\s+a\s+glance\b",
+]
+
+# Design pattern detection (checked at element level, not text)
+# Card layout: many same-sized rounded rects arranged in a grid
+CARD_LAYOUT_MIN_CARDS = 4  # ≥4 same-size roundRect shapes in a row/grid = suspicious
+# AI rainbow scheme: red+purple+yellow+green all present on one page
+AI_RAINBOW_COLORS = ["#FF0000", "#800080", "#FFFF00", "#008000"]
+
 # Page types that require a full-page background image
 BG_REQUIRED_TYPES = {"cover", "final"}
 BG_MIN_COVERAGE = 0.30  # chapter pages need ≥ 30% area image
@@ -523,6 +572,142 @@ def unresolved_src_issues(page: dict[str, Any], page_number: int, page_ref: str)
 
 
 # ---------------------------------------------------------------------------
+# Anti-AI-slop detection
+# ---------------------------------------------------------------------------
+
+def anti_slop_text_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
+    """Scan all text content on a page for banned AI-slop phrases."""
+    issues: List[dict[str, Any]] = []
+    elements = page.get("elements", [])
+    if not isinstance(elements, list):
+        return issues
+
+    cn_patterns = [re.compile(p) for p in BANNED_PHRASES_CN]
+    en_patterns = [re.compile(p, re.IGNORECASE) for p in BANNED_PHRASES_EN]
+
+    def scan_text(text: str, element_id: str):
+        plain = plain_text(text)
+        if not plain:
+            return
+        for pat in cn_patterns:
+            m = pat.search(plain)
+            if m:
+                issues.append({
+                    "code": "anti-slop-phrase",
+                    "pageNumber": page_number,
+                    "pageRef": page_ref,
+                    "elementId": element_id,
+                    "matched": m.group(0),
+                    "detail": f"AI-cliché phrase detected: '{m.group(0)}'",
+                    "repairability": "rewrite-text",
+                })
+                break  # one match per element is enough
+        for pat in en_patterns:
+            m = pat.search(plain)
+            if m:
+                issues.append({
+                    "code": "anti-slop-phrase",
+                    "pageNumber": page_number,
+                    "pageRef": page_ref,
+                    "elementId": element_id,
+                    "matched": m.group(0),
+                    "detail": f"AI-cliché phrase detected: '{m.group(0)}'",
+                    "repairability": "rewrite-text",
+                })
+                break
+
+    for el in elements:
+        if not isinstance(el, dict):
+            continue
+        if el.get("elementType") != "text":
+            continue
+        content = el.get("content", {})
+        if not isinstance(content, dict):
+            continue
+        text = content.get("text", "")
+        if isinstance(text, str) and text:
+            scan_text(text, el.get("elementId", ""))
+    return issues
+
+
+def anti_slop_design_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
+    """Detect AI-style design patterns: card layouts, rainbow color schemes."""
+    issues: List[dict[str, Any]] = []
+    elements = page.get("elements", [])
+    if not isinstance(elements, list):
+        return issues
+
+    # --- Card layout detection: ≥ N same-size roundRect shapes ---
+    round_rects: List[dict[str, Any]] = []
+    for el in elements:
+        if not isinstance(el, dict):
+            continue
+        if el.get("elementType") != "shape":
+            continue
+        shape_name = el.get("shape", "") or el.get("shapeName", "")
+        if shape_name in ("roundRect", "round1Rect", "round2SameRect", "round2DiagRect"):
+            bounds = valid_bounds(el)
+            if bounds is not None:
+                round_rects.append({"elementId": el.get("elementId", ""), "bounds": bounds})
+
+    if len(round_rects) >= CARD_LAYOUT_MIN_CARDS:
+        # Check if they are roughly the same size (tolerance ±15%)
+        sizes = [(b[2], b[3]) for _, b in [(r["elementId"], r["bounds"]) for r in round_rects]]
+        avg_w = sum(s[0] for s in sizes) / len(sizes)
+        avg_h = sum(s[1] for s in sizes) / len(sizes)
+        similar = [s for s in sizes if abs(s[0] - avg_w) / max(avg_w, 1) < 0.15
+                   and abs(s[1] - avg_h) / max(avg_h, 1) < 0.15]
+        if len(similar) >= CARD_LAYOUT_MIN_CARDS:
+            issues.append({
+                "code": "anti-slop-card-layout",
+                "pageNumber": page_number,
+                "pageRef": page_ref,
+                "detail": f"{len(similar)} same-size rounded rectangles form a card wall; "
+                          f"consider using lines/whitespace/typography instead",
+                "repairability": "redesign-layout",
+            })
+
+    # --- AI rainbow scheme detection: red+purple+yellow+green all on one page ---
+    colors_on_page: set[str] = set()
+    for el in elements:
+        if not isinstance(el, dict):
+            continue
+        # Collect all color values from the element (fill, border, text color, etc.)
+        for key in ("fill", "border", "line"):
+            block = el.get(key, {})
+            if isinstance(block, dict):
+                c = block.get("color", "")
+                if isinstance(c, str) and c:
+                    colors_on_page.add(c.upper().lstrip("#"))
+        content = el.get("content", {})
+        if isinstance(content, dict):
+            c = content.get("color", "")
+            if isinstance(c, str) and c:
+                colors_on_page.add(c.upper().lstrip("#"))
+
+    rainbow_hits = 0
+    for rc in AI_RAINBOW_COLORS:
+        rc_norm = rc.lstrip("#").upper()
+        # Fuzzy match: same hue family (rough hex prefix match)
+        for c in colors_on_page:
+            if len(c) >= 6 and c[:2] == rc_norm[:2]:
+                rainbow_hits += 1
+                break
+
+    if rainbow_hits >= 4:
+        issues.append({
+            "code": "anti-slop-rainbow-scheme",
+            "pageNumber": page_number,
+            "pageRef": page_ref,
+            "detail": "Red + purple + yellow + green all detected on one page (AI rainbow scheme); "
+                      "use a single primary color with a neutral ladder instead",
+            "repairability": "recolor-page",
+        })
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Main audit
 # ---------------------------------------------------------------------------
 
@@ -565,6 +750,8 @@ def audit_project(
         # Page-level checks
         issues.extend(page_background_issues(page, page_number, str(page_ref), slide_size[0], slide_size[1]))
         issues.extend(unresolved_src_issues(page, page_number, str(page_ref)))
+        issues.extend(anti_slop_text_issues(page, page_number, str(page_ref)))
+        issues.extend(anti_slop_design_issues(page, page_number, str(page_ref)))
 
         for element in page.get("elements", []):
             if not isinstance(element, dict):

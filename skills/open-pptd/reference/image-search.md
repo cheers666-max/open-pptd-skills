@@ -2,6 +2,16 @@
 
 `image_search` is a zero-dependency (Python standard library only) image retrieval, verification, and localization engine built for PPTD projects. It resolves placeholder image queries (`src: "search:<query>"`) and remote URLs into local assets under `media/`, and updates `.page` files with local relative paths.
 
+## Image Usage Principles (merged from kimi-slides)
+
+1. **Images belong on body pages too**: appropriate images should be used not only on covers and section dividers, but also on body pages to enrich the page, aid understanding, or support decision-making.
+2. **Substantive imagery only**: images are used to show concrete subjects, explain content, provide evidence, or establish a scene. Logos, icons, decorative textures, and very small thumbnails do not count as substantive imagery.
+3. **Prefer real images for concrete subjects**: when a page involves products, people, places, buildings, events, cases, interfaces, experimental subjects, or spatial environments, prioritize corresponding real images or screenshots. If real images cannot be obtained, generated images may be used instead.
+4. **Priority chain**: images provided by the user → images from official websites / official reports / credible sources → searched images directly relevant to the content → images generated for conceptual expression or atmosphere.
+5. **Search first, design around proportions**: after deciding which images are needed, complete image search, generation, and downloading in a batch **before** designing pages around their proportions. Save images in the `media` directory, keep them clear, and never stretch or distort them.
+6. **Evidence imagery for analytical decks**: analytical, technical, and academic PPTs should use corresponding evidence images when products, experiments, interfaces, cases, or on-site materials are available. Do not reduce every page to text, color blocks, and shapes.
+7. **No filler images**: do not add irrelevant images merely to meet a quantity target. Every image must be directly relevant to the page's conclusion or communication goal.
+
 ## Key Features
 
 - **Standard Library Only**: Built using `urllib`, `hashlib`, `struct`, `concurrent.futures`, `json`, and `re`. No external pip dependencies.

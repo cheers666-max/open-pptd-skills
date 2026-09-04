@@ -132,13 +132,41 @@ npx open-pptd-skills serve --port 56000
 
 可写目录需要使用支持 File System Access API 的 Chromium 系浏览器；其他浏览器会回退为只读文件夹上传。按 `Ctrl+C` 停止服务。
 
+### CLI 命令
+
+```bash
+# 生成后校验（含反 AI slop 检测）
+npx open-pptd-skills check <project> [--page N] [--severity error|warning|all] [--level keep|auto] [--output report.json] [--json]
+
+# 渲染后截图 + 像素级审计
+npx open-pptd-skills screenshot <project> [--page N] [--output dir]
+
+# PPTX → PPTD（保真度评分）
+npx open-pptd-skills convert-fidelity <input.pptx> <output_dir> [--report report.json] [--json]
+
+# 分页节奏规划
+python3 skills/open-pptd/scripts/layout_planner.py <outline.json> [--max-content-between-dividers N] [--json]
+
+# 渲染后硬审计
+python3 skills/open-pptd/scripts/audit_rendered.py <project> [--json] [--annotate]
+
+# 设计系统
+npx open-pptd-skills design list [--category consulting] [--tag dark]
+npx open-pptd-skills design get <name>
+npx open-pptd-skills design build-index
+```
+
 ## 功能特性
 
 - **PPTD 生成**：让 Agent 生成完整、可继续编辑的 PPTD 项目，支持从零创作、风格迁移、模板复用、图片/PDF 复刻。
 - **PPTX 生成**：默认同步生成 PPTX 成品，自动嵌入字体并写入淡入淡出切换动画。
 - **视觉质检**：多模态模型在导出 PPTX 前自动导出整份页面图片、拼接总览图逐项核查（变形、遮挡、出界、对比度、排版、文字溢出），问题页面修复后复检，直至全部通过。
-- **本地预览**：通过浏览器查看本地 PPTD 项目。
-- **格式互转**：将现有 PPTX 转换为 PPTD 后继续修改。
+- **渲染后硬审计**：`audit_rendered.py` 对渲染后的页面做像素级检测（WCAG 对比度、元素遮挡、标注图），在视觉质检之上提供量化指标。
+- **反 AI Slop 强制规则**：`validate_deck.py` 内置 AI 腔检测（禁用词、卡片墙布局、彩虹配色），生成前拦截。
+- **分页节奏规划**：`layout_planner.py` 在确定页数后自动分配页面原型，强制"不连续同型"和"定期插入节奏分隔页"规则。
+- **设计系统库**：内置 49 套专业设计系统（策略咨询、商业报告、工作总结、营销推广、学术答辩），支持索引懒加载。
+- **本地预览**：通过浏览器查看本地 PPTD 项目，支持动画效果、缩略图导航、演讲者备注。
+- **格式互转**：将现有 PPTX 转换为 PPTD 后继续修改，支持保真度评分（≥90% 自动转换）。
 - **安全可控**：本地编辑仅在用户明确授权的项目目录内读写文件。
 
 ## 为什么选 open-pptd
