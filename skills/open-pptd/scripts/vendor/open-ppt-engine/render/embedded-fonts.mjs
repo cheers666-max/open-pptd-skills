@@ -106,9 +106,10 @@ function parseFont(bytes, faceIndex = 0) {
 }
 
 /**
- * Load and validate font files for a PowerPoint presentation. PowerPoint
- * expects the font part to contain the TTF/OTF bytes; it does not use the
- * WordprocessingML .odttf obfuscation path for presentation fonts.
+ * Load and validate font files for a PowerPoint presentation. Note:
+ * ECMA-376 requires the emitted .fntdata parts to be GUID-obfuscated
+ * (see obfuscateFontBytes in ooxml-basic.mjs); this function only
+ * prepares the raw font bytes.
  */
 export async function prepareEmbeddedFonts(fontAssets = [], {
   allowRestricted = false,

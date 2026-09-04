@@ -36,7 +36,27 @@ Options:
     return;
   }
 
-  console.log(`Install ${SKILL_NAME} for your AI coding agent or start its local viewer.
+  if (command === "validate") {
+    console.log(`Run deterministic hard-issue audit on a PPTD project.
+
+Usage:
+  open-pptd-skills validate <project> [options]
+
+Arguments:
+  <project>            Path to PPTD project directory
+
+Options:
+  --manifest <path>    Explicit .pptd manifest path
+  --target-width <n>   Expected rendered width (default: 1280)
+  --min-image-scale <f>  Min effective source pixels per rendered pixel (default: 0.6)
+  --output <path>      Output JSON path (default: <project>/validate-report.json)
+  --json               Print JSON to stdout
+  -h, --help           Show this help
+`);
+    return;
+  }
+
+  console.log(`Install ${SKILL_NAME} for your AI coding agent, run its local viewer, or validate a project.
 
 Usage:
   open-pptd-skills [install] [options]
@@ -52,9 +72,11 @@ Run "open-pptd-skills serve --help" for server options.
 
 function parseArguments(arguments_) {
   const args = [...arguments_];
-  const command = args[0] === "install" || args[0] === "serve" ? args.shift() : "install";
+  const command = args[0] === "install" || args[0] === "serve" || args[0] === "validate" ? args.shift() : "install";
   const options = command === "serve"
     ? { command, open: false, port: 55173 }
+    : command === "validate"
+    ? { command, project: undefined, manifest: undefined, targetWidth: 1280, minImageScale: 0.6, output: undefined, json: false }
     : { command, target: undefined };
 
   while (args.length > 0) {
@@ -88,12 +110,51 @@ function parseArguments(arguments_) {
       continue;
     }
 
+    if (command === "validate" && argument === "--manifest") {
+      const p = args.shift();
+      if (!p || p.startsWith("-")) throw new Error("--manifest requires a path");
+      options.manifest = resolve(p);
+      continue;
+    }
+    if (command === "validate" && argument === "--target-width") {
+      const n = Number(args.shift());
+      if (!Number.isInteger(n) || n < 1) throw new Error("--target-width must be a positive integer");
+      options.targetWidth = n;
+      continue;
+    }
+    if (command === "validate" && argument === "--min-image-scale") {
+      const f = Number(args.shift());
+      if (!Number.isFinite(f) || f <= 0) throw new Error("--min-image-scale must be a positive number");
+      options.minImageScale = f;
+      continue;
+    }
+    if (command === "validate" && argument === "--output") {
+      const p = args.shift();
+      if (!p || p.startsWith("-")) throw new Error("--output requires a path");
+      options.output = resolve(p);
+      continue;
+    }
+    if (command === "validate" && argument === "--json") {
+      options.json = true;
+      continue;
+    }
+
+    // Positional project path for validate
+    if (command === "validate" && !options.project && !argument.startsWith("-")) {
+      options.project = resolve(argument);
+      continue;
+    }
+
     if (argument === "--help" || argument === "-h") {
       options.help = true;
       continue;
     }
 
     throw new Error(`unknown argument: ${argument}`);
+  }
+
+  if (command === "validate" && !options.project) {
+    throw new Error("validate requires a project directory path");
   }
 
   return options;
@@ -153,6 +214,13 @@ async function main() {
 
   if (options.command === "install") {
     installSkill(options);
+    return;
+  }
+
+  if (options.command === "validate") {
+    const script = join(sourceDirectory, "scripts", "validate_deck.py");
+    const child = spawn("python3", [script, "--project", options.project, ...(options.manifest ? ["--manifest", options.manifest] : []), "--target-width", String(options.targetWidth), "--min-image-scale", String(options.minImageScale), ...(options.output ? ["--output", options.output] : []), ...(options.json ? ["--json"] : [])], { stdio: "inherit" });
+    child.on("close", (code) => process.exit(code ?? 0));
     return;
   }
 

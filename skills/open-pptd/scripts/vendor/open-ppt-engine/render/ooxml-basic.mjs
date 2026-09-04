@@ -1281,6 +1281,21 @@ function presentationSectionsXml(slides = []) {
   };
 }
 
+/**
+ * ECMA-376 requires embedded font parts (.fntdata) to be obfuscated:
+ * first 16 bytes = random GUID, remaining bytes = font data XOR the
+ * repeating GUID. PowerPoint rejects unobfuscated font parts.
+ */
+function obfuscateFontBytes(bytes) {
+  const guid = crypto.randomBytes(16);
+  const out = Buffer.alloc(guid.length + bytes.length);
+  guid.copy(out, 0);
+  for (let i = 0; i < bytes.length; i++) {
+    out[16 + i] = bytes[i] ^ guid[i % 16];
+  }
+  return out;
+}
+
 function presentationXml(slides, slideSize, theme = {}, embeddedFonts = [], textStyles = {}) {
   const slideIds = slides.map((_, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 2}"/>`).join("");
   const fonts = theme.fonts ?? {};
@@ -1496,7 +1511,7 @@ export async function exportOoxmlBasic(deck, outputPath, {
   writePart("docProps/core.xml", docPropsCoreXml(resolvedDeck, { modifiedAt: packageDate }));
   writePart("ppt/presentation.xml", presentationXml(resolvedDeck.slides, resolvedDeck.slideSize, resolvedDeck.theme, embeddedFonts, resolvedDeck.textStyles));
   writePart("ppt/_rels/presentation.xml.rels", presentationRels(resolvedDeck.slides, embeddedFonts));
-  for (const font of embeddedFonts) writePart(`ppt/fonts/${font.fileName}`, font.bytes);
+  for (const font of embeddedFonts) writePart(`ppt/fonts/${font.fileName}`, obfuscateFontBytes(font.bytes));
   writePart("ppt/slideMasters/slideMaster1.xml", buildSlideMasterXml(resolvedDeck.slideSize, layouts, resolvedDeck.master, nativeMasterElements));
   writePart("ppt/slideMasters/_rels/slideMaster1.xml.rels", slideMasterRels(layouts));
   for (const [layoutIndex, layout] of layouts.entries()) {

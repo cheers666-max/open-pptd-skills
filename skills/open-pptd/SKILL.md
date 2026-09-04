@@ -139,8 +139,17 @@ When generating a PPT, adopt different production approaches for different user 
 5. Do not leave unresolved `search:` placeholders or broken remote URLs in delivered pages; the renderer and exporters drop remote assets that were not fetched locally. See `reference/image-search.md` for the full CLI reference, slot conventions, and backend caveats.
 
 ### step4. PPT validation
-1. Validate the generated pptd against the format definition in `reference/pptd.md` (required fields, types, bounds, theme tokens, resource paths, etc.) and repair issues over multiple rounds
-2. Visual review with exported page images — **required before PPTX export when the model supports image input (multimodal)**:
+1. **Deterministic audit** — run `scripts/validate_deck.py` to catch measurable failures automatically:
+
+   ```bash
+   python3 ~/.agents/skills/open-pptd/scripts/validate_deck.py \
+     --project /abs/path/project
+   ```
+
+   It reports: orphan-last-line （孤字）, forbidden-line-start-punctuation, text-capacity-overflow, unexpected-wrap, element-overflow-viewport, low-effective-image-resolution, missing-required-background (cover/final/chapter), and unresolved search/remote image placeholders. Fix all reported issues before proceeding to visual review.
+
+2. **Structural review** — validate the generated pptd against the format definition in `reference/pptd.md` (required fields, types, bounds, theme tokens, resource paths, etc.) and repair issues over multiple rounds
+3. **Visual review** — with exported page images — **required before PPTX export when the model supports image input (multimodal)**:
    - Run `scripts/export_images.py`. It renders each page through the skill's local viewer with headless Chrome, saves per-page PNGs, and stitches all pages into one overview image:
 
      ```bash
