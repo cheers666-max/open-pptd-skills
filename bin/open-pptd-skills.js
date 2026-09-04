@@ -64,6 +64,7 @@ Usage:
   open-pptd-skills check <project> [options]
   open-pptd-skills screenshot <project> [options]
   open-pptd-skills convert <deck.pptx> [options]
+  open-pptd-skills convert-fidelity <deck.pptx> <output_dir> [options]
   open-pptd-skills design <list|get|build-index> [options]
 
 Install options:
@@ -76,7 +77,7 @@ Run "open-pptd-skills serve --help" for server options.
 
 function parseArguments(arguments_) {
   const args = [...arguments_];
-  const command = ["install", "serve", "validate", "check", "screenshot", "convert", "design"].includes(args[0]) ? args.shift() : "install";
+  const command = ["install", "serve", "validate", "check", "screenshot", "convert", "convert-fidelity", "design"].includes(args[0]) ? args.shift() : "install";
   const options = command === "serve"
     ? { command, open: false, port: 55173 }
     : command === "validate"
@@ -87,6 +88,8 @@ function parseArguments(arguments_) {
     ? { command, project: undefined, output: undefined, page: undefined }
     : command === "convert"
     ? { command, input: undefined, output: undefined }
+    : command === "convert-fidelity"
+    ? { command, input: undefined, output: undefined, report: undefined, json: false }
     : command === "design"
     ? { command, action: "list", category: undefined, tag: undefined, name: undefined }
     : { command, target: undefined };
@@ -220,6 +223,25 @@ function parseArguments(arguments_) {
       options.input = resolve(argument);
       continue;
     }
+    // --- convert-fidelity ---
+    if (command === "convert-fidelity" && argument === "--report") {
+      const p = args.shift();
+      if (!p || p.startsWith("-")) throw new Error("--report requires a path");
+      options.report = resolve(p);
+      continue;
+    }
+    if (command === "convert-fidelity" && argument === "--json") {
+      options.json = true;
+      continue;
+    }
+    if (command === "convert-fidelity" && !options.input && !argument.startsWith("-")) {
+      options.input = resolve(argument);
+      continue;
+    }
+    if (command === "convert-fidelity" && !options.output && !argument.startsWith("-")) {
+      options.output = resolve(argument);
+      continue;
+    }
 
     // --- design ---
     if (command === "design" && (argument === "list" || argument === "get" || argument === "build-index")) {
@@ -264,6 +286,12 @@ function parseArguments(arguments_) {
   }
   if (command === "convert" && !options.input) {
     throw new Error("convert requires a PPTX input file path");
+  }
+  if (command === "convert-fidelity" && !options.input) {
+    throw new Error("convert-fidelity requires a PPTX input file path");
+  }
+  if (command === "convert-fidelity" && !options.output) {
+    throw new Error("convert-fidelity requires an output directory");
   }
   if (command === "design" && options.action === "get" && !options.name) {
     throw new Error("design get requires a design system name");
@@ -368,6 +396,16 @@ async function main() {
       script, options.input,
       ...(options.output ? ["--output", options.output] : []),
     ], { stdio: "inherit" });
+    child.on("close", (code) => process.exit(code ?? 0));
+    return;
+  }
+
+  if (options.command === "convert-fidelity") {
+    const script = join(sourceDirectory, "scripts", "convert_fidelity.py");
+    const args = [script, options.input, options.output];
+    if (options.report) args.push("--report", options.report);
+    if (options.json) args.push("--json");
+    const child = spawn("python3", args, { stdio: "inherit" });
     child.on("close", (code) => process.exit(code ?? 0));
     return;
   }
