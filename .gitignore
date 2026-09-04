@@ -30,3 +30,6 @@ skills/open-pptd/scripts/fonts/fonts.json
 projects/
 skills/open-pptd/tests/fixtures/*/.qa-images/
 skills/open-pptd/tests/fixtures/*/validate-report.json
+.firecrawl/
+*-report.md
+2026-*.md
