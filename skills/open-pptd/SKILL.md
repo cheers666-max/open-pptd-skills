@@ -49,6 +49,14 @@ Understand the user's requirements based on the context:
   - Outline: the user provides a page-by-page outline, speech script, or similar content
   * When the "user input type" is [Full document] or [Outline] and it is not specified whether expansion is allowed: since a page-by-page outline, speech script, or user document can hardly support the full content of a presentation, prefer using search to expand with more relevant material, cases, etc., unless the user explicitly says not to expand
 
+> **Parallel research strategy.** When the topic requires gathering material from multiple angles (background, data, cases, comparisons, quotes, images), **dispatch independent subagents to search different sub-topics concurrently** rather than searching sequentially. Each subagent receives:
+>
+> 1. A specific search angle (e.g., "find statistics about X", "find historical examples of Y", "find images of Z").
+> 2. The deck's topic and tone context so results are relevant.
+> 3. Instructions to return structured findings (key facts, numbers, quotes, image URLs).
+>
+> The main agent then synthesizes all subagent results into a unified content plan. This turns O(n) searches into O(1) wall-clock time. For simple topics with ≤ 2 search angles, search directly without subagents.
+
 4. Page count
   - If the user requests a specific page count, the user's requirement takes priority
   - Page-by-page outline/script provided: match the number of pages in the outline/script
