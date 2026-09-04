@@ -217,15 +217,15 @@ def stitch_overview(
 
 
 def export_images(
-    source: Path,
+    deck: Path,
     output: Path,
-    scale: float = 2.0,
-    virtual_time_ms: int = 30000,
-    timeout: int = 90,
-    force: bool = False,
-    workers: int = 1,
+    scale: float,
+    virtual_time_ms: int,
+    timeout: int,
+    force: bool,
+    workers: int,
+    page_spec: str | None = None,
 ) -> Dict[str, Any]:
-    deck = find_deck(str(source))
     yaml = ensure_yaml()
     manifest = read_manifest(deck, yaml)
     page_files: List[str] = [str(entry) for entry in manifest["pages"]]
@@ -236,6 +236,22 @@ def export_images(
         raise ExportError(
             f"output directory already exists (pass --force to replace it): {output}"
         )
+
+    # Parse page spec (e.g. "1,3,5" or "2-10")
+    if page_spec:
+        selected = set()
+        for part in str(page_spec).split(","):
+            part = part.strip()
+            if "-" in part:
+                a, b = part.split("-", 1)
+                selected.update(range(int(a), int(b) + 1))
+            else:
+                selected.add(int(part))
+        page_indices = sorted(selected)
+        if any(i < 1 or i > len(page_files) for i in page_indices):
+            raise ExportError(f"page numbers out of range: {page_spec} (deck has {len(page_files)} pages)")
+    else:
+        page_indices = list(range(1, len(page_files) + 1))
 
     viewer = VIEWER_DEFAULT.resolve()
     if not viewer.is_file():
@@ -255,11 +271,11 @@ def export_images(
         pages_dir.mkdir(parents=True, exist_ok=True)
 
         images: List[Path] = []
-        if workers > 1 and len(page_files) > 1:
+        if workers > 1 and len(page_indices) > 1:
             # Parallel: launch multiple Chrome processes concurrently
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 futures = {}
-                for index in range(1, len(page_files) + 1):
+                for index in page_indices:
                     target = pages_dir / f"page_{index:02d}.png"
                     fut = pool.submit(
                         screenshot_page, chrome, viewer_url, index,
@@ -275,7 +291,7 @@ def export_images(
             # Restore page order (as_completed returns in completion order)
             images.sort(key=lambda p: int(p.stem.split("_")[1]))
         else:
-            for index in range(1, len(page_files) + 1):
+            for index in page_indices:
                 target = pages_dir / f"page_{index:02d}.png"
                 screenshot_page(
                     chrome, viewer_url, index, width, height, scale,
@@ -347,6 +363,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="replace an existing output directory",
     )
+    parser.add_argument(
+        "--page",
+        "-p",
+        help="page numbers to render, 1-based; supports 3, 1,2, 2-10",
+    )
     parser.add_argument("--json", action="store_true", help="print JSON summary only")
     return parser.parse_args(argv)
 
@@ -357,7 +378,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         deck = find_deck(str(args.input))
         output = args.output or deck.parent / ".qa-images"
         summary = export_images(
-            deck, output, args.scale, args.virtual_time, args.timeout, args.force, args.workers
+            deck, output, args.scale, args.virtual_time, args.timeout, args.force, args.workers,
+            page_spec=args.page,
         )
     except (ExportError, OSError, subprocess.SubprocessError, SystemExit) as exc:
         message = exc if isinstance(exc, SystemExit) else str(exc)

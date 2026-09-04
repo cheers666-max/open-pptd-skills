@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "open-pptd-validate/1.0",
+  "valid": true,
+  "manifestPath": "minimal.pptd",
+  "manifestSha256": "2dfcbd588ca1a30dd3394e6e5ad88be6696e6c0bd276c2cbcebea306f8de0b60",
+  "pageCount": 1,
+  "pageHashes": [
+    {
+      "pageNumber": 1,
+      "pageRef": "pages/01.page",
+      "sha256": "8d83a7e4fab7f493442254c83dc942a123f29f9a7b4817adc342f8d613ab4434"
+    }
+  ],
+  "checkedTextElements": 1,
+  "checkedImageElements": 0,
+  "targetRenderWidth": 1280,
+  "minimumImageScale": 0.6,
+  "issueCount": 0,
+  "issueCounts": {},
+  "issues": []
+}

@@ -1,0 +1,25 @@
+{
+  "project": "/Users/yuajing/Downloads/open-kimi-ppt-skill-main/skills/open-pptd/tests/fixtures/minimal",
+  "total_pages": 1,
+  "total_issues": 1,
+  "errors": 1,
+  "warnings": 0,
+  "issues": [
+    {
+      "type": "contrast",
+      "severity": "error",
+      "elementId": "title",
+      "page": 1,
+      "bounds": [
+        100,
+        180,
+        760,
+        120
+      ],
+      "ratio": 1.37,
+      "min_required": 4.5,
+      "message": "Text contrast 1.37:1 below WCAG AA 4.5:1"
+    }
+  ],
+  "qa_dir": "/Users/yuajing/Downloads/open-kimi-ppt-skill-main/skills/open-pptd/tests/fixtures/minimal/.qa-images"
+}

@@ -1,0 +1,677 @@
+{
+  "version": 1,
+  "count": 49,
+  "designs": [
+    {
+      "name": "dusk-violet-consulting",
+      "category": "strategy",
+      "description": "A consulting thought-leadership report-style PPT for executives, strategy teams, and research readers. It supports readable long-form text, quantitative charts, section navigation, and a branded, forw",
+      "tags": [
+        "dark",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "01_strategy/01/en/dusk-violet-consulting.md",
+      "thumbnail": "01_strategy/01/en/dusk-violet-consulting.jpg"
+    },
+    {
+      "name": "indigo-due-diligence",
+      "category": "strategy",
+      "description": "For high-information-density scenarios such as commercial due diligence, market research, strategic diagnosis, and management decision reporting. It uses a white landscape canvas, black conclusion tit",
+      "tags": [
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "01_strategy/02/en/indigo-due-diligence.md",
+      "thumbnail": "01_strategy/02/en/indigo-due-diligence.jpg"
+    },
+    {
+      "name": "pine-green-strategy",
+      "category": "strategy",
+      "description": "For consulting-firm presentations to CEOs, executives, and business leaders covering trend insights, strategic roadmaps, risk identification, and organizational action recommendations. It uses high-de",
+      "tags": [
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "01_strategy/03/en/pine-green-strategy.md",
+      "thumbnail": "01_strategy/03/en/pine-green-strategy.jpg"
+    },
+    {
+      "name": "red-black-business",
+      "category": "strategy",
+      "description": "For management reporting on strategic consulting, cost optimization, operational diagnosis, efficiency improvement, roadmap planning, opportunity assessment, and results review — aimed at management, ",
+      "tags": [
+        "dark",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "01_strategy/04/en/red-black-business.md",
+      "thumbnail": "01_strategy/04/en/red-black-business.jpg"
+    },
+    {
+      "name": "moss-green-transformation",
+      "category": "strategy",
+      "description": "For consulting-firm data packs, functional transformation assessments, AI/technology impact quantification, methodology explanations, and executive-level reporting. Aimed at business owners, communica",
+      "tags": [
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "01_strategy/05/en/moss-green-transformation.md",
+      "thumbnail": "01_strategy/05/en/moss-green-transformation.jpg"
+    },
+    {
+      "name": "map-strategy",
+      "category": "strategy",
+      "description": "> Intended homepage tag: Strategic Planning / Strategy",
+      "tags": [
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "01_strategy/06/en/map-strategy.md",
+      "thumbnail": "01_strategy/06/en/map-strategy.jpg"
+    },
+    {
+      "name": "honey-orange-memo",
+      "category": "business",
+      "description": "A private equity / investment banking memo-type, high-density report style, suitable for syndication memos, investment committee materials, due diligence summaries, deal approvals, financing packages,",
+      "tags": [
+        "light",
+        "colorful",
+        "data-heavy",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "02_business/01/en/honey-orange-memo.md",
+      "thumbnail": "02_business/01/en/honey-orange-memo.jpg"
+    },
+    {
+      "name": "lake-blue-memo",
+      "category": "business",
+      "description": "A high-density professional PPT style for private-equity investment committees, deal approvals, due diligence reporting, and investment memos, adapted for readers with backgrounds in finance, strategy",
+      "tags": [
+        "dark",
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy"
+      ],
+      "spec_path": "02_business/02/en/lake-blue-memo.md",
+      "thumbnail": "02_business/02/en/lake-blue-memo.jpg"
+    },
+    {
+      "name": "xuan-paper-annual",
+      "category": "business",
+      "description": "An editorial annual-research-publication PPT style: warm rice-white paper, ultra-heavy black opinion headlines, section-color fluorescent highlighting, dense data charts, and a stable footer. Suited t",
+      "tags": [
+        "dark",
+        "light",
+        "colorful",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "02_business/03/en/xuan-paper-annual.md",
+      "thumbnail": "02_business/03/en/xuan-paper-annual.jpg"
+    },
+    {
+      "name": "lead-gray-quarterly",
+      "category": "business",
+      "description": "> Reverse-engineered from: the real visual evidence of a 36-page portrait (US Letter 612×792) investment-monitoring quarterly (cover + page-by-page images of all 35 pages).",
+      "tags": [
+        "light",
+        "data-heavy",
+        "creative"
+      ],
+      "spec_path": "02_business/04/en/lead-gray-quarterly.md",
+      "thumbnail": "02_business/04/en/lead-gray-quarterly.jpg"
+    },
+    {
+      "name": "ink-green-market-trends",
+      "category": "business",
+      "description": "A dark, data-driven PPT design system for quarterly crypto-industry research reports, aimed at professional readers fluent in metrics across markets, assets, trading volume, ETFs, DeFi, NFTs, and exch",
+      "tags": [
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "02_business/05/en/ink-green-market-trends.md",
+      "thumbnail": "02_business/05/en/ink-green-market-trends.jpg"
+    },
+    {
+      "name": "orange-tech",
+      "category": "business",
+      "description": "Suited to formal business reports such as annual performance reviews, business insights, business retrospectives, strategic plan proposals, and investor/management updates. Aimed at readers with busin",
+      "tags": [
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "02_business/06/en/orange-tech.md",
+      "thumbnail": "02_business/06/en/orange-tech.jpg"
+    },
+    {
+      "name": "sky-blue-wayfinding",
+      "category": "work",
+      "description": "> Intended homepage tag: Work report",
+      "tags": [
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "03_work/01/en/sky-blue-wayfinding.md",
+      "thumbnail": "03_work/01/en/sky-blue-wayfinding.jpg"
+    },
+    {
+      "name": "mist-blue-travelogue",
+      "category": "work",
+      "description": "An editorial-style research-report PPT aimed at readers in travel, hospitality, destinations, and industry decision-making. It organizes \"viewpoint — evidence — explanation\" with a magazine reading ex",
+      "tags": [
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "03_work/02/en/mist-blue-travelogue.md",
+      "thumbnail": "03_work/02/en/mist-blue-travelogue.jpg"
+    },
+    {
+      "name": "warm-jade-annual-report",
+      "category": "work",
+      "description": "A landscape report-style PPT for listed-company annual reports, investor relations, ESG and governance disclosure, financial notes, and audit statements. It serves investors, boards, regulators, and i",
+      "tags": [
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "03_work/03/en/warm-jade-annual-report.md",
+      "thumbnail": "03_work/03/en/warm-jade-annual-report.jpg"
+    },
+    {
+      "name": "color-stripes-documentary",
+      "category": "work",
+      "description": "Suited to long-form, externally communicated PPTs such as listed-company impact summaries, responsibility reports, ESG/AI governance, social value, skills outreach, and environmental action, aimed at ",
+      "tags": [
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "creative"
+      ],
+      "spec_path": "03_work/04/en/color-stripes-documentary.md",
+      "thumbnail": "03_work/04/en/color-stripes-documentary.jpg"
+    },
+    {
+      "name": "moon-white-imagery",
+      "category": "work",
+      "description": "Suited for corporate impact reports, ESG/sustainability summaries, and technology-product-and-environmental-data narratives, aimed at investors, media, policy/industry observers, and internal manageme",
+      "tags": [
+        "dark",
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy"
+      ],
+      "spec_path": "03_work/05/en/moon-white-imagery.md",
+      "thumbnail": "03_work/05/en/moon-white-imagery.jpg"
+    },
+    {
+      "name": "red-white-business",
+      "category": "work",
+      "description": "A landscape PPT aimed at consulting-firm employer branding, talent attraction, corporate culture, and organizational-capability messaging. The audience is external candidates, employees, or a general ",
+      "tags": [
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "03_work/06/en/red-white-business.md",
+      "thumbnail": "03_work/06/en/red-white-business.jpg"
+    },
+    {
+      "name": "cream-collage",
+      "category": "promotion",
+      "description": "> Intended homepage tag: Promotion",
+      "tags": [
+        "data-heavy",
+        "editorial",
+        "corporate",
+        "creative",
+        "tech"
+      ],
+      "spec_path": "04_promotion/01/en/cream-collage.md",
+      "thumbnail": "04_promotion/01/en/cream-collage.jpg"
+    },
+    {
+      "name": "silk-yellow-magazine",
+      "category": "promotion",
+      "description": "A landscape magazine-style PPT / PDF design system for creative-industry trend reports, award insights, case studies, and annual reviews, aimed at visually sensitive readers who can accept high inform",
+      "tags": [
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "04_promotion/02/en/silk-yellow-magazine.md",
+      "thumbnail": "04_promotion/02/en/silk-yellow-magazine.jpg"
+    },
+    {
+      "name": "pine-soot-pictorial",
+      "category": "promotion",
+      "description": "Suitable for commercial-film trend reports, creative-asset library introductions, ad-film direction proposals, and PPTs studying directing/cinematography styles. Aimed at readers with a film aesthetic",
+      "tags": [
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "creative",
+        "tech"
+      ],
+      "spec_path": "04_promotion/03/en/pine-soot-pictorial.md",
+      "thumbnail": "04_promotion/03/en/pine-soot-pictorial.jpg"
+    },
+    {
+      "name": "gold-orange-type-journal",
+      "category": "promotion",
+      "description": "Suitable for type-trend reports, design-research releases, creative case collections, and brand/type-industry insights — long-form narrative PPTs/reports aimed at design, brand, creative, and type pro",
+      "tags": [
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "editorial",
+        "corporate"
+      ],
+      "spec_path": "04_promotion/04/en/gold-orange-type-journal.md",
+      "thumbnail": "04_promotion/04/en/gold-orange-type-journal.jpg"
+    },
+    {
+      "name": "silver-gray-luxury-magazine",
+      "category": "promotion",
+      "description": "Aimed at listed-company investor communication, luxury-group corporate introductions, and financial disclosure, switching between \"premium brand-narrative pages\" and \"rigorous IR data pages\": the form",
+      "tags": [
+        "dark",
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy"
+      ],
+      "spec_path": "04_promotion/05/en/silver-gray-luxury-magazine.md",
+      "thumbnail": "04_promotion/05/en/silver-gray-luxury-magazine.jpg"
+    },
+    {
+      "name": "fresh-brand",
+      "category": "promotion",
+      "description": "Suited for brand-style annual impact reports, ESG/DEI/social-responsibility disclosures, and corporate culture and governance reports — long-form landscape digital reports. Aimed at the public, employ",
+      "tags": [
+        "dark",
+        "light",
+        "colorful",
+        "minimal",
+        "data-heavy"
+      ],
+      "spec_path": "04_promotion/06/en/fresh-brand.md",
+      "thumbnail": "04_promotion/06/en/fresh-brand.jpg"
+    },
+    {
+      "name": "pink-purple-diagnosis",
+      "category": "academic",
+      "description": "This document is reverse-engineered from a 32-page technical talk source deck, retaining only the visual language and narrative method for reuse in any technical-proposal-style presentation. The full ",
+      "tags": [
+        "light",
+        "minimal",
+        "data-heavy",
+        "creative",
+        "tech"
+      ],
+      "spec_path": "05_academic/01/en/pink-purple-diagnosis.md",
+      "thumbnail": "05_academic/01/en/pink-purple-diagnosis.jpg"
+    },
+    {
+      "name": "teal-green-academic-defense",
+      "category": "academic",
+      "description": "> Applicable scenarios: long academic thesis defenses / research presentations / paper talks (100+ page scale). This system abstracts only visual and layout rules and contains no brand, person, instit",
+      "tags": [
+        "light",
+        "minimal",
+        "data-heavy",
+        "creative",
+        "academic"
+      ],
+      "spec_path": "05_academic/02/en/teal-green-academic-defense.md",
+      "thumbnail": "05_academic/02/en/teal-green-academic-defense.jpg"
+    },
+    {
+      "name": "pastel-derivation",
+      "category": "academic",
+      "description": "A brand-free design system for math/ML-style deep-dive tutorials: pastel-gradient section covers + white-background derivation content pages, with \"contour probability plots + formula cards + progress",
+      "tags": [
+        "light",
+        "minimal",
+        "data-heavy",
+        "creative",
+        "academic"
+      ],
+      "spec_path": "05_academic/03/en/pastel-derivation.md",
+      "thumbnail": "05_academic/03/en/pastel-derivation.jpg"
+    },
+    {
+      "name": "paper-white-courseware",
+      "category": "academic",
+      "description": "This system is abstracted from a complete source deck of corporate brand and growth-methodology courseware, retaining only the layout, color relationships, and teaching narrative. It is not a reproduc",
+      "tags": [
+        "light",
+        "data-heavy",
+        "editorial",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "05_academic/04/en/paper-white-courseware.md",
+      "thumbnail": "05_academic/04/en/paper-white-courseware.jpg"
+    },
+    {
+      "name": "blue-line-courseware",
+      "category": "academic",
+      "description": "This system is reverse-engineered from a complete experiment-and-measurement-methodology courseware, abstracting only the teaching pacing, method matrices, comparison expression, and editorial layout.",
+      "tags": [
+        "data-heavy",
+        "editorial",
+        "creative",
+        "academic"
+      ],
+      "spec_path": "05_academic/05/en/blue-line-courseware.md",
+      "thumbnail": "05_academic/05/en/blue-line-courseware.jpg"
+    },
+    {
+      "name": "dark-themed-data",
+      "category": "academic",
+      "description": "A dark, data-driven PPT design system for quarterly crypto-industry research reports, aimed at professional readers fluent in metrics across markets, assets, trading volume, ETFs, DeFi, NFTs, and exch",
+      "tags": [
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "05_academic/06/en/dark-themed-data.md",
+      "thumbnail": "05_academic/06/en/dark-themed-data.jpg"
+    },
+    {
+      "name": "deep-blue-atlas",
+      "category": "academic",
+      "description": "Academic presentations benchmarked against top-tier research talks and thesis defenses (NeurIPS/CHI/SIGGRAPH main-track caliber): clarity of argument outranks decoration; the whole deck must read as o",
+      "tags": [
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "academic/deep-blue-atlas/design.md",
+      "thumbnail": "academic/deep-blue-atlas/reference.jpg"
+    },
+    {
+      "name": "wine-red-data",
+      "category": "academic",
+      "description": "A rigorous, formally typeset academic presentation benchmarked against top-tier research talks and thesis defenses (at the standard of NeurIPS/CHI/SIGGRAPH main conferences), where clarity of argument",
+      "tags": [
+        "dark",
+        "light",
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "academic/wine-red-data/design.md",
+      "thumbnail": "academic/wine-red-data/reference.jpg"
+    },
+    {
+      "name": "apricot-white-brief",
+      "category": "consulting",
+      "description": "Create at Full Strength: Bring your full creativity and imagination to the work. Treat every slide as an independent, complete design artifact worthy of close consideration. Structure, composition, ch",
+      "tags": [
+        "dark",
+        "light",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "consulting/apricot-white-brief/design.md",
+      "thumbnail": "consulting/apricot-white-brief/reference.jpg"
+    },
+    {
+      "name": "indigo-due-diligence",
+      "category": "consulting",
+      "description": "A professional, information-dense consulting presentation benchmarked against top-tier strategy consulting firms (McKinsey/BCG), with a premium editorial aesthetic.",
+      "tags": [
+        "dark",
+        "light",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "consulting/indigo-due-diligence/design.md",
+      "thumbnail": "consulting/indigo-due-diligence/reference.jpg"
+    },
+    {
+      "name": "marine-blue-research",
+      "category": "consulting",
+      "description": "Professional, information-dense consulting presentations benchmarked against the style of leading strategy consulting firms (McKinsey/BCG), with a premium editorial aesthetic.",
+      "tags": [
+        "dark",
+        "light",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "consulting/marine-blue-research/design.md",
+      "thumbnail": "consulting/marine-blue-research/reference.jpg"
+    },
+    {
+      "name": "moss-green-transformation",
+      "category": "consulting",
+      "description": "A professional, information-dense consulting presentation benchmarked against leading strategy firms (McKinsey/BCG), with a premium editorial aesthetic.",
+      "tags": [
+        "dark",
+        "light",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "consulting/moss-green-transformation/design.md",
+      "thumbnail": "consulting/moss-green-transformation/reference.jpg"
+    },
+    {
+      "name": "pine-green-strategy",
+      "category": "consulting",
+      "description": "A professional, high-density consulting presentation benchmarked against top-tier strategy firms (McKinsey/BCG), with the aesthetic of a premium editorial publication.",
+      "tags": [
+        "dark",
+        "light",
+        "colorful",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "consulting/pine-green-strategy/design.md",
+      "thumbnail": "consulting/pine-green-strategy/reference.jpg"
+    },
+    {
+      "name": "red-black-growth",
+      "category": "consulting",
+      "description": "A professional, information-dense consulting presentation benchmarked against leading strategy firms (McKinsey/BCG), with the visual refinement of premium editorial design.",
+      "tags": [
+        "dark",
+        "light",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "consulting/red-black-growth/design.md",
+      "thumbnail": "consulting/red-black-growth/reference.jpg"
+    },
+    {
+      "name": "black-gold-ledger",
+      "category": "finance",
+      "description": "Institutional-grade investment research presentations, benchmarked against top-tier fund research reports, due diligence, and strategy outlooks. Chart-heavy, text on the dense side, more report than c",
+      "tags": [
+        "dark",
+        "light",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "finance/black-gold-ledger/design.md",
+      "thumbnail": "finance/black-gold-ledger/reference.jpg"
+    },
+    {
+      "name": "ebony-ledger",
+      "category": "finance",
+      "description": "Full creative commitment: apply your complete creativity and imagination, treating every page as an independent, complete design work worthy of scrutiny. Structure, composition, charts, imagery, and v",
+      "tags": [
+        "light",
+        "minimal",
+        "data-heavy",
+        "editorial",
+        "corporate"
+      ],
+      "spec_path": "finance/ebony-ledger/design.md",
+      "thumbnail": "finance/ebony-ledger/reference.jpg"
+    },
+    {
+      "name": "honey-orange-memo",
+      "category": "finance",
+      "description": "Institutional-grade investment research presentations, benchmarked against top-tier fund research reports, due diligence, and strategy outlooks (bulge-bracket bank and sovereign wealth fund standards)",
+      "tags": [
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "academic"
+      ],
+      "spec_path": "finance/honey-orange-memo/design.md",
+      "thumbnail": "finance/honey-orange-memo/reference.jpg"
+    },
+    {
+      "name": "lake-blue-memo",
+      "category": "finance",
+      "description": "Institutional-grade investment research presentations benchmarked against top-tier fund research reports, due diligence materials, and strategy outlooks (global investment bank and sovereign wealth fu",
+      "tags": [
+        "dark",
+        "minimal",
+        "data-heavy",
+        "editorial",
+        "corporate"
+      ],
+      "spec_path": "finance/lake-blue-memo/design.md",
+      "thumbnail": "finance/lake-blue-memo/reference.jpg"
+    },
+    {
+      "name": "prospect-annual",
+      "category": "finance",
+      "description": "Full creative commitment: apply your complete creativity and imagination, treating every page as an independent, complete design work worthy of scrutiny. Structure, composition, charts, imagery, and v",
+      "tags": [
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "creative",
+        "academic"
+      ],
+      "spec_path": "finance/prospect-annual/design.md",
+      "thumbnail": "finance/prospect-annual/reference.jpg"
+    },
+    {
+      "name": "rice-paper-annual",
+      "category": "finance",
+      "description": "Institutional-grade investment research presentations, benchmarked against top-tier fund research reports, due diligence, and strategy outlooks (bulge-bracket bank and sovereign wealth fund standards)",
+      "tags": [
+        "minimal",
+        "data-heavy",
+        "editorial",
+        "corporate",
+        "academic"
+      ],
+      "spec_path": "finance/rice-paper-annual/design.md",
+      "thumbnail": "finance/rice-paper-annual/reference.jpg"
+    },
+    {
+      "name": "aqua-charity-report",
+      "category": "promotion",
+      "description": "Create at Full Strength: Bring your full creativity and imagination to the work. Treat every slide as an independent, complete design artifact worthy of close consideration; structure, composition, ch",
+      "tags": [
+        "dark",
+        "data-heavy",
+        "creative"
+      ],
+      "spec_path": "promotion/aqua-charity-report/design.md",
+      "thumbnail": "promotion/aqua-charity-report/reference.jpg"
+    },
+    {
+      "name": "travel-green-handbook",
+      "category": "promotion",
+      "description": "Create at Full Capacity: Apply your full creativity and imagination. Treat every slide as an independent, complete design work worthy of close consideration; structure, composition, charts, imagery, a",
+      "tags": [
+        "dark",
+        "data-heavy",
+        "editorial",
+        "creative",
+        "tech"
+      ],
+      "spec_path": "promotion/travel-green-handbook/design.md",
+      "thumbnail": "promotion/travel-green-handbook/reference.jpg"
+    },
+    {
+      "name": "blue-flame-brand",
+      "category": "work",
+      "description": "Conclusion-first business reporting, benchmarked against top-tier business reviews and project progress briefings: every page scannable in 30 seconds, every number able to withstand drill-down — statu",
+      "tags": [
+        "minimal",
+        "data-heavy",
+        "corporate",
+        "creative"
+      ],
+      "spec_path": "work/blue-flame-brand/design.md",
+      "thumbnail": "work/blue-flame-brand/reference.jpg"
+    },
+    {
+      "name": "electric-violet-business",
+      "category": "work",
+      "description": "A conclusion-first business review benchmarked against top-tier operating reviews and project progress briefings. Every slide in this deck must be scannable within 30 seconds, and every figure must wi",
+      "tags": [
+        "dark",
+        "colorful",
+        "minimal",
+        "data-heavy",
+        "editorial"
+      ],
+      "spec_path": "work/electric-violet-business/design.md",
+      "thumbnail": "work/electric-violet-business/reference.jpg"
+    },
+    {
+      "name": "warm-clay-works",
+      "category": "work",
+      "description": "Master-crafted: every page is polished to the standard of a master charging a six-figure fee per slide — layout, type, color, and alignment carry no defaults and no AI-template smell; details decide s",
+      "tags": [
+        "minimal",
+        "data-heavy",
+        "corporate"
+      ],
+      "spec_path": "work/warm-clay-works/design.md",
+      "thumbnail": "work/warm-clay-works/reference.jpg"
+    }
+  ]
+}

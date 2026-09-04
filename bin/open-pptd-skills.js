@@ -61,6 +61,10 @@ Options:
 Usage:
   open-pptd-skills [install] [options]
   open-pptd-skills serve [options]
+  open-pptd-skills check <project> [options]
+  open-pptd-skills screenshot <project> [options]
+  open-pptd-skills convert <deck.pptx> [options]
+  open-pptd-skills design <list|get|build-index> [options]
 
 Install options:
   --target <directory>  Skills directory (default: ~/.agents/skills)
@@ -72,11 +76,19 @@ Run "open-pptd-skills serve --help" for server options.
 
 function parseArguments(arguments_) {
   const args = [...arguments_];
-  const command = args[0] === "install" || args[0] === "serve" || args[0] === "validate" ? args.shift() : "install";
+  const command = ["install", "serve", "validate", "check", "screenshot", "convert", "design"].includes(args[0]) ? args.shift() : "install";
   const options = command === "serve"
     ? { command, open: false, port: 55173 }
     : command === "validate"
     ? { command, project: undefined, manifest: undefined, targetWidth: 1280, minImageScale: 0.6, output: undefined, json: false }
+    : command === "check"
+    ? { command, project: undefined, manifest: undefined, page: undefined, severity: "all", level: "keep", output: undefined, json: false }
+    : command === "screenshot"
+    ? { command, project: undefined, output: undefined, page: undefined }
+    : command === "convert"
+    ? { command, input: undefined, output: undefined }
+    : command === "design"
+    ? { command, action: "list", category: undefined, tag: undefined, name: undefined }
     : { command, target: undefined };
 
   while (args.length > 0) {
@@ -139,6 +151,94 @@ function parseArguments(arguments_) {
       continue;
     }
 
+    // --- check ---
+    if (command === "check" && argument === "--manifest") {
+      const p = args.shift();
+      if (!p || p.startsWith("-")) throw new Error("--manifest requires a path");
+      options.manifest = resolve(p);
+      continue;
+    }
+    if (command === "check" && (argument === "--page" || argument === "-p")) {
+      const p = args.shift();
+      if (!p) throw new Error("--page requires a spec");
+      options.page = p;
+      continue;
+    }
+    if (command === "check" && (argument === "--severity" || argument === "-s")) {
+      const s = args.shift();
+      if (!s) throw new Error("--severity requires a spec");
+      options.severity = s;
+      continue;
+    }
+    if (command === "check" && argument === "--level") {
+      const l = args.shift();
+      if (!["keep", "auto"].includes(l)) throw new Error("--level must be keep|auto");
+      options.level = l;
+      continue;
+    }
+    if (command === "check" && argument === "--output") {
+      const p = args.shift();
+      if (!p || p.startsWith("-")) throw new Error("--output requires a path");
+      options.output = resolve(p);
+      continue;
+    }
+    if (command === "check" && argument === "--json") {
+      options.json = true;
+      continue;
+    }
+    if (command === "check" && !options.project && !argument.startsWith("-")) {
+      options.project = resolve(argument);
+      continue;
+    }
+
+    // --- screenshot ---
+    if (command === "screenshot" && (argument === "--output" || argument === "-o")) {
+      const p = args.shift();
+      if (!p || p.startsWith("-")) throw new Error("--output requires a path");
+      options.output = resolve(p);
+      continue;
+    }
+    if (command === "screenshot" && (argument === "--page" || argument === "-p")) {
+      const p = args.shift();
+      if (!p) throw new Error("--page requires a spec");
+      options.page = p;
+      continue;
+    }
+    if (command === "screenshot" && !options.project && !argument.startsWith("-")) {
+      options.project = resolve(argument);
+      continue;
+    }
+
+    // --- convert ---
+    if (command === "convert" && (argument === "--output" || argument === "-o")) {
+      const p = args.shift();
+      if (!p || p.startsWith("-")) throw new Error("--output requires a path");
+      options.output = resolve(p);
+      continue;
+    }
+    if (command === "convert" && !options.input && !argument.startsWith("-")) {
+      options.input = resolve(argument);
+      continue;
+    }
+
+    // --- design ---
+    if (command === "design" && (argument === "list" || argument === "get" || argument === "build-index")) {
+      options.action = argument;
+      continue;
+    }
+    if (command === "design" && argument === "--category") {
+      options.category = args.shift();
+      continue;
+    }
+    if (command === "design" && argument === "--tag") {
+      options.tag = args.shift();
+      continue;
+    }
+    if (command === "design" && !options.name && !argument.startsWith("-")) {
+      options.name = argument;
+      continue;
+    }
+
     // Positional project path for validate
     if (command === "validate" && !options.project && !argument.startsWith("-")) {
       options.project = resolve(argument);
@@ -155,6 +255,18 @@ function parseArguments(arguments_) {
 
   if (command === "validate" && !options.project) {
     throw new Error("validate requires a project directory path");
+  }
+  if (command === "check" && !options.project) {
+    throw new Error("check requires a project directory path");
+  }
+  if (command === "screenshot" && !options.project) {
+    throw new Error("screenshot requires a project directory path");
+  }
+  if (command === "convert" && !options.input) {
+    throw new Error("convert requires a PPTX input file path");
+  }
+  if (command === "design" && options.action === "get" && !options.name) {
+    throw new Error("design get requires a design system name");
   }
 
   return options;
@@ -220,6 +332,56 @@ async function main() {
   if (options.command === "validate") {
     const script = join(sourceDirectory, "scripts", "validate_deck.py");
     const child = spawn("python3", [script, "--project", options.project, ...(options.manifest ? ["--manifest", options.manifest] : []), "--target-width", String(options.targetWidth), "--min-image-scale", String(options.minImageScale), ...(options.output ? ["--output", options.output] : []), ...(options.json ? ["--json"] : [])], { stdio: "inherit" });
+    child.on("close", (code) => process.exit(code ?? 0));
+    return;
+  }
+
+  if (options.command === "check") {
+    const script = join(sourceDirectory, "scripts", "validate_deck.py");
+    const child = spawn("python3", [
+      script, "--project", options.project,
+      ...(options.manifest ? ["--manifest", options.manifest] : []),
+      ...(options.page ? ["--page", options.page] : []),
+      "--severity", options.severity,
+      "--level", options.level,
+      ...(options.output ? ["--output", options.output] : []),
+      ...(options.json ? ["--json"] : []),
+    ], { stdio: "inherit" });
+    child.on("close", (code) => process.exit(code ?? 0));
+    return;
+  }
+
+  if (options.command === "screenshot") {
+    const script = join(sourceDirectory, "scripts", "export_images.py");
+    const child = spawn("python3", [
+      script, options.project,
+      ...(options.output ? ["--output", options.output] : []),
+      ...(options.page ? ["--page", options.page] : []),
+    ], { stdio: "inherit" });
+    child.on("close", (code) => process.exit(code ?? 0));
+    return;
+  }
+
+  if (options.command === "convert") {
+    const script = join(sourceDirectory, "scripts", "vendor", "open-ppt-engine", "adapters", "pptd.mjs");
+    const child = spawn("node", [
+      script, options.input,
+      ...(options.output ? ["--output", options.output] : []),
+    ], { stdio: "inherit" });
+    child.on("close", (code) => process.exit(code ?? 0));
+    return;
+  }
+
+  if (options.command === "design") {
+    const script = join(sourceDirectory, "scripts", "design_system_loader.py");
+    const args = [script, options.action];
+    if (options.action === "list") {
+      if (options.category) args.push("--category", options.category);
+      if (options.tag) args.push("--tag", options.tag);
+    } else if (options.action === "get") {
+      args.push(options.name);
+    }
+    const child = spawn("python3", args, { stdio: "inherit" });
     child.on("close", (code) => process.exit(code ?? 0));
     return;
   }
