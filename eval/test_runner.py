@@ -398,3 +398,17 @@ class RunnerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PassEnvTests(unittest.TestCase):
+    def test_pass_env_forwards_named_variables_and_redacts_them(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "src"; source.mkdir()
+            (source / "models.json").write_text(json.dumps({"providers": {"p": {"apiKey": "static-key-value", "models": [{"id": "m"}]}}}))
+            with patch.dict(os.environ, {"IMG_SEARCH_KEY": "img-secret-123", "UNRELATED": "x"}):
+                env, secrets, provider, model = runner.prepare_config(source, Path(tmp) / "dst", "p", "m", pass_env=["IMG_SEARCH_KEY", "MISSING_VAR"])
+            self.assertEqual(env.get("IMG_SEARCH_KEY"), "img-secret-123")
+            self.assertNotIn("UNRELATED", env)
+            self.assertNotIn("MISSING_VAR", env)
+            self.assertIn("img-secret-123", secrets)
+            self.assertNotIn("img-secret-123", runner.redact("token img-secret-123 here", secrets))

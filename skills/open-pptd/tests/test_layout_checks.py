@@ -161,3 +161,37 @@ class InternalTokenAndDuplicateImageTests(unittest.TestCase):
         pages = [(1, 'pages/01.page', self._page(images=['search: mountain'])),
                  (2, 'pages/02.page', self._page(images=['search: mountain', 'media/x.jpg']))]
         self.assertEqual(validate.duplicate_image_issues(pages), [])
+
+
+class TextDensityAdvisoryTests(unittest.TestCase):
+    def _page(self, chars, page_type='content'):
+        return {'pageType': page_type, 'elements': [{'elementId': 'body', 'elementType': 'text', 'bounds': [0, 0, 800, 400],
+                'content': {'text': '<p>' + ('字' * chars) + '</p>', 'fontSize': 12}}]}
+
+    def test_dense_content_page_gets_advisory_only(self):
+        adv = validate.text_density_advisory(self._page(500), 4, 'pages/04.page')
+        self.assertEqual(adv['code'], 'text-density'); self.assertEqual(adv['chars'], 500)
+        self.assertIsNone(validate.text_density_advisory(self._page(300), 4, 'pages/04.page'))
+
+    def test_cover_and_custom_threshold(self):
+        self.assertIsNone(validate.text_density_advisory(self._page(900, 'cover'), 1, 'pages/01.page'))
+        self.assertIsNotNone(validate.text_density_advisory(self._page(300), 2, 'pages/02.page', max_chars=200))
+
+
+class DuplicateImageValidityTests(unittest.TestCase):
+    def test_cover_closing_pair_is_advisory_and_content_reuse_blocks(self):
+        import yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); (root / 'pages').mkdir(); (root / 'media').mkdir()
+            Image.new('RGB', (1600, 900), 'white').save(root / 'media' / 'a.jpg')
+            Image.new('RGB', (1600, 900), 'gray').save(root / 'media' / 'c.jpg')
+            def page(name, page_type, images=(), background=None):
+                data = {'pageType': page_type, 'elements': [{'elementId': f'{name}-img{i}', 'elementType': 'image', 'bounds': [40, 40, 400, 225], 'src': src} for i, src in enumerate(images)]}
+                if background: data['background'] = {'type': 'image', 'src': background}
+                (root / 'pages' / f'{name}.page').write_text(yaml.safe_dump(data, allow_unicode=True))
+            page('01', 'cover', background='media/c.jpg'); page('02', 'content', images=['media/a.jpg']); page('03', 'content', images=['media/a.jpg']); page('04', 'final', background='media/c.jpg')
+            (root / 'deck.pptd').write_text(yaml.safe_dump({'version': 'v2', 'title': 't', 'size': [960, 540], 'pages': ['pages/01.page', 'pages/02.page', 'pages/03.page', 'pages/04.page']}))
+            report = validate.audit_project(root)
+            self.assertEqual(report['issueCounts'].get('duplicate-image'), 1)
+            self.assertEqual(report['advisoryCounts'].get('duplicate-image'), 1)
+            self.assertFalse(report['valid'])

@@ -97,7 +97,7 @@ def minimal_env():
     return {k: v for k, v in os.environ.items() if k in allowed}
 
 
-def prepare_config(source, destination, provider, model, key_env=None, thinking=None):
+def prepare_config(source, destination, provider, model, key_env=None, thinking=None, pass_env=()):
     """Copy only the selected provider; never serialize unrelated credentials/settings."""
     source, destination = Path(source), Path(destination)
     destination.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -157,6 +157,12 @@ def prepare_config(source, destination, provider, model, key_env=None, thinking=
         if standard and os.environ.get(standard):
             env[standard] = os.environ[standard]
             secrets.append(os.environ[standard])
+    for name in pass_env:
+        # Explicitly forwarded variables (e.g. image-search keys) reach pi but are redacted from every log.
+        value = os.environ.get(name, "")
+        if value:
+            env[name] = value
+            secrets.append(value)
     write_json(destination / "settings.json", {"defaultProvider": provider, "defaultModel": model,
                "defaultThinkingLevel": thinking or settings.get("defaultThinkingLevel", "off"),
                "quietStartup": True, "packages": [], "skills": [], "extensions": []})
@@ -628,6 +634,8 @@ def main(argv=None):
     parser.add_argument("--key-env", help="Name only; credentials are never passed on command line")
     parser.add_argument("--thinking", choices=["off", "minimal", "low", "medium", "high", "xhigh", "max"])
     parser.add_argument("--allow-web", action="store_true", help="Allow public-source/image retrieval in case prompts")
+    parser.add_argument("--pass-env", action="append", default=[],
+                        help="Forward named environment variables to pi (repeat/comma separate), e.g. image-search keys PPT_API_KEY or QIHOO_API_KEY; values are redacted in logs")
     options = parser.parse_args(argv)
     STOP.clear()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -655,8 +663,10 @@ def main(argv=None):
     try:
         with tempfile.TemporaryDirectory(prefix="pi-eval-config-") as private:
             config = Path(private) / "agent"
+            pass_env = [x.strip() for value in options.pass_env for x in value.split(",") if x.strip()]
             env, secrets, options.provider, options.model = prepare_config(
-                options.config_dir, config, options.provider, options.model, options.key_env, options.thinking)
+                options.config_dir, config, options.provider, options.model, options.key_env, options.thinking,
+                pass_env=pass_env)
             configured = json.loads((config / "models.json").read_text()) if (config / "models.json").exists() else {}
             selected_models = configured.get("providers", {}).get(options.provider, {}).get("models", [])
             options.model_inputs = next((m.get("input") for m in selected_models if m.get("id") == options.model), None)
@@ -677,7 +687,7 @@ def main(argv=None):
                         "pythonVersion": sys.version.split()[0], "concurrency": options.concurrency,
                         "timeoutSeconds": options.timeout, "timeoutScope": "case_including_continuations",
                         "maxContinuations": options.max_continuations, "modelInputs": options.model_inputs,
-                        "allowWeb": options.allow_web,
+                        "allowWeb": options.allow_web, "passEnv": pass_env,
                         "dryRun": options.dry_run, "caseIds": [c["id"] for c in cases],
                         "qualityStatus": "not_reviewed", "runDirectory": str(run_dir)}
             write_json(run_dir / "run.json", metadata)

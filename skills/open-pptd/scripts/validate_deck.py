@@ -729,6 +729,45 @@ INTERNAL_TOKEN_PATTERNS = [
 ]
 
 
+DEFAULT_MAX_PAGE_CHARS = 360
+DENSITY_EXEMPT_PAGE_TYPES = {"cover", "final", "chapter", "toc", "section", "closing", "ending"}
+
+
+def page_text_chars(page: dict[str, Any]) -> int:
+    """Plain-text character count of all text elements on a page (speaker notes excluded)."""
+    total = 0
+    for el in page.get("elements", []) or []:
+        if isinstance(el, dict) and el.get("elementType") == "text":
+            content = el.get("content", {})
+            text = content.get("text", "") if isinstance(content, dict) else ""
+            if isinstance(text, str):
+                total += len(re.sub(r"\s+", "", plain_text(text)))
+    return total
+
+
+def text_density_advisory(page: dict[str, Any], page_number: int, page_ref: str,
+                          max_chars: int = DEFAULT_MAX_PAGE_CHARS) -> Optional[dict[str, Any]]:
+    """Advisory (never blocks): a content page carrying more text than an audience can read on screen.
+
+    Threshold is a heuristic from the 2026-09 twenty-deck evaluation: judged-dense pages averaged
+    above ~360 characters; tables and evidence pages legitimately exceed it, so this is advice only.
+    """
+    if str(page.get("pageType", "")).lower() in DENSITY_EXEMPT_PAGE_TYPES:
+        return None
+    chars = page_text_chars(page)
+    if chars <= max_chars:
+        return None
+    return {
+        "code": "text-density",
+        "pageNumber": page_number,
+        "pageRef": page_ref,
+        "chars": chars,
+        "maxChars": max_chars,
+        "detail": f"{chars} text characters on one page (advice threshold {max_chars}); consider splitting or moving detail to notes",
+        "repairability": "split-page",
+    }
+
+
 def internal_token_leak_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
     """Audience-facing text must not carry internal artifact names or workflow vocabulary.
 
@@ -921,6 +960,7 @@ def audit_project(
     *,
     target_width: int = 1280,
     min_image_scale: float = 0.6,
+    max_page_chars: int = DEFAULT_MAX_PAGE_CHARS,
 ) -> dict[str, Any]:
     project = project.expanduser().resolve()
     manifest_path = discover_manifest(project, manifest_path)
@@ -936,6 +976,7 @@ def audit_project(
     issues: List[dict[str, Any]] = []
     page_hashes: List[dict[str, Any]] = []
     loaded_pages: List[Tuple[int, str, dict[str, Any]]] = []
+    advisories: List[dict[str, Any]] = []
     checked_text = 0
     checked_images = 0
 
@@ -959,6 +1000,9 @@ def audit_project(
         issues.extend(unresolved_src_issues(page, page_number, str(page_ref)))
         issues.extend(anti_slop_text_issues(page, page_number, str(page_ref)))
         issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
+        density = text_density_advisory(page, page_number, str(page_ref), max_page_chars)
+        if density is not None:
+            advisories.append(density)
         issues.extend(anti_slop_design_issues(page, page_number, str(page_ref)))
 
         for element in page.get("elements", []):
@@ -977,9 +1021,13 @@ def audit_project(
                 if issue is not None:
                     issues.append(issue)
 
-    # Deck-level checks
-    issues.extend(duplicate_image_issues(loaded_pages))
+    # Deck-level checks: content-page image reuse blocks; a cover/closing pair is advice only.
+    for dup in duplicate_image_issues(loaded_pages):
+        (advisories if dup["repairability"] == "style" else issues).append(dup)
 
+    advisory_counts: Dict[str, int] = {}
+    for advisory in advisories:
+        advisory_counts[advisory["code"]] = advisory_counts.get(advisory["code"], 0) + 1
     issue_counts: Dict[str, int] = {}
     for issue in issues:
         issue_counts[issue["code"]] = issue_counts.get(issue["code"], 0) + 1
@@ -998,6 +1046,9 @@ def audit_project(
         "issueCount": len(issues),
         "issueCounts": issue_counts,
         "issues": issues,
+        "advisoryCount": len(advisories),
+        "advisoryCounts": advisory_counts,
+        "advisories": advisories,
     }
 
 
@@ -1011,6 +1062,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path, help="Explicit .pptd manifest path")
     parser.add_argument("--target-width", type=int, default=1280, help="Expected rendered width for image scale check")
     parser.add_argument("--min-image-scale", type=float, default=0.6, help="Minimum effective source-pixels-per-rendered-pixel")
+    parser.add_argument("--max-page-chars", type=int, default=DEFAULT_MAX_PAGE_CHARS,
+                        help=f"Advisory text-density threshold per content page (default {DEFAULT_MAX_PAGE_CHARS}); advisories never affect validity")
     parser.add_argument("--output", type=Path, help="Output JSON path (default: <project>/validate-report.json)")
     parser.add_argument("--json", action="store_true", help="Print JSON report to stdout")
     return parser
@@ -1024,6 +1077,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         args.manifest,
         target_width=args.target_width,
         min_image_scale=args.min_image_scale,
+        max_page_chars=args.max_page_chars,
     )
     output = args.output.expanduser().resolve() if args.output else project / "validate-report.json"
     write_json(output, report)
