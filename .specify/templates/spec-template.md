@@ -1,115 +1,131 @@
-# Feature Specification: Open-PPTD Skill Optimization
+# Feature Specification: [FEATURE NAME]
 
-## Overview
-Optimize the `open-pptd` skill by integrating proven patterns from `kimi-slides` (Moonshot AI's first-party PPT skill) while preserving and extending its local-first strengths. The optimization targets five specific gaps identified through comparative analysis: (1) post-rendering hard audit, (2) deterministic layout rhythm constraints, (3) lossless edit workflow, (4) design system architecture, and (5) chart vocabulary expansion.
+**Feature Branch**: `[###-feature-name]`
 
-## User Stories
+**Created**: [DATE]
 
-### Story 1: Post-Rendering Hard Audit
-**As a** quality-conscious user,  
-**I want** the skill to validate rendered output at the pixel level (not just mock-dimension heuristics),  
-**So that** I can trust the visual output matches the design intent without manual screenshot inspection.
+**Status**: Draft
 
-### Story 2: Deterministic Layout Rhythm
-**As a** user creating multi-page decks,  
-**I want** the skill to enforce page-type rhythm constraints (no consecutive same-archetype pages, silhouette variation),  
-**So that** the deck has professional pacing without me manually planning each page transition.
+**Input**: User description: "$ARGUMENTS"
 
-### Story 3: Lossless Edit Workflow
-**As a** user editing existing PPTX files,  
-**I want** the skill to preserve original formatting fidelity during PPTX→PPTD→PPTX round-trips,  
-**So that** I can confidently edit without introducing style corruption.
+## User Scenarios & Testing *(mandatory)*
 
-### Story 4: Tiered Design System Loading
-**As a** user selecting a design style,  
-**I want** the skill to load design system metadata incrementally (index first, full spec on demand),  
-**So that** context costs stay low even with 60+ available design systems.
+<!--
+  IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
+  Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
+  you should still have a viable MVP (Minimum Viable Product) that delivers value.
 
-### Story 5: Rich Chart Vocabulary
-**As a** data-heavy presenter,  
-**I want** the skill to support 13+ chart series types (waterfall, sankey, treemap, sunburst, etc.) with ECharts-style configuration,  
-**So that** I can express complex data relationships without resorting to text-heavy layouts.
+  Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
+  Think of each story as a standalone slice of functionality that can be:
+  - Developed independently
+  - Tested independently
+  - Deployed independently
+  - Demonstrated to users independently
+-->
 
-## Functional Requirements
+### User Story 1 - [Brief Title] (Priority: P1)
 
-### FR-1: Post-Rendering Pixel Audit
-- [ ] Add a `audit_rendered_hard` step that renders pages via headless Chrome and performs pixel-level checks
-- [ ] Detect text-background contrast violations (WCAG AA minimum)
-- [ ] Detect element occlusion via rendered pixel analysis
-- [ ] Detect alignment/grid inconsistencies across pages
-- [ ] Generate annotated audit report with issue bounding boxes
+[Describe this user journey in plain language]
 
-### FR-2: Layout Rhythm Constraints
-- [ ] Define page archetype taxonomy (cover, toc, section, content, data, quote, closing)
-- [ ] Implement `layout_planner` that enforces:
-  - No consecutive same-archetype pages (except content pages with different silhouettes)
-  - Minimum silhouette variation between adjacent content pages
-  - Required rhythm breaks (section dividers) every N content pages
-- [ ] Expose rhythm plan in outline phase for user confirmation
+**Why this priority**: [Explain the value and why it has this priority level]
 
-### FR-3: Lossless Edit Fidelity
-- [ ] Implement PPTX→PPTD conversion with explicit fidelity scoring per element
-- [ ] Flag elements with low conversion confidence for manual review
-- [ ] Provide side-by-side diff view (original PPTX screenshot vs converted PPTD render)
-- [ ] Support "edit in place" mode that preserves original element IDs and positions
+**Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
 
-### FR-4: Tiered Design System Architecture
-- [ ] Create lightweight design system index (name, description, thumbnail, tags) ~2KB per system
-- [ ] Load full design spec (colors, fonts, layouts, components) only on user selection
-- [ ] Merge parallel directory structures (`01_strategy/` + `consulting/`) into single registry
-- [ ] Add search/filter by industry, mood, color temperature
+**Acceptance Scenarios**:
 
-### FR-5: Chart Vocabulary Expansion
-- [ ] Extend PPTD schema to support 13+ series types: bar, line, area, pie, scatter, radar, funnel, gauge, heatmap, treemap, sunburst, sankey, waterfall
-- [ ] Implement `seriesDefaults` one-level shallow merge (matching kimi-slides behavior)
-- [ ] Add `encode` field for column-based data mapping (ECharts-style)
-- [ ] Add chart-specific validation (e.g., sankey requires nodes + links, waterfall requires measure type)
+1. **Given** [initial state], **When** [action], **Then** [expected outcome]
+2. **Given** [initial state], **When** [action], **Then** [expected outcome]
 
-### FR-6: Anti-AI-Slop Enforcement
-- [ ] Integrate kimi-slides' banned phrase list into content validation
-- [ ] Add design pattern detection (card layouts, rainbow color schemes) to visual audit
-- [ ] Enforce "no irrelevant images" rule via image-content relevance scoring
+---
 
-## Acceptance Criteria
+### User Story 2 - [Brief Title] (Priority: P2)
 
-### AC-1: Post-Rendering Audit
-- [ ] Given a generated deck, when `audit_rendered_hard` runs, then it reports pixel-level contrast violations with ≥90% precision
-- [ ] Given a deck with intentional bleed effects, when audit runs, then it does NOT flag bleed as an error (whitelist mechanism)
+[Describe this user journey in plain language]
 
-### AC-2: Layout Rhythm
-- [ ] Given a 20-page deck, when generated, then no two consecutive pages share the same archetype+silhouette combination
-- [ ] Given a user request for "10 pages all with same layout", when generated, then the skill warns and suggests rhythm variation
+**Why this priority**: [Explain the value and why it has this priority level]
 
-### AC-3: Edit Fidelity
-- [ ] Given a PPTX with 50+ elements, when converted to PPTD and back, then ≥95% of elements retain original position (±2px) and size (±1%)
-- [ ] Given a conversion with low-confidence elements, when delivered, then the report flags elements needing manual review
+**Independent Test**: [Describe how this can be tested independently]
 
-### AC-4: Design System Loading
-- [ ] Given 60+ design systems, when the skill loads, then initial context cost is ≤100KB (index only)
-- [ ] Given a user selects a design system, when loaded, then full spec is available within 2 seconds
+**Acceptance Scenarios**:
 
-### AC-5: Chart Vocabulary
-- [ ] Given a data table, when the user requests a waterfall chart, then the skill generates valid PPTD with `type: waterfall` and correct `encode` mapping
-- [ ] Given a sankey chart request without nodes/links, when validated, then the skill reports a clear error before rendering
+1. **Given** [initial state], **When** [action], **Then** [expected outcome]
 
-### AC-6: Anti-AI-Slop
-- [ ] Given generated content containing "不是X而是Y", when validated, then the skill flags it as a style violation
-- [ ] Given a page with 4+ cards in a row, when audited, then the skill suggests alternative layouts
+---
+
+### User Story 3 - [Brief Title] (Priority: P3)
+
+[Describe this user journey in plain language]
+
+**Why this priority**: [Explain the value and why it has this priority level]
+
+**Independent Test**: [Describe how this can be tested independently]
+
+**Acceptance Scenarios**:
+
+1. **Given** [initial state], **When** [action], **Then** [expected outcome]
+
+---
+
+[Add more user stories as needed, each with an assigned priority]
+
+### Edge Cases
+
+<!--
+  ACTION REQUIRED: The content in this section represents placeholders.
+  Fill them out with the right edge cases.
+-->
+
+- What happens when [boundary condition]?
+- How does system handle [error scenario]?
+
+## Requirements *(mandatory)*
+
+<!--
+  ACTION REQUIRED: The content in this section represents placeholders.
+  Fill them out with the right functional requirements.
+-->
+
+### Functional Requirements
+
+- **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
+- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]
+- **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
+- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
+- **FR-005**: System MUST [behavior, e.g., "log all security events"]
+
+*Example of marking unclear requirements:*
+
+- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+
+### Key Entities *(include if feature involves data)*
+
+- **[Entity 1]**: [What it represents, key attributes without implementation]
+- **[Entity 2]**: [What it represents, relationships to other entities]
+
+## Success Criteria *(mandatory)*
+
+<!--
+  ACTION REQUIRED: Define measurable success criteria.
+  These must be technology-agnostic and measurable.
+-->
+
+### Measurable Outcomes
+
+- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
+- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
+- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
+- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
 
 ## Assumptions
-- Headless Chrome is available for pixel-level rendering (already required by existing export_html.py)
-- Users accept slightly longer generation time in exchange for higher quality (audit adds ~30-60s per deck)
-- Design system consolidation is backward-compatible (old paths redirect to new registry)
-- Chart expansion is additive (existing charts continue to work unchanged)
 
-## Dependencies
-- Existing `export_images.py` and `export_html.py` for rendering infrastructure
-- Existing `validate_deck.py` for deterministic checks (audit extends, not replaces)
-- kimi-slides reference files for chart schema and anti-slop patterns (attribution required)
+<!--
+  ACTION REQUIRED: The content in this section represents placeholders.
+  Fill them out with the right assumptions based on reasonable defaults
+  chosen when the feature description did not specify certain details.
+-->
 
-## Success Metrics
-- **Audit Precision**: ≥90% of pixel-level audit findings are true positives (not false alarms)
-- **Edit Fidelity**: ≥95% element preservation in round-trip conversion
-- **Context Cost**: Design system loading stays ≤100KB until user selection
-- **Chart Coverage**: 13+ series types supported with validation
-- **User Satisfaction**: Post-optimization decks require ≤1 revision round (down from current ~2-3)
+- [Assumption about target users, e.g., "Users have stable internet connectivity"]
+- [Assumption about scope boundaries, e.g., "Mobile support is out of scope for v1"]
+- [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
+- [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]

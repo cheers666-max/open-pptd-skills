@@ -236,7 +236,11 @@
   let uidSeq = 0; // 确定性 id 计数器（buildDeck 时重置 → 同一 deck 每次渲染/导出产物一致）
 
   function warn(deck, kind, msg) {
-    deck.warnings.push({ kind, msg });
+    const context = deck.renderContext || {};
+    deck.warnings.push({ kind, msg, ...context });
+    if (["element", "media", "icon"].includes(kind) || /渲染错误|只支持单系列/.test(msg)) {
+      (deck.renderErrors ||= []).push({ message: msg, ...context });
+    }
   }
 
   /* ---------- 颜色与主题 ---------- */
@@ -256,6 +260,8 @@
 
   // 富文本字符串中的 $token → 实际色值
   function resolveRichTokens(text, deck) {
+    if (typeof text === "number" || typeof text === "boolean") text = String(text);
+    if (typeof text !== "string") throw new Error("text must be a string or scalar value");
     return text.replace(/\$([A-Za-z_][\w-]*)/g, (m, name) => {
       const resolved = deck.manifest.theme?.colors?.[name];
       return resolved !== undefined ? resolved : m;
@@ -277,10 +283,18 @@
     return undefined;
   }
 
+  function validateGradient(fill) {
+    if (!Array.isArray(fill.stops) || fill.stops.length < 2 || fill.stops.some(stop =>
+      typeof stop?.position !== "number" || !Number.isFinite(stop.position) || stop.position < 0 || stop.position > 1 || typeof stop.color !== "string" || !stop.color)) {
+      throw new Error("Invalid PPTD gradient: use top-level stops with position [0,1] and color");
+    }
+  }
+
   function fillToCss(fill, deck) {
     if (!fill) return undefined;
     if (fill.type === "solid") return cssColor(fill.color, deck);
     if (fill.type === "gradient") {
+      validateGradient(fill);
       const stops = (fill.stops || [])
         .map((s) => `${cssColor(s.color, deck)} ${Math.round((s.position ?? 0) * 1000) / 10}%`)
         .join(", ");
@@ -299,6 +313,7 @@
 
   // gradient → SVG <linearGradient>/<radialGradient> 定义，返回 url(#id)
   function svgGradient(fill, deck, uid) {
+    validateGradient(fill);
     if (fill.gradientType === "radial") {
       const g = svgEl("radialGradient", { id: uid, cx: "50%", cy: "50%", r: "50%" });
       for (const s of fill.stops || []) {
@@ -583,6 +598,7 @@
   }
 
   function placeholder(elem, deck, text) {
+    (deck.renderErrors ||= []).push({ ...deck.renderContext, elementId: elem.elementId, message: text });
     const node = baseEl(elem, deck);
     node.className = "el el-placeholder";
     node.textContent = text;
@@ -620,7 +636,7 @@
     }
     Object.assign(node.style, shadowToCss(c.shadow, deck, true));
 
-    let rich = resolveRichTokens(c.text || "", deck);
+    let rich = resolveRichTokens(c.text ?? "", deck);
     if (!rich.includes("<")) {
       // 纯文本速记：按行包 <p>
       rich = rich.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("");
@@ -921,7 +937,7 @@
           letterSpacing: merged.letterSpacing !== undefined ? `${merged.letterSpacing}px` : undefined,
         });
         if (merged.backgroundColor !== undefined) td.style.backgroundColor = cssColor(merged.backgroundColor, deck);
-        let rich = resolveRichTokens(cell.text || "", deck);
+        let rich = resolveRichTokens(cell.text ?? "", deck);
         if (!rich.includes("<")) rich = rich.split("\n").map((ln) => `<p>${escapeHtml(ln)}</p>`).join("");
         td.innerHTML = `<div class="el-cell">${rich}</div>`;
         tr.appendChild(td);
@@ -1272,7 +1288,8 @@
 
     // Legend
     if (elem.legend !== false) {
-      const lx = w - 76, ly = 12;
+      const lx = w - 76;
+      let ly = 12;
       rows.forEach((row, i) => {
         svg.appendChild(svgEl("rect", { x: lx, y: ly, width: 10, height: 10, fill: palette[i % palette.length] }));
         const t = svgEl("text", { x: lx + 14, y: ly + 9, "font-size": 10, fill: "#333" });
@@ -1677,23 +1694,35 @@
 
   let gSeq = 0;
 
-  function renderPage(page, deck) {
+  function renderPage(page, deck, pageIndex = 0) {
+    deck.renderContext = { pageNumber: pageIndex + 1, pageRef: deck.manifest.pages[pageIndex], elementId: "background" };
     const [W, H] = deck.manifest.size || [960, 540];
     const slide = el("div", "slide", { width: `${W}px`, height: `${H}px` });
     slide.dataset.pageType = page.pageType || "";
+    slide.dataset.pageRef = deck.manifest.pages[pageIndex];
 
     const bg = page.background || { type: "solid", color: "#FFFFFF" };
-    if (bg.type === "image") {
-      const bgNode = el("div", "el-bg");
-      bgNode.style.background = fillToCss(bg, deck);
-      if (bg.opacity !== undefined) bgNode.style.opacity = bg.opacity;
-      slide.appendChild(bgNode);
-    } else {
-      slide.style.background = fillToCss(bg, deck) || "#FFFFFF";
+    try {
+      if (bg.type === "image") {
+        if (!deck.images[normalizeRel(bg.src)] && !String(bg.src || "").startsWith("data:")) {
+          warn(deck, "media", `背景图片未本地化: ${bg.src}`);
+        }
+        const bgNode = el("div", "el-bg");
+        bgNode.style.background = fillToCss(bg, deck);
+        if (bg.opacity !== undefined) bgNode.style.opacity = bg.opacity;
+        slide.appendChild(bgNode);
+      } else {
+        slide.style.background = fillToCss(bg, deck) || "#FFFFFF";
+      }
+    } catch (err) {
+      warn(deck, "element", `background 渲染失败: ${err.message}`);
+      slide.appendChild(placeholder({elementId: "background", bounds: [0, 0, W, H]}, deck,
+        `背景渲染失败: ${err.message}`));
     }
 
     let elIdx = 0;
     for (const elem of page.elements || []) {
+      deck.renderContext = { pageNumber: pageIndex + 1, pageRef: deck.manifest.pages[pageIndex], elementId: elem.elementId };
       try {
         const renderer = renderers[elem.elementType];
         if (!renderer) {
@@ -1732,7 +1761,7 @@
     const refs = new Set();
     (function walk(obj) {
       if (!obj || typeof obj !== "object") return;
-      if ((obj.elementType === "image" || obj.type === "image") && typeof obj.src === "string" && !/^(https?:|data:)/.test(obj.src)) {
+      if ((obj.elementType === "image" || obj.type === "image") && typeof obj.src === "string" && !/^(https?:|data:|search:)/.test(obj.src)) {
         refs.add(normalizeRel(obj.src));
       }
       for (const v of Object.values(obj)) walk(v);
@@ -1798,7 +1827,7 @@
     const manifest = jsyaml.load(manifestText);
     const pages = [];
     for (const rel of manifest.pages || []) {
-      const res = await fetch(new URL(rel, dir).href);
+      const res = await fetch(localFileUrl(rel, dir));
       if (!res.ok) throw new Error(`页面读取失败: ${rel}`);
       pages.push(jsyaml.load(await res.text()));
     }
@@ -1806,7 +1835,7 @@
     for (const p of pages) for (const r of collectImageRefs(p)) used.add(r);
     const images = {};
     for (const rel of used) {
-      const res = await fetch(new URL(rel, dir).href);
+      const res = await fetch(localFileUrl(rel, dir));
       if (res.ok) {
         const blob = await res.blob();
         const dataUrl = await new Promise((resolve, reject) => {
@@ -1819,6 +1848,12 @@
       }
     }
     return { manifest, pages, images, name: manifest.title || deckPath.split("/").pop(), path: deckPath };
+  }
+
+  function localFileUrl(relativePath, baseUrl) {
+    // PPTD refs are literal file paths, not pre-encoded URLs. Encode once so
+    // cover%23.png and cover#.png cannot silently resolve to the same image.
+    return new URL(normalizeRel(relativePath).split("/").map(encodeURIComponent).join("/"), baseUrl).href;
   }
 
   /* ---------- IndexedDB 缓存（恢复上次打开的 deck） ---------- */
@@ -1871,10 +1906,32 @@
 
   const $ = (id) => document.getElementById(id);
 
+  function namespaceCloneIds(clone, prefix) {
+    // SVG url(#id) resolves against the document, including hidden thumbnails.
+    // Keep each clone's markers/gradients/clip paths local; retain global icon refs.
+    const ids = new Map();
+    for (const node of clone.querySelectorAll("[id]")) {
+      const old = node.id;
+      ids.set(old, `${prefix}${old}`);
+      node.id = ids.get(old);
+    }
+    for (const node of clone.querySelectorAll("*")) {
+      for (const attr of [...node.attributes]) {
+        let value = attr.value;
+        for (const [old, renamed] of ids) {
+          value = value.replaceAll(`url(#${old})`, `url(#${renamed})`);
+          if ((attr.localName === "href") && value === `#${old}`) value = `#${renamed}`;
+        }
+        if (value !== attr.value) node.setAttributeNS(attr.namespaceURI, attr.name, value);
+      }
+    }
+  }
+
   function buildDeck(loaded) {
     uidSeq = 0;
-    state.deck = { ...loaded, warnings: [] };
-    state.slides = state.deck.pages.map((page) => renderPage(page, state.deck));
+    state.deck = { ...loaded, warnings: [], renderErrors: [] };
+    state.slides = state.deck.pages.map((page, index) => renderPage(page, state.deck, index));
+    state.deck.renderContext = {};
 
     const mount = $("slide-mount");
     mount.replaceChildren(...state.slides);
@@ -1890,6 +1947,7 @@
       // 动态调整缩略图高度以匹配 deck 宽高比
       thumb.style.height = `${Math.round(deckH * thumbScale)}px`;
       const clone = slide.cloneNode(true);
+      namespaceCloneIds(clone, `thumb-${i}-`);
       clone.style.position = "absolute";
       clone.style.inset = "0";
       clone.style.display = "block";
@@ -2192,7 +2250,41 @@ ${sections.join("\n")}
   }
 
   // 导出 ZIP（index.html + 每页 page_NN.html）
+  async function renderHealth(pageNumber = null) {
+    await document.fonts.ready;
+    const slides = pageNumber ? [state.slides[pageNumber - 1]] : state.slides;
+    const errors = (state.deck.renderErrors || []).filter(e => !pageNumber || e.pageNumber === pageNumber);
+    const decoded = new Map();
+    for (const slide of slides) {
+      if (!slide) { errors.push({ message: "Requested page does not exist", pageNumber }); continue; }
+      const resources = [];
+      for (const node of [slide, ...slide.querySelectorAll("*")]) {
+        if (node.localName === "img") resources.push([node, node.getAttribute("src")]);
+        if (node.localName === "image") resources.push([node, node.getAttribute("href") || node.getAttributeNS("http://www.w3.org/1999/xlink", "href")]);
+        for (const match of (node.style?.backgroundImage || "").matchAll(/url\(["']?([^"')]+)["']?\)/g)) resources.push([node, match[1]]);
+      }
+      for (const [node, src] of resources) {
+        if (!src || src.startsWith("#")) continue;
+        if (!decoded.has(src)) {
+          const image = new Image();
+          image.src = src;
+          decoded.set(src, image.decode());
+        }
+        try { await decoded.get(src); } catch {
+          const pageIndex = state.slides.indexOf(slide);
+          const elementIndex = node.closest(".el")?.dataset?.elIdx;
+          errors.push({ pageNumber: pageIndex + 1, pageRef: slide.dataset.pageRef,
+                        elementId: state.deck.pages[pageIndex]?.elements?.[elementIndex]?.elementId,
+                        message: `Image failed to decode: ${src.slice(0, 100)}` });
+        }
+      }
+    }
+    return { ok: errors.length === 0, ready: true, pageNumber, errors };
+  }
+
   async function exportHTMLBundle(deck) {
+    const health = await renderHealth();
+    if (!health.ok) throw new Error(JSON.stringify(health.errors));
     const enc = new TextEncoder();
     const cache = new Map();
     const dataUrlOf = async (url) => {
@@ -2308,6 +2400,12 @@ ${sections.join("\n")}
         const loaded = await loadFromPath(params.get("deck"));
         buildDeck(loaded);
         if (params.get("page")) goto(parseInt(params.get("page"), 10) - 1);
+        const health = await renderHealth(params.get("page") ? Number(params.get("page")) : null);
+        const healthNode = document.createElement("pre");
+        healthNode.id = "render-health";
+        healthNode.hidden = true;
+        healthNode.textContent = JSON.stringify(health);
+        document.body.appendChild(healthNode);
         setStatus(`已加载 ${loaded.name}（${state.slides.length} 页）`);
         if (params.get("export-test")) {
           // 测试钩子：导出 ZIP → base64 写入隐藏 div，供 headless dump-dom 提取验证

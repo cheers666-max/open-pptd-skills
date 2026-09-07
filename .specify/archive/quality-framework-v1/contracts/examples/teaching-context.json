@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "open-pptd-context/1.0",
+  "task": {
+    "id": "teaching-example",
+    "operation": "create",
+    "purpose": "Explain a ratio using illustrative numbers",
+    "audience": "Learners",
+    "targetFormats": [
+      "pptd",
+      "pptx",
+      "html"
+    ],
+    "pageCount": {
+      "mode": "fixed",
+      "value": 1
+    },
+    "editablePageIds": [],
+    "expansionPolicy": "none",
+    "network": {
+      "research": false,
+      "images": false,
+      "vlm": false
+    },
+    "allowDecorativeFallback": false,
+    "editableResourcePaths": [],
+    "deliveryPolicy": {
+      "version": "open-pptd-delivery/1.0",
+      "origin": "default",
+      "allowedDegradations": []
+    }
+  },
+  "design": {
+    "referencePath": "reference/design_system/academic/pastel-derivation/design.md",
+    "constraints": [
+      "No deck-wide minimum element count",
+      "Preserve the stated teaching sequence"
+    ]
+  },
+  "pages": [
+    {
+      "id": "ratio",
+      "pageRef": "pages/01.page",
+      "role": "content",
+      "objective": "Understand a proportion",
+      "takeaway": "Two out of four equals one half",
+      "prerequisites": [],
+      "claimIds": [
+        "example-ratio"
+      ],
+      "layoutIntent": "Worked example"
+    }
+  ],
+  "sources": [],
+  "claims": [
+    {
+      "id": "example-ratio",
+      "kind": "illustrative",
+      "statement": "In this example two of four items are selected",
+      "sourceIds": [],
+      "metric": {
+        "id": "selected_share",
+        "value": 0.5,
+        "unit": "ratio",
+        "scope": {
+          "denominator": "four illustrative items",
+          "basis": "actual"
+        }
+      },
+      "bindings": [
+        {
+          "claimId": "example-ratio",
+          "pageId": "ratio",
+          "elementId": "ratio-text",
+          "contentPath": "/content/text",
+          "representation": "text",
+          "expectedText": "2 / 4 = 50%"
+        }
+      ],
+      "review": {
+        "status": "unreviewed",
+        "method": "author",
+        "sourceLocators": [],
+        "note": "This fixture is illustrative; no external factual claim or real review is asserted."
+      }
+    }
+  ]
+}

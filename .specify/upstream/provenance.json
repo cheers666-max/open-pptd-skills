@@ -1,0 +1,64 @@
+{
+  "repository": "https://github.com/github/spec-kit",
+  "commit": "4a7341a93d944d6efe153b71da4a1adb9c2b578c",
+  "imported": "2026-09-05",
+  "scope": "Planning scripts/templates only; existing constitution preserved; no global CLI upgrade",
+  "bootstrapNote": "Installed Specify CLI 0.0.22 init failed: release has no spec-kit-template-codex-sh asset. Used pinned official sources instead.",
+  "files": [
+    {
+      "source": "scripts/bash/common.sh",
+      "destination": ".specify/scripts/bash/common.sh",
+      "sha256": "170e91ece502b88d83c715e427473843e0b358f550e86e3ff524546df405a9ca"
+    },
+    {
+      "source": "scripts/bash/create-new-feature.sh",
+      "destination": ".specify/scripts/bash/create-new-feature.sh",
+      "sha256": "9f7a741d9766a6c1c5d5e44368f2c6bea6026b399ff6f0055870f760afdb8726"
+    },
+    {
+      "source": "scripts/bash/setup-plan.sh",
+      "destination": ".specify/scripts/bash/setup-plan.sh",
+      "sha256": "d0bd298c026446f3c63167130d65e49e4aa4485de6bef18bcdfd57b19aa0de96"
+    },
+    {
+      "source": "scripts/bash/setup-tasks.sh",
+      "destination": ".specify/scripts/bash/setup-tasks.sh",
+      "sha256": "0f7d7e996ed4a26ab7bf09bf10540366ee402b930a4a9cbc0ee7bc6a8bd0013b"
+    },
+    {
+      "source": "scripts/bash/check-prerequisites.sh",
+      "destination": ".specify/scripts/bash/check-prerequisites.sh",
+      "sha256": "5e5e3dbfe29d8ca0a6f06de80fb2042cd3d26f42cff475b3a097c4aa0d70f16d"
+    },
+    {
+      "source": "scripts/bash/resolve-template.sh",
+      "destination": ".specify/scripts/bash/resolve-template.sh",
+      "sha256": "829e227096abc8bf0889889ec9f792f503ca5d395b7836a8a7eb739ee75214e7"
+    },
+    {
+      "source": "templates/spec-template.md",
+      "destination": ".specify/templates/spec-template.md",
+      "sha256": "3945437fc35cd30a5b2bf7beea680337c3516826d3efa5a6b92c4a7eca1ba28e"
+    },
+    {
+      "source": "templates/plan-template.md",
+      "destination": ".specify/templates/plan-template.md",
+      "sha256": "dfba43da2b2a207ff8c177a0fba03af074fd45e261696b4b64172041fad2e992"
+    },
+    {
+      "source": "templates/tasks-template.md",
+      "destination": ".specify/templates/tasks-template.md",
+      "sha256": "1e448e9153462e8c5b5a55231a54c756d870a82950d4dd9425a2bf5b7008a0d9"
+    },
+    {
+      "source": "templates/checklist-template.md",
+      "destination": ".specify/templates/checklist-template.md",
+      "sha256": "c65b7f10aa9a965ea9c7f4e879d4ab0240665473731c5e9e638c4acb3ca9afc4"
+    },
+    {
+      "source": "extensions/agent-context/scripts/bash/update-agent-context.sh",
+      "destination": ".specify/scripts/bash/update-agent-context.sh",
+      "sha256": "356ba4508ab6ab47af23b9ad945e8a5730b8289289d896cfe234eba055a9602e"
+    }
+  ]
+}

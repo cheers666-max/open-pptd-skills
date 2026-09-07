@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:open-pptd:quality:1.0",
+  "title": "Open PPTD Quality Report",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "tool",
+    "input",
+    "scope",
+    "checks",
+    "issues",
+    "artifacts",
+    "decision"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "open-pptd-quality/1.0"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": [
+        "fingerprint",
+        "manifestHash",
+        "pageHashes",
+        "mediaHashes",
+        "contextHash",
+        "policyHash"
+      ],
+      "properties": {
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "manifestHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "pageHashes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "mediaHashes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "contextHash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policyHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "profile",
+        "pageRefs",
+        "formats",
+        "requiredChecks"
+      ],
+      "properties": {
+        "profile": {
+          "enum": [
+            "structural",
+            "delivery"
+          ]
+        },
+        "pageRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "formats": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "pptd",
+              "pptx",
+              "html",
+              "png"
+            ]
+          }
+        },
+        "requiredChecks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "requiredCheckScopes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/issue"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "rawReports": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "decision": {
+      "enum": [
+        "ready",
+        "ready_with_warnings",
+        "incomplete",
+        "blocked"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "evidenceFingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "required": [
+        "id",
+        "status",
+        "required",
+        "method",
+        "pageRefs",
+        "reason",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "degraded",
+            "not_checked",
+            "failed"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "method": {
+          "enum": [
+            "static",
+            "dom",
+            "export",
+            "author_review",
+            "heuristic",
+            "aggregate"
+          ]
+        },
+        "pageRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "required": [
+        "code",
+        "severity",
+        "checkId",
+        "message",
+        "evidence"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
+        },
+        "checkId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pageRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "elementId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": [
+        "format",
+        "path",
+        "sha256",
+        "pageRefs",
+        "representation",
+        "status"
+      ],
+      "properties": {
+        "format": {
+          "enum": [
+            "pptd",
+            "pptx",
+            "html",
+            "png"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "pageRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "representation": {
+          "enum": [
+            "native",
+            "vector",
+            "raster",
+            "fallback",
+            "mixed"
+          ]
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "degraded",
+            "not_checked",
+            "failed"
+          ]
+        }
+      }
+    }
+  }
+}

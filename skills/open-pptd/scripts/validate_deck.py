@@ -25,6 +25,7 @@ import math
 import re
 import sys
 import unicodedata
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -171,6 +172,7 @@ def plain_text(value: Any) -> str:
     if not isinstance(value, str):
         return ""
     source = BR_RE.sub("\n", value)
+    source = re.sub(r"</(?:p|div|li|h[1-6])\s*>", "\n", source, flags=re.I).rstrip("\n")
     return html.unescape(TAG_RE.sub("", source)).replace("\r\n", "\n").replace("\r", "\n")
 
 
@@ -235,6 +237,100 @@ def orphan_limit_for_role(role: Any) -> int:
     return TITLE_ORPHAN_SUBSTANTIVE_LIMIT if role in TITLE_ROLES else DEFAULT_ORPHAN_SUBSTANTIVE_LIMIT
 
 
+def _line_pixels(value: Any, font_size: float) -> float:
+    value = str(value).strip().lower()
+    try:
+        return float(value[:-2]) if value.endswith("px") else font_size * float(value)
+    except ValueError:
+        return font_size * 1.2
+
+
+class _TextRuns(HTMLParser):
+    """Estimate inline font/line-height runs; not a browser layout engine."""
+    BLOCKS = {"p", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6"}
+
+    def __init__(self, font_size, line_height):
+        super().__init__(convert_charrefs=True)
+        self.stack = [("root", {"font-size": font_size, "line-height": line_height})]
+        self.runs = []
+
+    def newline(self, force=False):
+        if force or (self.runs and not self.runs[-1][0].endswith("\n")):
+            style = self.stack[-1][1]
+            self.runs.append(("\n", style["font-size"], _line_pixels(style["line-height"], style["font-size"])))
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "br":
+            self.newline(True)
+            return
+        if tag in self.BLOCKS:
+            self.newline()
+        style = dict(self.stack[-1][1])
+        css = dict(attrs).get("style") or ""
+        for declaration in css.split(";"):
+            key, sep, value = declaration.partition(":")
+            key, value = key.strip().lower(), value.strip().lower()
+            if not sep:
+                continue
+            if key == "font-size":
+                try:
+                    if value.endswith("px") or re.fullmatch(r"[\d.]+", value):
+                        style[key] = float(value.removesuffix("px"))
+                    elif value.endswith("pt"):
+                        style[key] = float(value[:-2]) * 4 / 3
+                except ValueError:
+                    pass
+            elif key == "line-height":
+                style[key] = value
+        if tag not in {"img", "hr", "input", "wbr"}:
+            self.stack.append((tag, style))
+
+    def handle_endtag(self, tag):
+        if tag in self.BLOCKS:
+            self.newline()
+        for i in range(len(self.stack) - 1, 0, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                break
+
+    def handle_data(self, data):
+        if not data.strip() and "\n" in data:
+            return  # indentation between HTML blocks is not an extra paragraph
+        style = self.stack[-1][1]
+        self.runs.append((data, style["font-size"], _line_pixels(style["line-height"], style["font-size"])))
+
+
+def _estimated_lines(text, font_size, line_height, width, wrap, letter_spacing):
+    if TAG_RE.search(text):
+        parser = _TextRuns(font_size, line_height)
+        parser.feed(text)
+        runs = parser.runs
+        while runs and runs[-1][0] == "\n":
+            runs.pop()
+    else:
+        runs = [(plain_text(text), font_size, _line_pixels(line_height, font_size))]
+    lines, heights, widths, auto = [], [], [], []
+    current, used, height, wrapped = "", 0.0, 0.0, False
+    for segment, font, line_px in runs:
+        for char in segment:
+            if char == "\n":
+                lines.append(current.rstrip()); heights.append(height or line_px); widths.append(used); auto.append(wrapped)
+                current, used, height, wrapped = "", 0.0, 0.0, False
+                continue
+            needed = glyph_em_width(char) * font + (letter_spacing if current else 0)
+            if wrap and current and used + needed > max(width, .01):
+                lines.append(current.rstrip()); heights.append(height); widths.append(used); auto.append(True)
+                current, used, height, wrapped = "", 0.0, 0.0, True
+                if char.isspace():
+                    continue
+                needed = glyph_em_width(char) * font
+            current += char
+            used += needed
+            height = max(height, font, line_px)
+    lines.append(current.rstrip()); heights.append(height or _line_pixels(line_height, font_size)); widths.append(used); auto.append(wrapped)
+    return lines, heights, widths, auto
+
+
 def layout_text(
     text: str,
     font_size: float,
@@ -247,21 +343,10 @@ def layout_text(
     orphan_limit: int = DEFAULT_ORPHAN_SUBSTANTIVE_LIMIT,
 ) -> Dict[str, Any]:
     """Simulate text layout and detect orphans / overflow."""
-    clean = plain_text(text)
-    paragraphs = clean.split("\n")
-    lines: List[str] = []
-    auto_wrapped: List[bool] = []
-    for para in paragraphs:
-        if wrap:
-            wrapped = wrap_paragraph(para, font_size, max(box_width, 0.01), letter_spacing)
-        else:
-            wrapped = [para]
-        lines.extend(wrapped)
-        auto_wrapped.extend([len(wrapped) > 1] * len(wrapped))
-
+    lines, heights, widths, auto_wrapped = _estimated_lines(text, font_size, line_height, box_width, wrap, letter_spacing)
     line_count = max(1, len(lines))
-    estimated_height = line_count * font_size * line_height
-    width_overflow = not wrap and any(text_width(line, font_size, letter_spacing) > box_width + 0.5 for line in lines)
+    estimated_height = sum(heights)
+    width_overflow = not wrap and any(width > box_width + 0.5 for width in widths)
     height_overflow = estimated_height > box_height + 0.5
 
     last_line = lines[-1] if lines else ""
@@ -312,17 +397,23 @@ def valid_bounds(element: dict[str, Any]) -> Optional[Tuple[float, float, float,
 # ---------------------------------------------------------------------------
 
 def text_issues(element: dict[str, Any], page_number: int, page_ref: str,
-                slide_w: float, slide_h: float) -> List[dict[str, Any]]:
+                slide_w: float, slide_h: float, *, theme: Optional[dict] = None) -> List[dict[str, Any]]:
     if element.get("elementType") != "text":
         return []
     bounds = valid_bounds(element)
     content = element.get("content") if isinstance(element.get("content"), dict) else {}
+    style = content.get("style")
+    if isinstance(style, str) and style.startswith("$"):
+        base = (theme or {}).get("textStyles", {}).get(style[1:], {})
+        content = {**base, **content}
     text = plain_text(content.get("text"))
     if bounds is None or not text:
         return []
 
-    font_size = float(content.get("fontSize", 16) or 16)
-    line_height = float(content.get("lineHeight", 1.2) or 1.2)
+    font_size = float(content.get("fontSize", 18) or 18)
+    line_height = (f"{content['lineHeightPx']}px" if content.get("lineHeightPx") is not None
+                   else content.get("lineHeight", 1))
+    margin_top = float(content.get("marginTop", 0) or 0)
     letter_spacing = float(content.get("letterSpacing", 0) or 0)
     wrap = content.get("wrap", True) is not False
     role = element.get("role")
@@ -352,7 +443,7 @@ def text_issues(element: dict[str, Any], page_number: int, page_ref: str,
     effective_width = max(font_size, w - horizontal_safety)
 
     layout = layout_text(
-        text, font_size, line_height, effective_width, h,
+        content.get("text", ""), font_size, line_height, effective_width, h - margin_top,
         wrap=wrap, letter_spacing=letter_spacing, orphan_limit=orphan_limit,
     )
 
@@ -365,6 +456,7 @@ def text_issues(element: dict[str, Any], page_number: int, page_ref: str,
         "fontSize": font_size,
         "lineHeight": line_height,
         "estimatedLines": layout["lines"],
+        "measurement": "estimated",
     }
     issues: List[dict[str, Any]] = list(viewport_issues)
 
@@ -372,7 +464,7 @@ def text_issues(element: dict[str, Any], page_number: int, page_ref: str,
         issues.append({
             **common,
             "code": "text-capacity-overflow",
-            "estimatedHeight": layout["estimatedHeight"],
+            "estimatedHeight": layout["estimatedHeight"] + margin_top,
             "availableHeight": h,
             "repairability": "text-or-geometry",
         })
@@ -630,6 +722,88 @@ def anti_slop_text_issues(page: dict[str, Any], page_number: int, page_ref: str)
     return issues
 
 
+INTERNAL_TOKEN_PATTERNS = [
+    # Internal artifact names and workflow words that must never reach audience-facing text.
+    r"images_report\.json", r"DESIGN_CONTEXT", r"downloads\.json", r"images_manifest",
+    r"材料包", r"资料包", r"待与.{0,12}核对后再使用", r"待核对后再使用", r"主写手",
+]
+
+
+def internal_token_leak_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
+    """Audience-facing text must not carry internal artifact names or workflow vocabulary.
+
+    Speaker notes are exempt: they are private by design.
+    """
+    issues: List[dict[str, Any]] = []
+    elements = page.get("elements", [])
+    if not isinstance(elements, list):
+        return issues
+    patterns = [re.compile(pat) for pat in INTERNAL_TOKEN_PATTERNS]
+    for el in elements:
+        if not isinstance(el, dict) or el.get("elementType") != "text":
+            continue
+        content = el.get("content", {})
+        text = content.get("text", "") if isinstance(content, dict) else ""
+        plain = plain_text(text) if isinstance(text, str) else ""
+        if not plain:
+            continue
+        for pat in patterns:
+            m = pat.search(plain)
+            if m:
+                issues.append({
+                    "code": "internal-token-leak",
+                    "pageNumber": page_number,
+                    "pageRef": page_ref,
+                    "elementId": el.get("elementId", ""),
+                    "matched": m.group(0),
+                    "detail": f"Internal artifact/workflow token in audience-facing text: '{m.group(0)}'",
+                    "repairability": "rewrite-text",
+                })
+                break
+    return issues
+
+
+def _page_image_sources(page: dict[str, Any]) -> List[str]:
+    sources: List[str] = []
+    bg = page.get("background", {})
+    if isinstance(bg, dict) and isinstance(bg.get("src"), str) and bg.get("src"):
+        sources.append(bg["src"])
+    for el in page.get("elements", []) or []:
+        if isinstance(el, dict) and el.get("elementType") == "image" and isinstance(el.get("src"), str) and el["src"]:
+            sources.append(el["src"])
+    return sources
+
+
+def duplicate_image_issues(pages: List[Tuple[int, str, dict[str, Any]]]) -> List[dict[str, Any]]:
+    """Deck-wide image uniqueness: the same media file on more than one page.
+
+    A cover/closing pair reusing one image is reported as repairability 'style' (acceptable with a
+    different crop or overlay); any other repeat is 'asset-replacement'.
+    """
+    usage: Dict[str, List[int]] = {}
+    for page_number, _ref, page in pages:
+        for src in set(_page_image_sources(page)):
+            if src.startswith(("search:", "http://", "https://")):
+                continue
+            usage.setdefault(src, []).append(page_number)
+    issues: List[dict[str, Any]] = []
+    last = max((n for n, _r, _p in pages), default=0)
+    for src, numbers in sorted(usage.items()):
+        if len(numbers) < 2:
+            continue
+        cover_closing = sorted(numbers) == [1, last] and last > 1
+        issues.append({
+            "code": "duplicate-image",
+            "pageNumber": numbers[0],
+            "pageRef": next(r for n, r, _p in pages if n == numbers[0]),
+            "src": src[:80],
+            "pages": numbers,
+            "detail": f"Image used on pages {numbers}" + (" (cover/closing pair: vary crop or overlay)" if cover_closing else ""),
+            "repairability": "style" if cover_closing else "asset-replacement",
+        })
+    return issues
+
+
 def anti_slop_design_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
     """Detect AI-style design patterns: card layouts, rainbow color schemes."""
     issues: List[dict[str, Any]] = []
@@ -711,6 +885,36 @@ def anti_slop_design_issues(page: dict[str, Any], page_number: int, page_ref: st
 # Main audit
 # ---------------------------------------------------------------------------
 
+def gradient_issues(page: dict, page_number: int, page_ref: str) -> List[dict[str, Any]]:
+    """Reject malformed native gradients that otherwise silently become black fills."""
+    issues, visited = [], set()
+
+    def visit(value, location, element_id=None):
+        if not isinstance(value, (dict, list)) or id(value) in visited:
+            return
+        visited.add(id(value))
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                visit(item, f"{location}/{index}", element_id)
+            return
+        element_id = value.get("elementId", element_id)
+        if value.get("type") == "gradient":
+            stops = value.get("stops")
+            valid = isinstance(stops, list) and len(stops) >= 2 and all(
+                isinstance(stop, dict) and isinstance(stop.get("position"), (int, float))
+                and not isinstance(stop.get("position"), bool) and 0 <= stop["position"] <= 1
+                and isinstance(stop.get("color"), str) and bool(stop["color"])
+                for stop in stops)
+            if not valid:
+                issues.append(dict(code="invalid-gradient", pageNumber=page_number, pageRef=page_ref,
+                    elementId=element_id, location=location, repairability="format",
+                    message="Gradient requires at least two top-level stops with position [0,1] and color; see PPTD Fill."))
+        for key, item in value.items():
+            visit(item, f"{location}/{key}", element_id)
+
+    visit(page, "")
+    return issues
+
 def audit_project(
     project: Path,
     manifest_path: Optional[Path] = None,
@@ -731,6 +935,7 @@ def audit_project(
 
     issues: List[dict[str, Any]] = []
     page_hashes: List[dict[str, Any]] = []
+    loaded_pages: List[Tuple[int, str, dict[str, Any]]] = []
     checked_text = 0
     checked_images = 0
 
@@ -746,11 +951,14 @@ def audit_project(
             continue
         page_hashes.append({"pageNumber": page_number, "pageRef": page_ref, "sha256": sha256_file(page_path)})
         page = load_structured(page_path)
+        loaded_pages.append((page_number, str(page_ref), page))
 
         # Page-level checks
+        issues.extend(gradient_issues(page, page_number, str(page_ref)))
         issues.extend(page_background_issues(page, page_number, str(page_ref), slide_size[0], slide_size[1]))
         issues.extend(unresolved_src_issues(page, page_number, str(page_ref)))
         issues.extend(anti_slop_text_issues(page, page_number, str(page_ref)))
+        issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
         issues.extend(anti_slop_design_issues(page, page_number, str(page_ref)))
 
         for element in page.get("elements", []):
@@ -758,7 +966,8 @@ def audit_project(
                 continue
             if element.get("elementType") == "text":
                 checked_text += 1
-                issues.extend(text_issues(element, page_number, str(page_ref), slide_size[0], slide_size[1]))
+                issues.extend(text_issues(element, page_number, str(page_ref), slide_size[0], slide_size[1],
+                                          theme=manifest.get("theme", {})))
             elif element.get("elementType") == "image":
                 checked_images += 1
                 issue = image_resolution_issue(
@@ -767,6 +976,9 @@ def audit_project(
                 )
                 if issue is not None:
                     issues.append(issue)
+
+    # Deck-level checks
+    issues.extend(duplicate_image_issues(loaded_pages))
 
     issue_counts: Dict[str, int] = {}
     for issue in issues:

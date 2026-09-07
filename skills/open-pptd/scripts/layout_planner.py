@@ -1,32 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""layout_planner.py — 分页节奏约束规划器。
+"""layout_planner.py — read-only rhythm suggestions for an existing outline.
 
-在 step2 末尾（确定页数后、逐页生成前）运行，给每页分配原型（archetype），
-并强制节奏规则：
-  1. 不允许连续两页同原型（除非 silhouette 不同）
-  2. 相邻 content 页的 silhouette 必须有变化
-  3. 每 N 个 content 页必须插入节奏分隔页（section divider）
-
-用法：
-  python3 layout_planner.py <outline.json> [--max-content-between-dividers N]
-  python3 layout_planner.py --demo 15
-
-outline.json 格式：
-  {
-    "title": "...",
-    "pages": [
-      {"index": 1, "type": "cover", "title": "..."},
-      {"index": 2, "type": "content", "title": "..."},
-      ...
-    ]
-  }
+Preserves page count, sequence, types and user metadata. Layout similarity
+requires explicit layoutIntent/silhouette; title length is not layout evidence.
+Usage: python3 layout_planner.py outline.json --json
 """
 from __future__ import annotations
 
 import argparse
 import json
-import math
+import copy
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -62,87 +46,50 @@ def classify_archetype(page: Dict[str, Any]) -> str:
     return "content"
 
 
-def compute_silhouette(page: Dict[str, Any]) -> str:
-    """计算页面 silhouette 哈希（简化版：基于标题长度和类型）。"""
-    title = page.get("title", "")
-    page_type = page.get("type", "content")
-    # 用标题长度分桶 + 类型作为 silhouette
-    title_bucket = min(len(title) // 10, 5)
-    return f"{page_type}:{title_bucket}"
+def compute_silhouette(page: Dict[str, Any]) -> Optional[str]:
+    """Only explicit author layout information can support a similarity hint."""
+    return page.get("silhouette") or page.get("layoutIntent")
 
 
-def plan_rhythm(
-    pages: List[Dict[str, Any]],
-    max_content_between_dividers: int = DEFAULT_MAX_CONTENT_BETWEEN_DIVIDERS,
-) -> List[Dict[str, Any]]:
-    """给每页分配原型，并强制节奏规则。"""
-    planned = []
-    consecutive_content = 0
-    last_archetype = None
-    last_silhouette = None
+def plan_rhythm(pages: List[Dict[str, Any]],
+                max_content_between_dividers: int = DEFAULT_MAX_CONTENT_BETWEEN_DIVIDERS) -> List[Dict[str, Any]]:
+    """Return the outline unchanged; suggestions are a separate report field."""
+    if not isinstance(pages, list) or not all(isinstance(p, dict) for p in pages):
+        raise ValueError("pages must be an array of page objects")
+    if max_content_between_dividers < 1:
+        raise ValueError("max-content-between-dividers must be positive")
+    return copy.deepcopy(pages)
 
-    for i, page in enumerate(pages):
+
+def validate_rhythm(planned: List[Dict[str, Any]],
+                    max_content_between_dividers: int = DEFAULT_MAX_CONTENT_BETWEEN_DIVIDERS) -> List[Dict[str, Any]]:
+    """Compatibility entry point: returns advisory suggestions, never edits."""
+    suggestions = []
+    content_run = 0
+    for i, page in enumerate(planned):
+        prev = planned[i - 1] if i else {}
+        same_group = bool(page.get("continuityGroup") and page.get("continuityGroup") == prev.get("continuityGroup"))
         archetype = classify_archetype(page)
-        silhouette = compute_silhouette(page)
-
-        # 规则 1: 不允许连续两页同原型（除非 silhouette 不同）
-        if archetype == last_archetype and archetype not in ("cover", "closing", "toc"):
-            if silhouette == last_silhouette:
-                # 尝试把 content 升级为 data 或 quote
-                if archetype == "content":
-                    archetype = "data" if i % 2 == 0 else "quote"
-                    silhouette = f"{archetype}:forced"
-
-        # 规则 3: 每 N 个 content 页必须插入节奏分隔页
-        if archetype in ("content", "data"):
-            consecutive_content += 1
-            if consecutive_content > max_content_between_dividers and i < len(pages) - 1:
-                # 在当前页前插入一个 section divider
-                planned.append({
-                    "index": f"{i}+",
-                    "type": "section",
-                    "archetype": "section",
-                    "title": "Section Divider",
-                    "silhouette": "section:divider",
-                    "inserted": True,
-                })
-                consecutive_content = 0
-                last_archetype = "section"
-                last_silhouette = "section:divider"
-        else:
-            consecutive_content = 0
-
-        planned.append({
-            "index": page.get("index", i + 1),
-            "type": page.get("type", "content"),
-            "archetype": archetype,
-            "title": page.get("title", ""),
-            "silhouette": silhouette,
-        })
-        last_archetype = archetype
-        last_silhouette = silhouette
-
-    return planned
-
-
-def validate_rhythm(planned: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """验证节奏规则，返回违规列表。"""
-    violations = []
-    for i in range(1, len(planned)):
-        prev = planned[i - 1]
-        curr = planned[i]
-        if curr["archetype"] == prev["archetype"] and curr["archetype"] not in ("cover", "closing", "toc"):
-            if curr["silhouette"] == prev["silhouette"]:
-                violations.append({
-                    "page": curr["index"],
-                    "type": "consecutive-same-archetype",
-                    "detail": f"Pages {prev['index']} and {curr['index']} share archetype '{curr['archetype']}' with same silhouette",
-                })
-    return violations
+        if same_group:
+            content_run = 0
+            continue
+        content_run = content_run + 1 if archetype in ("content", "data") else 0
+        if content_run == max_content_between_dividers + 1:
+            suggestions.append({"page": page.get("index", i + 1), "type": "long-content-run",
+                                "severity": "info", "detail": "Consider a transition within existing pages if it helps the narrative; preserve page count."})
+        intent = compute_silhouette(page)
+        if i and intent and intent == compute_silhouette(prev) and archetype in ("content", "data"):
+            suggestions.append({"page": page.get("index", i + 1), "type": "repeated-layout-intent",
+                                "severity": "info", "detail": "Review repeated layout only if unintended; mark a teaching continuityGroup to preserve purposeful repetition."})
+    return suggestions
 
 
 def generate_demo_outline(n: int) -> Dict[str, Any]:
     """生成 demo outline（用于测试）。"""
+    if n < 1:
+        raise ValueError("demo page count must be positive")
+    if n == 1:
+        return {"title": "Demo", "pages": [{"index": 1, "type": "cover", "title": "Title"}]}
     pages = [{"index": 1, "type": "cover", "title": "Title"}]
     for i in range(2, n):
         pages.append({"index": i, "type": "content", "title": f"Content page {i} with some text"})
@@ -167,17 +114,19 @@ def main():
         return 1
 
     planned = plan_rhythm(outline["pages"], args.max_content_between_dividers)
-    violations = validate_rhythm(planned)
+    suggestions = validate_rhythm(planned, args.max_content_between_dividers)
 
     report = {
         "title": outline.get("title", ""),
         "total_pages": len(planned),
         "archetype_counts": {},
-        "violations": violations,
+        "violations": [],
+        "suggestions": suggestions,
+        "mode": "advisory",
         "pages": planned,
     }
     for p in planned:
-        arch = p["archetype"]
+        arch = classify_archetype(p)
         report["archetype_counts"][arch] = report["archetype_counts"].get(arch, 0) + 1
 
     if args.json:
@@ -185,7 +134,7 @@ def main():
     else:
         print(json.dumps(report, ensure_ascii=False, indent=2))
 
-    return 0 if not violations else 1
+    return 0
 
 
 if __name__ == "__main__":

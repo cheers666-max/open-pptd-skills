@@ -1,0 +1,235 @@
+{
+  "date": "2026-09-05",
+  "model": "qihoo/360zhinao-turbo-aippt-agent-260824",
+  "runDirectory": "/var/folders/kf/j2_kwtmj30q6xf4tz527_mxw0000gn/T/open-pptd-pi-eval/20260905-222818-zg7777vy",
+  "execution": {
+    "status": "timed_out",
+    "elapsedSeconds": 600.216,
+    "firstTextSeconds": 99.835,
+    "toolCalls": 14,
+    "toolErrors": 0,
+    "streamErrors": [],
+    "tokens": {
+      "input": 20475,
+      "output": 10882,
+      "cacheRead": 159936,
+      "cacheWrite": 0,
+      "totalTokens": 191293
+    },
+    "skillUnchanged": true
+  },
+  "toolUnionSeconds": 92.68846200000007,
+  "outsideToolsSeconds": 507.52753799999994,
+  "toolTimings": [
+    {
+      "toolCallId": "chatcmpl-tool-8a7f6fedfe6cf11d",
+      "toolName": "read",
+      "startSeconds": 6.249585,
+      "endSeconds": 6.254876,
+      "durationSeconds": 0.005291,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-a63447973fa9ab96",
+      "toolName": "bash",
+      "startSeconds": 25.740035,
+      "endSeconds": 25.991362,
+      "durationSeconds": 0.251327,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-9743807f73fd4d0d",
+      "toolName": "read",
+      "startSeconds": 25.740581,
+      "endSeconds": 25.746548,
+      "durationSeconds": 0.005967,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-81ad7257567a1205",
+      "toolName": "read",
+      "startSeconds": 37.87832,
+      "endSeconds": 37.887197,
+      "durationSeconds": 0.008877,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-8f17092c8b0cd6e1",
+      "toolName": "bash",
+      "startSeconds": 37.879638,
+      "endSeconds": 37.900792,
+      "durationSeconds": 0.021154,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-aa152908e34edc9e",
+      "toolName": "bash",
+      "startSeconds": 107.144859,
+      "endSeconds": 107.466318,
+      "durationSeconds": 0.321459,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-9099018223c4dfd5",
+      "toolName": "read",
+      "startSeconds": 107.145269,
+      "endSeconds": 107.150439,
+      "durationSeconds": 0.00517,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-b281b32c340448f0",
+      "toolName": "write",
+      "startSeconds": 379.066053,
+      "endSeconds": 379.071428,
+      "durationSeconds": 0.005375,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-86702d6e4b009397",
+      "toolName": "write",
+      "startSeconds": 410.332885,
+      "endSeconds": 410.353565,
+      "durationSeconds": 0.02068,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-90991c89c50f8dd6",
+      "toolName": "bash",
+      "startSeconds": 416.013291,
+      "endSeconds": 420.276939,
+      "durationSeconds": 4.263648,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-8a607709a476790c",
+      "toolName": "bash",
+      "startSeconds": 426.036529,
+      "endSeconds": 432.644299,
+      "durationSeconds": 6.60777,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-80c8c85f87978782",
+      "toolName": "bash",
+      "startSeconds": 438.539346,
+      "endSeconds": 512.54903,
+      "durationSeconds": 74.009684,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-ab34b2ac97e5050b",
+      "toolName": "bash",
+      "startSeconds": 522.164606,
+      "endSeconds": 529.345362,
+      "durationSeconds": 7.180756,
+      "status": "completed",
+      "isError": false
+    },
+    {
+      "toolCallId": "chatcmpl-tool-b42f3694a4a2eadb",
+      "toolName": "read",
+      "startSeconds": 522.179186,
+      "endSeconds": 528.157249,
+      "durationSeconds": 5.978063,
+      "status": "completed",
+      "isError": false
+    }
+  ],
+  "localPayloadCapture": [
+    {
+      "model": "360zhinao-turbo-aippt-agent-260824",
+      "max_completion_tokens": 156000
+    },
+    {
+      "model": "360zhinao-turbo-aippt-agent-260824",
+      "enable_thinking": false,
+      "max_completion_tokens": 156000
+    }
+  ],
+  "remoteSmallProbes": [
+    {
+      "variant": "default",
+      "explicitBody": null,
+      "elapsedSeconds": 63.122,
+      "toolCalls": 1,
+      "timedOut": false,
+      "streamErrors": [],
+      "thinkingDeltaEvents": 56,
+      "visibleText": [
+        "\n\n323"
+      ]
+    },
+    {
+      "variant": "enable_thinking_false",
+      "explicitBody": {
+        "enable_thinking": false
+      },
+      "elapsedSeconds": 19.249,
+      "toolCalls": 1,
+      "timedOut": false,
+      "streamErrors": [],
+      "thinkingDeltaEvents": 52,
+      "visibleText": [
+        "\n\n323"
+      ]
+    },
+    {
+      "variant": "thinking_disabled",
+      "explicitBody": {
+        "thinking": {
+          "type": "disabled"
+        }
+      },
+      "elapsedSeconds": 5.081,
+      "toolCalls": 1,
+      "timedOut": false,
+      "streamErrors": [],
+      "thinkingDeltaEvents": 46,
+      "visibleText": [
+        "\n\n323"
+      ]
+    },
+    {
+      "variant": "chat_template_disabled",
+      "explicitBody": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "elapsedSeconds": 5.127,
+      "toolCalls": 1,
+      "timedOut": false,
+      "streamErrors": [],
+      "thinkingDeltaEvents": 57,
+      "visibleText": [
+        "\n\n323"
+      ]
+    }
+  ],
+  "diagnosticExports": [
+    {
+      "tool": "export_pptx.mjs",
+      "elapsedSeconds": 1.062,
+      "exit": 0
+    },
+    {
+      "tool": "export_html.py",
+      "elapsedSeconds": 4.531,
+      "exit": 0
+    }
+  ],
+  "note": "No hidden reasoning text, credentials or complete conversations included. Reasoning event counts are not token counts; distinct load/parameters are not controlled speed comparisons."
+}

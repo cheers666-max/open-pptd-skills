@@ -33,3 +33,6 @@ skills/open-pptd/tests/fixtures/*/validate-report.json
 .firecrawl/
 *-report.md
 2026-*.md
+
+# Evaluation reports are referenced by the checked-in validation docs.
+!eval/reports/*.md

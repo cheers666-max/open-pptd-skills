@@ -5,7 +5,7 @@
 [![npm version](https://img.shields.io/npm/v/open-pptd-skills)](https://www.npmjs.com/package/open-pptd-skills)
 [![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 
-开源演示文稿 Skill：让 AI Coding Agent 能够创建、编辑、复刻、读取并导出 PPT/PPTX。**每次生成默认同时交付两份成果：可继续编辑的 PPTD 项目和开箱即用的 PPTX 成品**（写入淡入淡出切换动画），并提供本地 PPTD 查看器支持随时手动预览。支持 Codex、Claude Code、Cursor、WorkBuddy 等任何兼容 SKILL.md 规范的 Agent。
+开源演示文稿 Skill：让 AI Coding Agent 能够创建、编辑、复刻、读取并导出 PPT/PPTX。**每次生成默认交付三种格式：可继续编辑的 PPTD 项目、PPTX 和自包含 HTML**（写入淡入淡出切换动画），并提供本地 PPTD 查看器支持随时手动预览。支持 pi、Codex、Claude Code、Cursor、WorkBuddy 等任何兼容 SKILL.md 规范的 Agent。
 
 > [!IMPORTANT]
 > 本项目使用 PPTD 格式作为中间层，通过本地 OOXML 引擎导出 PPTX，完全本地运行，不依赖任何远程编辑器或外部服务。
@@ -74,9 +74,22 @@ npx open-pptd-skills@latest install --target ~/.claude/skills
 
 ## 使用
 
+### 在 pi 中使用与验证
+
+在仓库中可直接启动 `pi --skill ./skills/open-pptd`，无需额外子代理插件；按当前工具顺序执行即可。制作流程与简短作者约束见 [SKILL.md](skills/open-pptd/SKILL.md)。
+
+开发者可用 [20 题固定验证集](eval/README.md) 做有限并发评测；已完成的[首轮实测报告](eval/reports/2026-09-05.md)记录实际失败与复测结果：
+
+```bash
+python3 eval/run_pi.py --list
+python3 eval/run_pi.py --provider qihoo --model 360zhinao-turbo-aippt-agent-260824 --allow-web --concurrency 2 --timeout 3600
+```
+
+以上显式使用本机已配置的360zhinao模型；其他环境可替换为已有provider/model。结果在仓库外独立目录，记录快照、耗时、失败和逐维证据评分；不修改全局 pi 设置。模型生成、静态检查、实际看图和原生 PPTX 打开分开记录。无自动总分，也不无限循环。实施进度与实际通过/未通过项见 [验证记录](specs/001-quality-framework/validation.md)。
+
 ### 让 Agent 生成 PPT
 
-安装完成后，直接向 Agent 描述需求即可。**默认交付物始终是两份**：完整的 PPTD 项目目录（可继续编辑）和对应的 PPTX 成品文件；只有明确要求只输出 PPTD 时才会跳过 PPTX 生成。
+安装完成后，直接向 Agent 描述需求即可。**默认交付物是三种格式**：完整的 PPTD 项目目录、对应的 PPTX 和自包含 `html/`；只有明确要求只输出 PPTD 时才会跳过 PPTX 生成。
 
 为了更稳定的出品，Prompt 里最好带上风格（如「深色产品发布风」），或附上参考 PPT 模板；只写主题、不给风格时效果更容易波动。
 
@@ -161,9 +174,9 @@ npx open-pptd-skills design build-index
 - **PPTD 生成**：让 Agent 生成完整、可继续编辑的 PPTD 项目，支持从零创作、风格迁移、模板复用、图片/PDF 复刻。
 - **PPTX 生成**：默认同步生成 PPTX 成品，自动嵌入字体并写入淡入淡出切换动画。
 - **视觉质检**：多模态模型在导出 PPTX 前自动导出整份页面图片、拼接总览图逐项核查（变形、遮挡、出界、对比度、排版、文字溢出），问题页面修复后复检，直至全部通过。
-- **渲染后硬审计**：`audit_rendered.py` 对渲染后的页面做像素级检测（WCAG 对比度、元素遮挡、标注图），在视觉质检之上提供量化指标。
-- **反 AI Slop 强制规则**：`validate_deck.py` 内置 AI 腔检测（禁用词、卡片墙布局、彩虹配色），生成前拦截。
-- **分页节奏规划**：`layout_planner.py` 在确定页数后自动分配页面原型，强制"不连续同型"和"定期插入节奏分隔页"规则。
+- **渲染后辅助审计**：`audit_rendered.py` 检查可确定的纯色对比，并给出遮挡复核提示。复杂背景明确标为未测量；它不测真实文本溢出，需结合实际页面看图。
+- **静态检查**：`validate_deck.py` 检查资源、文本容量估算、无效渐变及设计启发式。卡片和孤行提示需结合设计与实际页面判断，不能证明内容正确。
+- **分页节奏建议**：`layout_planner.py` 保留页数、顺序、页型和教学连续性，只提出建议，不自动插页。
 - **设计系统库**：内置 49 套专业设计系统（策略咨询、商业报告、工作总结、营销推广、学术答辩），支持索引懒加载。
 - **本地预览**：通过浏览器查看本地 PPTD 项目，支持动画效果、缩略图导航、演讲者备注。
 - **格式互转**：将现有 PPTX 转换为 PPTD 后继续修改，支持保真度评分（≥90% 自动转换）。
@@ -175,7 +188,7 @@ npx open-pptd-skills design build-index
 
 | | open-pptd | 代码拼 PPTX（如 pptxgenjs） | 整页图片 PPT | 网页 HTML PPT |
 | --- | --- | --- | --- | --- |
-| 交付物 | PPTD 项目 + PPTX | 多为仅 PPTX | 多为仅 PPTX | 单文件 HTML |
+| 交付物 | PPTD 项目 + PPTX + HTML | 多为仅 PPTX | 多为仅 PPTX | 单文件 HTML |
 | Agent 友好度 | YAML 逐页描述，结构清晰 | 坐标/API 细节多，易排版翻车 | 依赖出图模型与提示词 | HTML/CSS 模板约束强 |
 | PowerPoint 可编辑 | 文本、形状、图片可继续改 | 可编辑，但难二次精修 | 整页位图，难改字 | 不是原生 PPTX |
 | 视觉质量 | 真实版式 + 导出前多模态质检 | 依赖 Agent 手调布局 | 画面统一，偏海报感 | 动效强，适合演示分享 |
@@ -185,7 +198,7 @@ npx open-pptd-skills design build-index
 更具体地说，相对其他方案的优势是：
 
 1. **中间格式为 Agent 设计**：PPTD 用 YAML 描述主题、布局与元素，比直接写 OOXML / pptxgenjs 更稳，也比「整页渲一张图」更可局部修改。
-2. **默认同交两份成果**：可继续迭代的 PPTD 项目 + 开箱即用的 PPTX（淡入淡出切换），不是只给半成品。
+2. **默认三格式交付**：可继续迭代的 PPTD 项目、PPTX（淡入淡出切换）与自包含 HTML。
 3. **PPTX 真能改**：导出后文本框、形状仍可在 PowerPoint / WPS 里编辑，不像图片型 PPT 只能当海报。
 4. **有本地可视化编辑器**：浏览器里预览、微调、配切换动画并手动再导出，不需要每次都让 Agent 重跑全流程。
 5. **导出前强制视觉质检**：整页截图 + 总览图检查遮挡、出界、对比度、溢出等问题，修完再出 PPTX。

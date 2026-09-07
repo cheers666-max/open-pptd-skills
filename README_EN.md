@@ -5,7 +5,7 @@
 [![npm version](https://img.shields.io/npm/v/open-pptd-skills)](https://www.npmjs.com/package/open-pptd-skills)
 [![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 
-An open-source presentation skill for AI coding agents. It lets your agent create, edit, replicate, read, and export PPT/PPTX files. **Every run delivers two outputs by default: an editable PPTD project and a ready-to-use PPTX** — fade transitions included — plus a local in-browser PPTD viewer. Works with Codex, Claude Code, Cursor, WorkBuddy, and any agent that supports the SKILL.md format.
+An open-source presentation skill for AI coding agents. It lets your agent create, edit, replicate, read, and export PPT/PPTX files. **Default delivery includes three formats: an editable PPTD project, PPTX and self-contained HTML** — fade transitions included — plus a local in-browser PPTD viewer. Works with pi, Codex, Claude Code, Cursor, WorkBuddy, and any agent that supports the SKILL.md format.
 
 > [!IMPORTANT]
 > This project uses the PPTD format as an intermediate layer and exports PPTX through a local OOXML engine. It runs entirely locally with no remote editor or external service dependencies.
@@ -76,7 +76,7 @@ You can also ask your agent: `Update the open-pptd skill for me.` Updating only 
 
 ### Generate a presentation with your agent
 
-Once installed, just describe what you need. **You always get two deliverables by default**: the complete, editable PPTD project directory and the matching PPTX file. PPTX generation is skipped only when you explicitly ask for PPTD-only output.
+Once installed, just describe what you need. **Default delivery includes three formats**: the complete editable PPTD project, matching PPTX and self-contained `html/` folder. PPTX generation is skipped only when you explicitly ask for PPTD-only output.
 
 For more stable quality, put a style in the prompt (e.g. “dark product-launch look”) or attach a reference PPT template; topic-only prompts without style guidance tend to vary more.
 
@@ -152,7 +152,7 @@ Most PPT skills fall into three buckets: assemble OOXML / pptxgenjs in code, ren
 In short:
 
 1. **DSL built for agents** — PPTD describes theme, layout, and elements in YAML, more stable than raw OOXML / pptxgenjs, and more locally editable than full-slide images.
-2. **Two deliverables by default** — an iterable PPTD project plus a ready-to-open PPTX (embedded fonts, fade transitions).
+2. **Three formats by default** — an editable PPTD project, PPTX (font embedding and fade transitions), and self-contained HTML.
 3. **Truly editable PPTX** — text boxes and shapes remain editable in PowerPoint / WPS, unlike image-only decks.
 4. **Local visual editor** — preview, tweak, set transitions, and re-export in the browser without rerunning the whole agent flow.
 5. **Visual QA before export** — full-page screenshots plus an overview sheet catch occlusion, overflow, contrast, and layout issues before PPTX is written.
@@ -227,3 +227,8 @@ npm run pack:check
 ## Legal
 
 All trademarks belong to their respective owners.
+
+
+## pi development evaluation
+
+Run `pi --skill ./skills/open-pptd` from this repository to use the current skill without an extra agent extension. The optional [20-case evaluation](eval/README.md) runs finite parallel jobs in isolated directories, records the exact skill snapshot and model settings, and separates generation status from evidence-based review. It does not change global pi configuration or become part of everyday authoring. See the [first real evaluation report](eval/reports/2026-09-05.md) and [validation record](specs/001-quality-framework/validation.md) for actual failures, affected-case reruns and remaining limits.

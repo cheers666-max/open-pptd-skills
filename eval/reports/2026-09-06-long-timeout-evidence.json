@@ -1,0 +1,229 @@
+{
+  "date": "2026-09-06",
+  "purpose": "Increase pi whole-task timeout without reducing authoring rounds or checks",
+  "runDirectory": "/var/folders/kf/j2_kwtmj30q6xf4tz527_mxw0000gn/T/open-pptd-pi-eval/20260906-095335-hx9ytsu_",
+  "configuration": {
+    "provider": "qihoo",
+    "model": "360zhinao-turbo-aippt-agent-260824",
+    "thinking": "off",
+    "effectiveThinking": "off",
+    "piVersion": "0.84.4",
+    "snapshotSha256": "eeef95b90a2852073c6261ec192aa3be860f8e17f0da89747e2a056100d4a549",
+    "casesSha256": "5adce6ceae5cd781b6c10b85347da87f32fce24531a83819bc1e598d496e54d0",
+    "runnerSha256": "1272dfe24ccc734cb1a5ab1a0d586735364fd188186612801be2ad7c24256625",
+    "timeoutSeconds": 3600,
+    "concurrency": 1,
+    "allowWeb": false
+  },
+  "execution": {
+    "status": "generated_unreviewed",
+    "exitCode": 0,
+    "timedOut": false,
+    "elapsedSeconds": 1069.473,
+    "assistantTurns": 32,
+    "toolCalls": 34,
+    "toolErrors": 0,
+    "streamErrors": [],
+    "agentEnded": true,
+    "skillUnchanged": true
+  },
+  "timing": {
+    "toolIntervalUnionSeconds": 20.379191,
+    "outsideToolIntervalsSeconds": 1049.093809,
+    "note": "Local received tool events; outside intervals include generation/API/network/queue/scheduling and cannot identify their individual shares."
+  },
+  "independentPrecheck": {
+    "findings": [],
+    "pptx": [
+      {
+        "file": "work/output/deck/deck.pptx",
+        "bytes": 15762170,
+        "sha256": "f2b2f7e6268dca44c8674e32e1dec1f4945d2195da9f9492d44467caace3db7a",
+        "status": "inspected",
+        "pageCount": 2,
+        "slideXMLCount": 2,
+        "countConsistent": true,
+        "fonts": [
+          "Noto Sans SC"
+        ],
+        "mediaCount": 0,
+        "mediaTypes": {},
+        "pictureShapes": 0,
+        "textRuns": 23,
+        "bulletCharacters": 0,
+        "xmlErrors": [],
+        "limitation": "ZIP/XML structure only. Fonts listed are references, not proof of embedding or visual fidelity; bullet counts are not proof of missing icons."
+      }
+    ],
+    "html": [
+      {
+        "file": "work/output/deck/html/index.html",
+        "bytes": 12122,
+        "sha256": "57343d3c69dbfd90c25b5433601517f023ef7aa39a702e4fb9950d9bb198aa1c",
+        "status": "inspected",
+        "markers": {
+          "stage": 2,
+          "slide": 2
+        },
+        "pageCount": 2,
+        "limitation": "Static exported slide/stage markup count; scripts and browser layout were not executed."
+      },
+      {
+        "file": "work/output/deck/html/page_01.html",
+        "bytes": 6979,
+        "sha256": "98241874905ca208278953519cf2714b248487ea586e2009323c59c19a3027c9",
+        "status": "inspected",
+        "markers": {
+          "stage": 1,
+          "slide": 1
+        },
+        "pageCount": 1,
+        "limitation": "Static exported slide/stage markup count; scripts and browser layout were not executed."
+      },
+      {
+        "file": "work/output/deck/html/page_02.html",
+        "bytes": 6272,
+        "sha256": "cea596b0217d108f433bee1b99825ecd062166adc98a7d8dcd372700ada6a6fc",
+        "status": "inspected",
+        "markers": {
+          "stage": 1,
+          "slide": 1
+        },
+        "pageCount": 1,
+        "limitation": "Static exported slide/stage markup count; scripts and browser layout were not executed."
+      }
+    ]
+  },
+  "nativePptxRender": {
+    "smoke-two-page-handoff": [
+      {
+        "input": {
+          "file": "work/output/deck/deck.pptx",
+          "bytes": 15762170,
+          "sha256": "f2b2f7e6268dca44c8674e32e1dec1f4945d2195da9f9492d44467caace3db7a"
+        },
+        "renderer": "LibreOffice Impress",
+        "checkedAt": "2026-09-06T02:10:29.008968+00:00",
+        "status": "rendered",
+        "limitation": "This checks LibreOffice import/rendering; it is not Microsoft PowerPoint playback certification.",
+        "converterPid": 2072,
+        "pageCount": 2,
+        "pdf": "precheck/native-pptx/render-z9a6p69e/deck.pdf",
+        "images": [
+          "precheck/native-pptx/render-z9a6p69e/page_01.png",
+          "precheck/native-pptx/render-z9a6p69e/page_02.png"
+        ],
+        "overview": "precheck/native-pptx/render-z9a6p69e/overview.jpg",
+        "elapsedSeconds": 3.217
+      }
+    ]
+  },
+  "exportedHtmlRender": [
+    {
+      "page": 1,
+      "source": "/var/folders/kf/j2_kwtmj30q6xf4tz527_mxw0000gn/T/open-pptd-pi-eval/20260906-095335-hx9ytsu_/cases/smoke-two-page-handoff/work/output/deck/html/page_01.html",
+      "sha256": "98241874905ca208278953519cf2714b248487ea586e2009323c59c19a3027c9",
+      "image": "/var/folders/kf/j2_kwtmj30q6xf4tz527_mxw0000gn/T/open-pptd-pi-eval/20260906-095335-hx9ytsu_/cases/smoke-two-page-handoff/precheck/exported-html-visual/page_01.png",
+      "health": {
+        "ready": true,
+        "ok": true,
+        "pageNumber": 1,
+        "errors": []
+      }
+    },
+    {
+      "page": 2,
+      "source": "/var/folders/kf/j2_kwtmj30q6xf4tz527_mxw0000gn/T/open-pptd-pi-eval/20260906-095335-hx9ytsu_/cases/smoke-two-page-handoff/work/output/deck/html/page_02.html",
+      "sha256": "cea596b0217d108f433bee1b99825ecd062166adc98a7d8dcd372700ada6a6fc",
+      "image": "/var/folders/kf/j2_kwtmj30q6xf4tz527_mxw0000gn/T/open-pptd-pi-eval/20260906-095335-hx9ytsu_/cases/smoke-two-page-handoff/precheck/exported-html-visual/page_02.png",
+      "health": {
+        "ready": true,
+        "ok": true,
+        "pageNumber": 2,
+        "errors": []
+      }
+    }
+  ],
+  "visualInspection": {
+    "reviewer": "root assistant, separate from pi author",
+    "scope": "Both pages: author PPTD screenshots, LibreOffice-rendered original PPTX, and Chrome-rendered original exported HTML",
+    "findings": [
+      "Exactly two pages, three handoff actions and explicitly fictional card are visible.",
+      "Plain text and simple geometry; no obvious clipping, overlap or content loss in inspected images.",
+      "Minor typography/spacing differences within bounds across formats."
+    ],
+    "limits": [
+      "Pi author model is text-only; its pixel sampling is not visual judgment.",
+      "Not PowerPoint/WPS certification.",
+      "Generic two-page smoke only; not full 20-case quality/speed evaluation."
+    ],
+    "numericQualityScores": null
+  },
+  "files": [
+    {
+      "path": "work/output/deck/deck.pptd",
+      "bytes": 1123,
+      "sha256": "b9c3e286ba2287049b9f40e36ae15cb81a9f2dfc6cff59156b88db7bd9c78208"
+    },
+    {
+      "path": "work/output/deck/pages/01.page",
+      "bytes": 3127,
+      "sha256": "ed27b6079e7916766d511d18c22a00fe70caac5be90ceddd92d8c5b3d658c419"
+    },
+    {
+      "path": "work/output/deck/pages/02.page",
+      "bytes": 2619,
+      "sha256": "123c7ec30134e0f46943bbb0ae1a3bb78e86588f5a9302b2bcc0e42161801776"
+    },
+    {
+      "path": "work/output/deck/deck.pptx",
+      "bytes": 15762170,
+      "sha256": "f2b2f7e6268dca44c8674e32e1dec1f4945d2195da9f9492d44467caace3db7a"
+    },
+    {
+      "path": "work/output/deck/html/index.html",
+      "bytes": 12122,
+      "sha256": "57343d3c69dbfd90c25b5433601517f023ef7aa39a702e4fb9950d9bb198aa1c"
+    },
+    {
+      "path": "work/output/deck/html/page_01.html",
+      "bytes": 6979,
+      "sha256": "98241874905ca208278953519cf2714b248487ea586e2009323c59c19a3027c9"
+    },
+    {
+      "path": "work/output/deck/html/page_02.html",
+      "bytes": 6272,
+      "sha256": "cea596b0217d108f433bee1b99825ecd062166adc98a7d8dcd372700ada6a6fc"
+    },
+    {
+      "path": "work/output/deck/.qa-images/pages/page_01.png",
+      "bytes": 105923,
+      "sha256": "81cda1ede75b4376b6db26f479578c89db8fc11e3dbbf5443157b15d3e3d4a79"
+    },
+    {
+      "path": "work/output/deck/.qa-images/pages/page_02.png",
+      "bytes": 105564,
+      "sha256": "4dcef0f71bfcfe0be2bde2fa67a4c160bca56c5346b8d39ca8f6ab49c36d77b0"
+    },
+    {
+      "path": "precheck/native-pptx/render-z9a6p69e/page_01.png",
+      "bytes": 65338,
+      "sha256": "d57d9243242d6f726ef37bede5c7ee80229619783485dc32dc308fd379eaeefe"
+    },
+    {
+      "path": "precheck/native-pptx/render-z9a6p69e/page_02.png",
+      "bytes": 65703,
+      "sha256": "784536137353f5946b8acda6b4e1547ffa2ae332cbf74c1ff86509cac34ac2e6"
+    },
+    {
+      "path": "precheck/exported-html-visual/page_01.png",
+      "bytes": 53266,
+      "sha256": "c4f2a086d5a603213d973032357e8a7523b2735e12d0999db5659f8844446e72"
+    },
+    {
+      "path": "precheck/exported-html-visual/page_02.png",
+      "bytes": 54040,
+      "sha256": "9f8001008ce4144a83705e2184627290c9774acfa32b126d50e1abaf814747e1"
+    }
+  ]
+}

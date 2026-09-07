@@ -105,7 +105,9 @@ Options:
   --output, -o <path>       Output .pptx path (default: <project>/<manifest name>.pptx)
   --force                   Overwrite an existing output file
   --transition <fade|none>  Slide transition for every slide (default: fade)
-  --embed-fonts             Embed font assets when available (default: off)
+  --embed-fonts             Embed font assets when available (default: on)
+  --no-embed-fonts          Disable font embedding
+  --report <path>           Write the full engine report, including all warnings
   --font-profile <name>     Engine font profile, e.g. "open-source"
   --json                    Print a JSON summary
   -h, --help                Show this help
@@ -116,6 +118,7 @@ function parseArgs(argv) {
   const options = {
     input: null,
     output: null,
+    report: null,
     force: false,
     transition: "fade",
     embedFonts: true,
@@ -132,6 +135,12 @@ function parseArgs(argv) {
         const value = args.shift();
         if (!value || value.startsWith("-")) throw new Error("--output requires a path");
         options.output = value;
+        break;
+      }
+      case "--report": {
+        const value = args.shift();
+        if (!value || value.startsWith("-")) throw new Error("--report requires a path");
+        options.report = path.resolve(value);
         break;
       }
       case "--force":
@@ -194,6 +203,43 @@ function resolveManifest(inputPath) {
   return { projectDir: resolved, manifestPath: path.join(resolved, candidates[0]) };
 }
 
+function collectFontNames(project) {
+  const names = new Set();
+  const seen = new WeakSet();
+  const genericFamilies = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy",
+    "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded", "emoji", "math",
+    "fangsong", "inherit", "initial", "unset", "revert", "revert-layer"]);
+  const add = (value) => {
+    if (typeof value === "string") {
+      const name = value.trim();
+      if (name && !genericFamilies.has(name.toLowerCase())) names.add(name);
+    } else if (value && typeof value === "object") {
+      if (Array.isArray(value)) value.forEach(add);
+      else { add(value.latin); add(value.ea); }
+    }
+  };
+  const visit = (value) => {
+    if (!value || typeof value !== "object" || seen.has(value)) return;
+    seen.add(value);
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "fontFamily") add(child);
+      else if (key === "text" && typeof child === "string") {
+        for (const style of child.matchAll(/\bstyle\s*=\s*(["'])(.*?)\1/gsui)) {
+          for (const declaration of style[2].matchAll(/(?:^|;)\s*font-family\s*:\s*([^;]+)/gui)) {
+            const families = declaration[1].replace(/&quot;/gi, '"').replace(/&#39;/g, "'");
+            for (const family of families.matchAll(/"([^"]+)"|'([^']+)'|([^,]+)/g)) {
+              add(family[1] ?? family[2] ?? family[3]);
+            }
+          }
+        }
+      } else visit(child);
+    }
+  };
+  visit(project.manifest);
+  for (const page of project.pages) visit(page.content);
+  return names;
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -201,9 +247,7 @@ async function main() {
     return;
   }
   if (!options.input) {
-    printHelp();
-    process.exitCode = 1;
-    return;
+    throw new Error("A PPTD manifest or project directory is required");
   }
 
   const { projectDir, manifestPath } = resolveManifest(options.input);
@@ -214,6 +258,14 @@ async function main() {
   }
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
+  if (options.report && [manifestPath, outputPath].map(p => path.resolve(p)).includes(options.report)) {
+    throw new Error("--report must differ from the source manifest and PPTX output");
+  }
+  // Bootstrap the existing YAML dependency and read exactly the manifest's
+  // referenced pages. Parse/read errors must fail before font resolution.
+  const { exportPptdProject, readPptdProject } = await importEngine();
+  const project = await readPptdProject(manifestPath);
+
   // Font embedding: default ON unless --no-embed-fonts
   const shouldEmbedFonts = options.embedFonts !== false;
   let fontAssets = [];
@@ -222,39 +274,7 @@ async function main() {
     // Scan deck for fontFamily references and resolve to local files
     const downloadFontsPath = path.join(SCRIPTS_DIR, "download-fonts.py");
 
-    // Read all .page files + manifest to find font names
-    const fontNames = new Set();
-    try {
-      const manifestText = fs.readFileSync(manifestPath, "utf-8");
-      for (const m of manifestText.matchAll(/fontFamily:\s*(?:["']([^"']+)["']|(\{[^}]+\}))/g)) {
-        if (m[1]) fontNames.add(m[1]);
-        else if (m[2]) {
-          // {latin: "X", ea: "Y"} → extract both
-          const latin = m[2].match(/latin:\s*["']([^"']+)["']/);
-          const ea = m[2].match(/ea:\s*["']([^"']+)["']/);
-          if (latin) fontNames.add(latin[1]);
-          if (ea) fontNames.add(ea[1]);
-        }
-      }
-      for (const entry of fs.readdirSync(path.join(projectDir, "pages"))) {
-        if (!entry.endsWith(".page")) continue;
-        const text = fs.readFileSync(path.join(projectDir, "pages", entry), "utf-8");
-        for (const m of text.matchAll(/fontFamily:\s*(?:["']([^"']+)["']|(\{[^}]+\}))/g)) {
-          if (m[1]) fontNames.add(m[1]);
-          else if (m[2]) {
-            const latin = m[2].match(/latin:\s*["']([^"']+)["']/);
-            const ea = m[2].match(/ea:\s*["']([^"']+)["']/);
-            if (latin) fontNames.add(latin[1]);
-            if (ea) fontNames.add(ea[1]);
-          }
-        }
-        // Also catch font-family in HTML styles
-        for (const m of text.matchAll(/font-family:\s*([^;"'\n>]+)/g)) {
-          const name = m[1].trim();
-          if (name && !name.startsWith("-") && !name.startsWith("inherit")) fontNames.add(name);
-        }
-      }
-    } catch { /* ignore scan errors */ }
+    const fontNames = collectFontNames(project);
 
     // Resolve each font name to a local file via download-fonts.py
     for (const name of fontNames) {
@@ -280,8 +300,7 @@ async function main() {
     }
   }
 
-  const { exportPptdProject } = await importEngine();
-  const { report } = await exportPptdProject(manifestPath, outputPath, {
+  const { report } = await exportPptdProject(project, outputPath, {
     transition:
       options.transition === "none"
         ? false
@@ -291,15 +310,26 @@ async function main() {
     fontProfile: options.fontProfile,
   });
 
+  if (options.report) {
+    fs.mkdirSync(path.dirname(options.report), { recursive: true });
+    fs.writeFileSync(options.report, JSON.stringify(report, null, 2) + "\n");
+  }
   const stat = fs.statSync(outputPath);
   const warnings = report?.warnings ?? [];
+  const contentLossCodes = new Set(["icon-unsupported", "unsupported-element-type", "unsupported-chart-type",
+    "empty-chart", "image-placeholder", "remote-asset-not-fetched", "asset-path-outside-project"]);
+  const losses = warnings.filter(w => contentLossCodes.has(w.code));
+  for (const warning of warnings) console.error(`[engine warning] ${JSON.stringify(warning)}`);
+  if (losses.length) process.exitCode = 1;
   const summary = {
-    ok: true,
+    ok: losses.length === 0,
     deck: manifestPath,
     output: outputPath,
     bytes: stat.size,
     warnings: warnings.length,
     fonts: fontAssets.length,
+    ...(options.report ? { report: options.report } : {}),
+    ...(losses.length ? { error: "Some content was not preserved; inspect the engine report" } : {}),
   };
   if (report?.prefetch) {
     summary.prefetch = {
@@ -314,6 +344,10 @@ async function main() {
     console.log(JSON.stringify(summary, null, 2));
     return;
   }
+  if (losses.length) {
+    console.error(`PPTX has ${losses.length} content-loss warning(s); repair before delivery: ${outputPath}`);
+    return;
+  }
   console.log(`✅ PPTX exported → ${outputPath} (${stat.size} bytes)`);
   if (fontAssets.length > 0) {
     console.log(`   fonts: ${fontAssets.length} embedded`);
@@ -325,11 +359,12 @@ async function main() {
     );
   }
   if (warnings.length > 0) {
-    console.log(`   ⚠ ${warnings.length} engine warning(s); re-run with --json and inspect the report for details`);
+    console.error(`   ${warnings.length} engine warning(s); details above and in --report when supplied`);
   }
 }
 
 main().catch((error) => {
   console.error(`❌ PPTX export failed: ${error.message}`);
+  if (process.argv.includes("--json")) console.log(JSON.stringify({ ok: false, error: error.message }));
   process.exitCode = 1;
 });

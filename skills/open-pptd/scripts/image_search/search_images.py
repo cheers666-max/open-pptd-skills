@@ -1,249 +1,298 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""image_search/search_images.py — 把 PPTD 工程里的图片占位符解析为本地 media/ 真实图。
+"""Resolve search: images locally, with bounded attempts and explicit offline fallback.
 
-用法：
-  python3 search_images.py <project_dir|deck.pptd> [--backend auto|baidu|vertical|openverse|wikimedia]
-                           [--workers N] [--no-vlm] [--localize-remote] [--min-dim N] [--dry-run]
-
-工作流（open-pptd step3.5）：
-  1. 读 <project>.pptd（或直接给工程目录）→ 找到 pages/*.page。
-  2. 扫每个 .page 的 `src: "search:<query>"` 占位（image/background/fill）与（可选）远端 URL。
-  3. 对每个槽位并发检索+下载+(VLM)选优，落盘到 media/，并把 .page 的 src 改成本地相对路径。
-  4. 写 images_report.json（逐槽 provenance：query/backend/source_url/license/尺寸/得分/命运）。
-  5. exit 0=全部解决；2=有未解决槽（报告里列出，需人工/模型改元素）；1=用法/IO 错误。
-
-依赖：仅 stdlib（pool.py + slots.py）。VLM 需 PPT_API_KEY / QIHOO_360_API_KEY。
+Exit 0: all slots resolved (including disclosed decorative fallback).
+Exit 2: unresolved slots remain. Exit 1: invocation/IO error.
+Only stdlib; the parent owns project writes, disposable workers own network attempts.
 """
-
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import hashlib
 import json
+import math
 import os
+from pathlib import Path
 import re
+import struct
+import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional
+import tempfile
+import time
+import zlib
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+import pool
+import slots as slots_mod
 
-import pool  # noqa: E402
-import slots as slots_mod  # noqa: E402
-
-
-def _find_project(target: str):
-    """返回 (project_dir, pptd_path)。target 可是目录或 .pptd 文件。"""
-    if os.path.isdir(target):
-        pdir = target
-        pptds = [f for f in os.listdir(pdir) if f.endswith(".pptd")]
-        pptd = os.path.join(pdir, pptds[0]) if pptds else None
-        return pdir, pptd
-    if os.path.isfile(target) and target.endswith(".pptd"):
-        return os.path.dirname(os.path.abspath(target)), target
-    raise SystemExit(f"[err] 不是工程目录或 .pptd：{target}")
+WORKER = _HERE / 'backend_worker.py'
+_EXT = {'jpeg': '.jpg', 'png': '.png', 'webp': '.webp', 'bmp': '.bmp'}
 
 
-def _list_pages(pdir: str) -> List[str]:
-    pages_dir = os.path.join(pdir, "pages")
-    if not os.path.isdir(pages_dir):
-        return []
-    return sorted(f for f in os.listdir(pages_dir) if f.endswith(".page"))
+def progress(message):
+    print(message, file=sys.stderr, flush=True)
 
 
-def _read(path: str) -> str:
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+def _find_project(target):
+    path = Path(target).expanduser().resolve()
+    if path.is_dir():
+        decks = sorted(path.glob('*.pptd'))
+        if len(decks) > 1:
+            raise ValueError('Multiple manifests; pass the intended .pptd file')
+        return path, decks[0] if decks else None
+    if path.is_file() and path.suffix == '.pptd':
+        return path.parent, path
+    raise ValueError(f'Not a project directory or .pptd file: {target}')
 
 
-def _write(path: str, text: str) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
+def _slugify(text):
+    return re.sub(r'[^0-9A-Za-z一-鿿]+', '-', text).strip('-').lower()[:40] or 'img'
 
 
-def _deck_brief(pdir: str, pptd: Optional[str]) -> str:
-    """从 .pptd manifest 的 title 提取主题（VLM 消歧用）。"""
-    if pptd and os.path.isfile(pptd):
-        m = re.search(r"^\s*title:\s*[\"']?([^\"'\n]+?)[\"']?\s*$", _read(pptd), re.MULTILINE)
-        if m:
-            return m.group(1).strip()
-    return os.path.basename(pdir.rstrip("/"))
+def _stop(processes):
+    """Stop all attempts together; cleanup does not multiply by worker count."""
+    for proc in processes:
+        if proc.poll() is None:
+            proc.terminate()
+    deadline = time.monotonic() + .25
+    for proc in processes:
+        try:
+            proc.wait(timeout=max(.001, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    for proc in processes:
+        proc.wait(timeout=1)
 
 
-def _slugify(text: str, fallback: str) -> str:
-    s = re.sub(r"[^0-9A-Za-z一-鿿]+", "-", text).strip("-").lower()
-    return (s[:40] or fallback)
+def _attempts(slots, texts, brief, backend, workers, timeout, deadline, use_vlm, min_dim):
+    pending = deque((s, deque(['remote'] if s.is_remote else
+                     [backend] if backend != 'auto' else pool.AUTO_ORDER)) for s in slots)
+    active = []
+    seen_hashes, seen_urls = set(), set()
+    heartbeat = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix='pptd-images-') as temp:
+        attempt_id = 0
+        try:
+            while (pending or active) and time.monotonic() < deadline:
+                while pending and len(active) < workers and time.monotonic() < deadline:
+                    slot, names = pending.popleft()
+                    if not names:
+                        slot.status = 'failed'
+                        continue
+                    name = names.popleft()
+                    attempt_id += 1
+                    request_path = Path(temp) / f'{attempt_id}.request.json'
+                    result_path = Path(temp) / f'{attempt_id}.result.json'
+                    request = dict(backend=name, query=slot.query, url=slot.raw_src, want=slot.want,
+                                   ratio=slot.ratio, min_dim=min_dim, use_vlm=use_vlm, brief=brief,
+                                   page_text=re.sub(r'\s+', ' ', texts[slot.page])[:400],
+                                   seen_hashes=list(seen_hashes), seen_urls=list(seen_urls))
+                    request_path.write_text(json.dumps(request, ensure_ascii=False), encoding='utf-8')
+                    progress(f'[try] {slot.page}:{slot.line_no + 1} {slot.element_id or slot.kind} backend={name}')
+                    proc = subprocess.Popen([sys.executable, str(WORKER), str(request_path), str(result_path)],
+                                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                            stderr=subprocess.DEVNULL)
+                    active.append((proc, slot, names, name, result_path, min(deadline, time.monotonic() + timeout)))
+                for item in list(active):
+                    proc, slot, names, name, output, end = item
+                    if proc.poll() is None and time.monotonic() < end:
+                        continue
+                    active.remove(item)
+                    winner = None
+                    if proc.poll() is None:
+                        _stop([proc])
+                        slot.tried.append({'backend': name, 'fate': 'timeout'})
+                    else:
+                        try:
+                            if proc.returncode != 0:
+                                raise ValueError('worker exit')
+                            result = json.loads(output.read_text(encoding='utf-8'))
+                            slot.tried.extend(result['tried'])
+                            winner = result['winner']
+                            if winner:
+                                data = output.with_suffix('.bin').read_bytes()
+                                digest = hashlib.sha256(data).hexdigest()
+                                canonical = pool.canonical_url(winner['url'])
+                                if digest in seen_hashes or canonical in seen_urls:
+                                    slot.tried.append({'backend': name, 'fate': 'duplicate'})
+                                    winner = None
+                                else:
+                                    winner.update(bytes=data, sha256=digest, canonical=canonical)
+                                    seen_hashes.add(digest)
+                                    seen_urls.add(canonical)
+                        except (OSError, ValueError, KeyError, TypeError):
+                            slot.tried.append({'backend': name, 'fate': 'worker_error'})
+                            winner = None
+                    if winner:
+                        slot.winner, slot.status = winner, 'resolved'
+                        progress(f'[resolved] {slot.page} {slot.element_id or slot.kind} via {name}')
+                    elif names:
+                        pending.append((slot, names))
+                    else:
+                        slot.status = 'failed'
+                if time.monotonic() - heartbeat >= 4:
+                    progress(f'[wait] {len(active)} active, {len(pending)} queued; remaining={max(0, deadline-time.monotonic()):.1f}s')
+                    heartbeat = time.monotonic()
+                if active:
+                    time.sleep(min(.05, max(0, deadline - time.monotonic())))
+        finally:
+            _stop([item[0] for item in active])
+    for slot in slots:
+        if slot.status == 'pending':
+            slot.status = 'failed'
+            slot.tried.append({'fate': 'budget_exhausted'})
 
 
-_EXT = {"jpeg": ".jpg", "png": ".png", "webp": ".webp", "bmp": ".bmp"}
+def _gradient(slot):
+    """A deterministic local decorative PNG, never a substitute for a real subject."""
+    ratio = slot.ratio or 16 / 9
+    width, height = (960, max(64, min(1920, round(960 / ratio))))
+    seed = hashlib.sha256(slot.query.encode()).digest()
+    rows = []
+    for y in range(height):
+        rgb = bytes(25 + int((seed[c] % 75) * y / max(1, height - 1)) for c in range(3))
+        rows.append(b'\0' + rgb * width)
+    def chunk(kind, data):
+        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+    data = (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(b''.join(rows))) + chunk(b'IEND', b''))
+    return dict(bytes=data, url='', w=width, h=height, fmt='png', backend='local-gradient',
+                license='', score=0, sha256=hashlib.sha256(data).hexdigest())
 
 
-def run(project: str, *, backend: str = "auto", workers: int = 4, use_vlm: bool = True,
-        localize_remote: bool = False, min_dim: int = pool.DEFAULT_MIN_DIM,
-        dry_run: bool = False) -> int:
+def _cached(slot, report, project, min_dim):
+    for rec in report.get('slots', []):
+        if rec.get('query') != (slot.query or slot.raw_src) or rec.get('status') not in ('resolved', 'degraded'):
+            continue
+        if rec.get('status') == 'degraded' and not slot.allow_fallback:
+            continue
+        try:
+            path = (project / rec['local']).resolve()
+            if project not in path.parents:
+                continue
+            data = path.read_bytes()
+            w, h, fmt = pool.sniff_size(data)
+            if fmt not in _EXT or not w or not h or min(w, h) < min_dim or not pool._aspect_ok(w, h, slot.want):
+                continue
+            return dict(bytes=data, url=rec.get('source_url', ''), w=w, h=h, fmt=fmt,
+                        backend=rec.get('backend', 'cache'), license=rec.get('license', ''), score=rec.get('score', 0),
+                        sha256=hashlib.sha256(data).hexdigest()), rec.get('status', 'resolved')
+        except (OSError, KeyError, TypeError):
+            continue
+    return None, 'pending'
+
+
+def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=False,
+        min_dim=pool.DEFAULT_MIN_DIM, dry_run=False, timeout=30, budget=120, offline=False,
+        json_output=False):
+    started = time.monotonic()
+    if not all(math.isfinite(x) and x > 0 for x in (timeout, budget)) or workers < 1 or min_dim < 1:
+        raise ValueError('timeout, budget, workers and min-dim must be positive')
+    if backend != 'auto' and backend not in pool.BACKENDS:
+        raise ValueError(f'Unknown backend: {backend}')
     pdir, pptd = _find_project(project)
-    pages = _list_pages(pdir)
-    if not pages:
-        print(f"[err] 未找到 pages/*.page：{pdir}")
-        return 1
-    brief = _deck_brief(pdir, pptd)
-    media_dir = os.path.join(pdir, "media")
-    os.makedirs(media_dir, exist_ok=True)
-
-    # 收集所有槽位
-    all_slots: List[slots_mod.Slot] = []
-    page_texts: Dict[str, str] = {}
-    for pg in pages:
-        rel = f"pages/{pg}"
-        text = _read(os.path.join(pdir, rel))
-        page_texts[rel] = text
-        for s in slots_mod.extract_slots(text, rel):
-            if s.is_search or (localize_remote and s.is_remote):
-                all_slots.append(s)
-
-    if not all_slots:
-        print("[ok] 无 search: 占位符（" + ("也无远端 URL" if not localize_remote else "且未开 --localize-remote") + "），无需配图检索。")
-        return 0
-
-    n_search = sum(1 for s in all_slots if s.is_search)
-    n_remote = len(all_slots) - n_search
-    print(f"[scan] {len(pages)} 页，{len(all_slots)} 个待解析图片槽（search:{n_search} remote:{n_remote}）"
-          f" backend={backend} vlm={'on' if use_vlm and pool.vlm_enabled() else 'off'}"
-          + (" [dry-run]" if dry_run else ""))
+    texts = {f'pages/{p.name}': p.read_text(encoding='utf-8') for p in sorted((pdir / 'pages').glob('*.page'))}
+    if not texts:
+        raise ValueError(f'No pages/*.page found: {pdir}')
+    brief = pdir.name
+    if pptd:
+        match = re.search(r'^\s*title:\s*["\']?([^"\'\n]+)', pptd.read_text(encoding='utf-8'), re.M)
+        if match:
+            brief = match.group(1).strip()
+    all_slots = [s for page, text in texts.items() for s in slots_mod.extract_slots(text, page)
+                 if s.is_search or ((localize_remote or offline) and s.is_remote)]
+    use_vlm = bool(use_vlm and not offline and pool.vlm_enabled())
+    progress(f'[scan] {len(texts)} pages, {len(all_slots)} slots; backend={backend} offline={offline} vlm={use_vlm}')
     if dry_run:
-        for s in all_slots:
-            r = f" ratio={s.ratio:.3f}" if s.ratio else ""
-            print(f"  - {s.page}:{s.line_no} [{s.kind}] {s.element_id or '-'} want={s.want}{r} :: {s.raw_src[:60]}")
+        for slot in all_slots:
+            progress(f'[slot] {slot.page}:{slot.line_no+1} {slot.raw_src[:80]} fallback={slot.allow_fallback}')
+        if json_output:
+            print(json.dumps({'dry_run': True, 'total_slots': len(all_slots)}))
         return 0
-
-    # 全 deck 级去重集合
-    seen_hashes: set = set()
-    seen_urls: set = set()
-
-    def _resolve(s: slots_mod.Slot) -> slots_mod.Slot:
-        if s.is_remote and not s.is_search:
-            # 远端 URL 本地化：直接下载（wikimedia 非法缩略图尺寸自动改写重试）
-            b, final_url = pool._fetch_with_url(s.raw_src)  # noqa: SLF001
-            if b:
-                w, h, fmt = pool.sniff_size(b)
-                if fmt in _EXT and w and h and min(w, h) >= min_dim:
-                    s.winner = {"url": final_url, "bytes": b, "w": w, "h": h, "fmt": fmt,
-                                "backend": "remote", "license": "", "landing": s.raw_src,
-                                "score": 0, "vlm": {},
-                                "sha256": hashlib.sha256(b).hexdigest(),
-                                "canonical": pool.canonical_url(final_url)}
-                    s.status = "resolved"
-                    return s
-            s.status = "failed"
-            return s
-        page_text = page_texts.get(s.page, "")
-        # 取该页正文前若干字供 VLM 消歧
-        snippet = re.sub(r"\s+", " ", re.sub(r"[{}#*\[\]]", " ", page_text))[:400]
-        winner, tried = pool.acquire(
-            s.query, backend=backend, want=s.want, min_dim=min_dim, use_vlm=use_vlm,
-            ratio=s.ratio,
-            deck_brief=brief, page_text=snippet, seen_hashes=seen_hashes, seen_urls=seen_urls)
-        s.tried = tried
-        if winner:
-            s.winner = winner
-            s.status = "resolved"
+    report_path = pdir / 'images_report.json'
+    try:
+        previous = json.loads(report_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        previous = {}
+    for slot in all_slots:
+        slot.winner, slot.status = _cached(slot, previous, pdir, min_dim)
+    unresolved = [s for s in all_slots if not s.winner]
+    if not offline:
+        _attempts(unresolved, texts, brief, backend, workers, timeout, started + budget, use_vlm, min_dim)
+    for slot in unresolved:
+        if slot.winner:
+            continue
+        if offline:
+            slot.tried.append({'fate': 'offline'})
+        if slot.allow_fallback:
+            slot.winner, slot.status = _gradient(slot), 'degraded'
         else:
-            s.status = "failed"
-        return s
-
-    results: List[slots_mod.Slot] = []
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-        futs = {ex.submit(_resolve, s): s for s in all_slots}
-        for fut in as_completed(futs):
-            results.append(fut.result())
-
-    # 落盘 + 回填 .page + 登记去重
-    resolved = 0
-    report_slots = []
-    for s in sorted(results, key=lambda x: (x.page, x.line_no)):
-        if s.status == "resolved" and s.winner:
-            w = s.winner
-            base = s.element_id or _slugify(s.query or os.path.basename(s.page), "img")
-            fname = f"{_slugify(base, 'img')}{_EXT.get(w['fmt'], '.jpg')}"
-            fpath = os.path.join(media_dir, fname)
-            # 同名冲突加短 hash
-            if os.path.exists(fpath):
-                stem, ext = os.path.splitext(fname)
-                fname = f"{stem}-{hashlib.sha256(w['bytes']).hexdigest()[:6]}{ext}"
-                fpath = os.path.join(media_dir, fname)
-            _write_bytes(fpath, w["bytes"])
-            rel_media = f"media/{fname}"
-            s.local_path = rel_media
-            page_texts[s.page] = slots_mod.patch_src(page_texts[s.page], s.line_no, s.raw_src, rel_media)
-            seen_hashes.add(w["sha256"])
-            seen_urls.add(w.get("canonical") or pool.canonical_url(w["url"]))
-            resolved += 1
-            report_slots.append({
-                "page": s.page, "elementId": s.element_id, "kind": s.kind,
-                "query": s.query or s.raw_src, "status": "resolved", "local": rel_media,
-                "source_url": w["url"], "backend": w.get("backend"), "license": w.get("license", ""),
-                "landing": w.get("landing", ""), "width": w["w"], "height": w["h"],
-                "score": round(float(w.get("score", 0)), 2),
-                "vlm": {k: w.get("vlm", {}).get(k) for k in ("relevance", "image_type", "has_watermark", "quality", "reason") if w.get("vlm")},
-            })
-        else:
-            report_slots.append({
-                "page": s.page, "elementId": s.element_id, "kind": s.kind,
-                "query": s.query or s.raw_src, "status": "failed",
-                "tried": getattr(s, "_tried", [])[:6],
-            })
-
-    # 写回改过的 .page
-    for rel, text in page_texts.items():
-        _write(os.path.join(pdir, rel), text)
-
-    failed = len(all_slots) - resolved
-    report = {
-        "project": os.path.basename(pdir.rstrip("/")),
-        "deck_brief": brief,
-        "backend": backend,
-        "vlm": bool(use_vlm and pool.vlm_enabled()),
-        "total_slots": len(all_slots),
-        "resolved": resolved,
-        "failed": failed,
-        "slots": report_slots,
-    }
-    _write(os.path.join(pdir, "images_report.json"), json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-
-    print(f"[done] resolved={resolved}/{len(all_slots)} → images_report.json")
-    if failed:
-        print(f"[warn] {failed} 个槽未解决（见 images_report.json failed 项），请改 .page 元素或放宽条件：")
-        for s in report_slots:
-            if s["status"] == "failed":
-                print(f"  - {s['page']} [{s['kind']}] {s.get('elementId') or '-'} :: {s['query'][:60]}")
-        return 2
-    return 0
+            slot.status = 'failed'
+    records = []
+    originals = dict(texts)
+    for slot in all_slots:
+        rec = dict(page=slot.page, elementId=slot.element_id, kind=slot.kind,
+                   query=slot.query or slot.raw_src, status=slot.status, tried=slot.tried)
+        if slot.winner:
+            winner = slot.winner
+            filename = f"{_slugify(slot.element_id or slot.query)}-{winner['sha256'][:10]}{_EXT[winner['fmt']]}"
+            (pdir / 'media').mkdir(exist_ok=True)
+            (pdir / 'media' / filename).write_bytes(winner['bytes'])
+            local = f'media/{filename}'
+            texts[slot.page] = slots_mod.patch_src(texts[slot.page], slot.line_no, slot.raw_src, local)
+            rec.update(local=local, source_url=winner['url'], backend=winner['backend'],
+                       license=winner.get('license', ''), landing=winner.get('landing', ''),
+                       width=winner['w'], height=winner['h'], score=round(float(winner.get('score', 0)), 2),
+                       vlm=winner.get('vlm', {}))
+            if slot.status == 'degraded':
+                rec['fallback'] = 'Explicitly permitted decorative gradient; no real subject represented'
+        records.append(rec)
+    for page, text in texts.items():
+        if text != originals[page]:
+            (pdir / page).write_text(text, encoding='utf-8')
+    failed = sum(s.status == 'failed' for s in all_slots)
+    report = dict(project=pdir.name, deck_brief=brief, backend=backend, vlm=use_vlm, offline=offline,
+                  timeout=timeout, budget=budget, elapsed_seconds=round(time.monotonic()-started, 3),
+                  total_slots=len(all_slots), resolved=len(all_slots)-failed, failed=failed,
+                  degraded=sum(s.status == 'degraded' for s in all_slots), slots=records)
+    # Preserve previous provenance on a no-op rerun instead of erasing resolved slots.
+    if all_slots or not report_path.exists():
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+    progress(f"[done] resolved={report['resolved']}/{len(all_slots)} failed={failed} degraded={report['degraded']} → images_report.json")
+    if json_output:
+        print(json.dumps(report, ensure_ascii=False))
+    return 2 if failed else 0
 
 
-def _write_bytes(path: str, data: bytes) -> None:
-    with open(path, "wb") as f:
-        f.write(data)
-
-
-def main(argv: Optional[List[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="Resolve PPTD image search: placeholders into local media/")
-    ap.add_argument("project", help="PPTD 工程目录或 .pptd 文件路径")
-    ap.add_argument("--backend", default="auto",
-                    choices=["auto", "baidu", "vertical", "openverse", "wikimedia"])
-    ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--no-vlm", action="store_true", help="禁用 VLM 评审（纯几何/分辨率门）")
-    ap.add_argument("--localize-remote", action="store_true",
-                    help="同时把 http(s) 远端 src 下载本地化")
-    ap.add_argument("--min-dim", type=int, default=pool.DEFAULT_MIN_DIM)
-    ap.add_argument("--dry-run", action="store_true", help="只扫描列出槽位，不检索/下载/改写")
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('project')
+    ap.add_argument('--backend', default='auto', choices=['auto', *pool.BACKENDS])
+    ap.add_argument('--workers', type=int, default=4)
+    vlm = ap.add_mutually_exclusive_group()
+    vlm.add_argument('--vlm', action='store_true', help='Explicitly enable authorized VLM review; requires a key')
+    vlm.add_argument('--no-vlm', action='store_true', help='Disable VLM (the default)')
+    ap.add_argument('--offline', action='store_true', help='No image/VLM network calls; only cache or permitted decoration')
+    ap.add_argument('--timeout', type=float, default=30, help='Seconds per complete backend attempt')
+    ap.add_argument('--budget', type=float, default=120, help='Seconds for the overall image command')
+    ap.add_argument('--localize-remote', action='store_true')
+    ap.add_argument('--min-dim', type=int, default=pool.DEFAULT_MIN_DIM)
+    ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--json', action='store_true', help='One JSON summary on stdout; progress on stderr')
     args = ap.parse_args(argv)
-    return run(args.project, backend=args.backend, workers=args.workers,
-               use_vlm=not args.no_vlm, localize_remote=args.localize_remote,
-               min_dim=args.min_dim, dry_run=args.dry_run)
+    try:
+        return run(args.project, backend=args.backend, workers=args.workers, use_vlm=args.vlm,
+                   localize_remote=args.localize_remote, min_dim=args.min_dim, dry_run=args.dry_run,
+                   timeout=args.timeout, budget=args.budget, offline=args.offline, json_output=args.json)
+    except (OSError, ValueError) as exc:
+        progress(f'[error] {exc}')
+        if args.json:
+            print(json.dumps({'error': str(exc)}, ensure_ascii=False))
+        return 1
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

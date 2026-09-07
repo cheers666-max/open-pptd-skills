@@ -25,6 +25,7 @@ import mimetypes
 import threading
 from pathlib import Path
 from typing import Tuple
+from urllib.parse import unquote, urlsplit
 
 
 class _DeckHTTPHandler(http.server.BaseHTTPRequestHandler):
@@ -35,14 +36,17 @@ class _DeckHTTPHandler(http.server.BaseHTTPRequestHandler):
     scripts_dir: Path = Path()  # set by start_deck_server (viewer.html parent)
 
     def do_GET(self) -> None:  # noqa: N802
-        url_path = self.path.split("?")[0].split("#")[0]
+        url_path = unquote(urlsplit(self.path).path)
+        if "\x00" in url_path:
+            self.send_error(400)
+            return
         if url_path in ("/viewer", "/viewer.html", "/"):
             self._send_file(self.viewer_path, "text/html; charset=utf-8")
         elif url_path.startswith("/deck/"):
             rel = url_path[len("/deck/"):]
             # Prevent directory traversal
             resolved = (self.deck_dir / rel).resolve()
-            if not str(resolved).startswith(str(self.deck_dir.resolve())):
+            if not resolved.is_relative_to(self.deck_dir.resolve()):
                 self.send_error(403)
                 return
             self._send_file(resolved)
@@ -50,7 +54,7 @@ class _DeckHTTPHandler(http.server.BaseHTTPRequestHandler):
             # Serve static assets from scripts/ (fa-icons.mjs, etc.)
             rel = url_path[len("/scripts/"):]
             resolved = (self.scripts_dir / rel).resolve()
-            if not str(resolved).startswith(str(self.scripts_dir.resolve())):
+            if not resolved.is_relative_to(self.scripts_dir.resolve()):
                 self.send_error(403)
                 return
             self._send_file(resolved)

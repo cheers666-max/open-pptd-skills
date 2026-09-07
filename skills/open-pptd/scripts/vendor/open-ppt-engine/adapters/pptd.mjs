@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import YAML from "yaml";
 import sharp from "sharp";
+import { ICONS } from "../../../fa-icons.mjs";
 import { addChart, addElement, addFormula, addGroup, addImage, addShape, addSlide, addTable, addText, createDeck } from "../ir/model.mjs";
 import { exportOoxmlBasic } from "../render/ooxml-basic.mjs";
 import { isPresetGeometry, normalizeGeometry } from "../ir/geometries.mjs";
@@ -19,22 +20,7 @@ import { imageTypeFromContentType, imageTypeFromUrl, sniffImageType } from "../a
 const DEFAULT_PPTD_SIZE = { width: 960, height: 540 };
 const ENGINE_CANVAS = { width: 1280, height: 720 };
 const SUPPORTED_CHARTS = new Set(["bar", "line", "area", "radar", "scatter", "pie", "donut", "doughnut"]);
-const ICON_FALLBACKS = Object.freeze({
-  "fas:arrow-right": "→",
-  "fas:arrow-left": "←",
-  "fas:arrow-up": "↑",
-  "fas:arrow-down": "↓",
-  "fas:check": "✓",
-  "fas:xmark": "×",
-  "fas:circle": "●",
-  "fas:star": "★",
-  "fas:heart": "♥",
-  "fas:lightbulb": "💡",
-  "fas:triangle-exclamation": "⚠",
-  "fas:play": "▶",
-  "fas:house": "⌂",
-  "fab:github": "◉",
-});
+
 
 function record(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -230,6 +216,10 @@ function convertFill(value, theme, warnings, context, opacity = 1) {
   const source = record(value);
   if (source.type === "solid") return colorWithOpacity(source.color, source.opacity ?? opacity, theme.colors, "#000000");
   if (source.type === "gradient" || Array.isArray(source.stops)) {
+    if (!Array.isArray(source.stops) || source.stops.length < 2 || source.stops.some(stop =>
+      typeof stop?.position !== "number" || !Number.isFinite(stop.position) || stop.position < 0 || stop.position > 1 || typeof stop.color !== "string" || !stop.color)) {
+      throw new Error(`Invalid PPTD gradient at ${context}: use top-level stops with position [0,1] and color`);
+    }
     return {
       type: "gradient",
       gradientType: source.gradientType ?? "linear",
@@ -315,23 +305,54 @@ function linePoints(value) {
   }).filter((point) => point.length >= 2 && point.every(Number.isFinite));
 }
 
-function lineBounds(points, scale, fallback) {
+function transformedLinePoints(source, points, bounds) {
+  // PPTD points live in viewBox units, then CSS flips/rotates around the
+  // declared element box. Bake that transform into endpoints before OOXML
+  // tight bounds are calculated; otherwise an off-centre path rotates wrong.
+  const sourceBounds = Array.isArray(source.bounds) ? source.bounds : [];
+  const viewBox = Array.isArray(source.viewBox) ? source.viewBox : sourceBounds.slice(2);
+  const width = number(viewBox[0], number(sourceBounds[2], 1)) || 1;
+  const height = number(viewBox[1], number(sourceBounds[3], 1)) || 1;
+  const flip = Array.isArray(source.flip) ? source.flip : [];
+  const angle = number(source.rotation, 0) * Math.PI / 180;
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  return points.map(([px, py]) => {
+    let x = px * bounds.width / width;
+    let y = py * bounds.height / height;
+    if (flip[0]) x = bounds.width - x;
+    if (flip[1]) y = bounds.height - y;
+    const dx = x - bounds.width / 2, dy = y - bounds.height / 2;
+    return [bounds.width / 2 + dx * cos - dy * sin,
+            bounds.height / 2 + dx * sin + dy * cos];
+  });
+}
+
+function lineArrowEnds(source, line) {
+  const arrows = source.arrow ?? source.border?.arrow ?? [];
+  // PPTD's "arrow" is a filled SVG triangle; OOXML "arrow" is an open head.
+  const pptdArrow = value => value === "arrow" ? "triangle" : value;
+  return {
+    beginArrowType: source.beginArrowType ?? source.headEnd ?? source.lineHead ?? pptdArrow(arrows[0]) ?? line.beginArrowType ?? line.headEnd,
+    endArrowType: source.endArrowType ?? source.tailEnd ?? source.lineTail ?? pptdArrow(arrows[1]) ?? line.endArrowType ?? line.tailEnd,
+  };
+}
+
+function lineBounds(points, fallback) {
   if (points.length < 2) return fallback;
   // points are local to the declared bounds; offset to page coordinates.
-  const xs = points.map(([x]) => fallback.left + x * scale);
-  const ys = points.map(([, y]) => fallback.top + y * scale);
+  const xs = points.map(([x]) => fallback.left + x);
+  const ys = points.map(([, y]) => fallback.top + y);
   const left = Math.min(...xs);
   const top = Math.min(...ys);
   const right = Math.max(...xs);
   const bottom = Math.max(...ys);
-  return { left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+  return { left, top, width: right - left, height: bottom - top };
 }
 
-function lineSegments(points, scale, parentBounds, line, source, id) {
+function lineSegments(points, line, source, id) {
   // Children are group-local; parentBounds offsets are NOT subtracted here.
-  const scaled = points.map(([x, y]) => ({ x: x * scale, y: y * scale }));
-  const beginArrowType = source.beginArrowType ?? source.headEnd ?? source.lineHead ?? line.beginArrowType ?? line.headEnd;
-  const endArrowType = source.endArrowType ?? source.tailEnd ?? source.lineTail ?? line.endArrowType ?? line.tailEnd;
+  const scaled = points.map(([x, y]) => ({ x, y }));
+  const { beginArrowType, endArrowType } = lineArrowEnds(source, line);
   return scaled.slice(0, -1).map((from, index) => {
     const to = scaled[index + 1];
     const dx = to.x - from.x;
@@ -344,8 +365,8 @@ function lineSegments(points, scale, parentBounds, line, source, id) {
       position: {
         left: Math.min(from.x, to.x),
         top: Math.min(from.y, to.y),
-        width: Math.max(1, Math.abs(dx)),
-        height: Math.max(1, Math.abs(dy)),
+        width: Math.abs(dx),
+        height: Math.abs(dy),
       },
       ...(dx < 0 ? { flipH: true } : {}),
       ...(dy < 0 ? { flipV: true } : {}),
@@ -433,7 +454,10 @@ function chartRows(chart) {
 function chartSeries(chart, theme, warnings, context) {
   const { cols, rows, get } = chartRows(chart);
   const sourceSeries = Array.isArray(chart.series) ? chart.series : [];
-  if (!sourceSeries.length) return null;
+  if (!sourceSeries.length) {
+    warnings.push({ code: "empty-chart", context });
+    return null;
+  }
   const types = sourceSeries.map((series) => String(series?.type ?? "bar").toLowerCase());
   const unsupported = types.find((type) => !SUPPORTED_CHARTS.has(type));
   if (unsupported) {
@@ -562,22 +586,27 @@ function addPptdElement(slide, element, context, state) {
   }
   if (type === "line") {
     const border = convertBorder(source.border, theme, warnings, context);
-    const points = linePoints(source.points);
+    const points = transformedLinePoints(source, linePoints(source.points), bounds);
     if (points.length < 2) warnings.push({ code: "line-points-fallback", context });
+    if (source.curve === "smooth" && points.length >= 4) {
+      warnings.push({ code: "line-curve-flattened", context,
+        message: "Smooth Bezier controls are exported as straight segments; inspect this path in the PPTX." });
+    }
     const lineStyle = { fill: "none", line: { ...border }, shadow: convertShadow(source.shadow, theme) };
-    const pointBounds = lineBounds(points, state.scale, bounds);
+    const pointBounds = lineBounds(points, bounds);
     const item = points.length > 2
-      ? addGroup(slide, lineSegments(points, state.scale, bounds, border, source, id), bounds, { name: id, role: source.role ?? "line", allowOverlap: true })
+      ? addGroup(slide, lineSegments(points, border, source, id), bounds, { name: id, role: source.role ?? "line", allowOverlap: true })
       : addShape(slide, "line", pointBounds, lineStyle, { name: id, role: source.role ?? "line" });
     if (points.length === 2) {
-      const dx = (points[1][0] - points[0][0]) * state.scale;
-      const dy = (points[1][1] - points[0][1]) * state.scale;
+      const dx = points[1][0] - points[0][0];
+      const dy = points[1][1] - points[0][1];
       Object.assign(item, dx < 0 ? { flipH: true } : {}, dy < 0 ? { flipV: true } : {});
-      const beginArrowType = source.beginArrowType ?? source.headEnd ?? source.lineHead ?? border.beginArrowType ?? border.headEnd;
-      const endArrowType = source.endArrowType ?? source.tailEnd ?? source.lineTail ?? border.endArrowType ?? border.tailEnd;
+      const { beginArrowType, endArrowType } = lineArrowEnds(source, border);
       if (beginArrowType || endArrowType) item.style.line = { ...item.style.line, ...(beginArrowType ? { beginArrowType } : {}), ...(endArrowType ? { endArrowType } : {}) };
     }
-    Object.assign(item, transform(source), { rawPptd: source });
+    // Source rotation/flips are already represented by the transformed points.
+    // Do not overwrite endpoint direction with transform(source)'s false defaults.
+    item.rawPptd = source;
     state.index += 1;
     return item;
   }
@@ -599,14 +628,27 @@ function addPptdElement(slide, element, context, state) {
     return item;
   }
   if (type === "icon") {
-    warnings.push({ code: "icon-font-fallback", context, iconName: source.iconName });
-    const icon = ICON_FALLBACKS[String(source.iconName ?? "").toLowerCase()] ?? "•";
-    const style = normalizeTextStyle({ fontSize: number(source.bounds?.[2], 24) * 0.75, color: source.fill?.color ?? "#1E1E1E", align: ["center", "middle"] }, theme, state.scale, warnings, context);
-    const item = addText(slide, icon, bounds, style, { name: id, role: "icon", singleLine: true });
-    Object.assign(item, transform(source), { rawPptd: source });
+    const name = String(source.iconName ?? "").toLowerCase();
+    const icon = ICONS[name];
+    if (!icon) {
+      warnings.push({ code: "icon-unsupported", context, iconName: source.iconName,
+                      message: "Icon missing from the local SVG registry; no glyph substitution" });
+      const item = addShape(slide, "rect", bounds, { fill: "#00000000", line: { color: "#00000000", width: 0 } }, { name: id, role: "unsupported" });
+      item.rawPptd = source;
+      state.index += 1;
+      return item;
+    }
+    const color = String(resolveColor(source.fill?.color ?? source.fill?.colors?.[0], theme.colors, "#1E1E1E"))
+      .replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
+    const [, , width, height] = icon.viewBox.split(/\s+/);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${icon.viewBox}" width="${width}" height="${height}">${icon.inner.replaceAll("currentColor", color)}</svg>`;
+    const item = addImage(slide, { data: Buffer.from(svg), mimeType: "image/svg+xml" }, bounds,
+      { name: id, fit: "contain", alt: name, role: "icon", opacity: number(source.opacity, 1), ...transform(source) });
+    item.rawPptd = source;
     state.index += 1;
     return item;
   }
+
   if (type === "table") {
     const tableRows = makeTableRows(source, state.manifest, theme, state.scale, warnings, context);
     const tableStyle = resolveStyle(source.style, state.manifest.theme ?? {}, "tableStyles");

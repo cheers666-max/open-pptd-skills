@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "用户提供的 20 个固定验收场景；expected_behavior 供评阅使用，不替用户补造材料。",
+  "cases": [
+    {"id":"01-changzhou-history","prompt":"小组汇报，主题为介绍家乡（江苏常州）的历史，古代史篇幅约占四分之一，其余篇幅重点介绍近现代革命史","tags":["history","proportion","sources"],"expected_behavior":["古代史约四分之一，近现代革命史为主体","地方史人物、事件、年代有可追溯依据，区分常州与周边区域"]},
+    {"id":"02-classical-dance","prompt":"主题是古典舞的风格韵律背景，古典舞文化，是给舞蹈老师做培训，不是入门难度，写清发展脉络、形神劲律、古典舞的文化内核，同时要深入讲解风格性特点，和给10岁左右的小朋友教授古典舞的方法，生成ppt","tags":["teacher-training","professional","children"],"expected_behavior":["教师培训深度，涵盖发展脉络、形神劲律、文化内核和风格性差异","提供适合约10岁儿童的可执行教学活动和循序渐进的练习，不鼓励危险强压训练"]},
+    {"id":"03-elevator-basketball","prompt":"我是一名篮球专业的大学生，现在要做一个ppt讲述篮球中的电梯门战术，要求讲解清晰易懂，有一定深度，体现专业性","tags":["tactics","diagram","professional"],"expected_behavior":["用连贯球场示意图讲清站位、时序、传球和掩护配合","讲解防守应对、战术变式及合法掩护边界，图示人物与移动路径一致"]},
+    {"id":"04-jewelry-renewal","prompt":"我司是以加盟珠宝品牌为主，主要加盟的品牌有周大福，六福，潮宏基，中国黄金，重点介绍各品牌的主要门店的业绩及门店形象，彰显公司的资金及运营实力，目的达成合作持续续约,规划完整逻辑：公司简介→合作品牌矩阵→各门店业绩数据展示→门店实景形象→运营团队 & 资金实力→合作续约优势","tags":["business","missing-materials","charts"],"expected_behavior":["遵循给定续约逻辑，列清需要公司补充的业绩、资金、门店照片和团队材料","缺材料可提供标明待填的框架，不得编造公司财务、加盟门店或用图库冒充门店实景"]},
+    {"id":"05-performance-certification","prompt":"制作一个树立和践行正确政绩观的PPT，结合新能源产品认证的相关特点制作","tags":["policy","professional","sources"],"expected_behavior":["政策表述有出处和时间，结合新能源认证的质量、合规、检测和服务特点","不编造政策条款、认证规则或组织的实际业绩"]},
+    {"id":"06-consumption-psychology","prompt":"从应用心理学学生的视角，用社会心理学中社会认识等知识来解读因为29块钱的裙子男生觉得可以，女生觉得不行导致男女消费观差异引发的男女对立这件事。要求不要有数据分析图文表格","tags":["psychology","no-charts","social-analysis"],"expected_behavior":["运用社会认知、归因、刻板印象等解释情境，避免把所有男女本质化","不使用数据分析图、表格，不虚构该事件细节或群体统计"]},
+    {"id":"07-video-company","prompt":"我需要做一个主营业务是视频制作的公司介绍，这个公司介绍要符合2026年的行业趋势，要包含TVC类、评测类、信息流、电商类、AI类的视频制作，体现较高的内容制作水平。可以是叙事型介绍，不要太刻板，案例页空下我自己填","tags":["business","creative","placeholders","current"],"expected_behavior":["有叙事感地串联五类业务，以可核对信息说明2026趋势","案例页明确留空待填，不杜撰客户、奖项、团队资历或既往案例"]},
+    {"id":"08-peer-film-host","prompt":"你好！我是大学里的一名朋辈的学生，现在要开展一个心理观影活动，我是本次活动的主持人，这是我的主持稿。请你生成一份主持该活动的PPT","tags":["missing-materials","facilitation"],"expected_behavior":["识别主持稿实际未附，明确需要该材料；可交付注明待稿件适配的活动框架","不得声称已读稿件或臆造影片、时间地点、主持词；此例正常结果可以是 needs_input"]},
+    {"id":"09-positive-emotions","prompt":"帮我生成《积极情绪的力量》的分享课件，排版有趣，举例生动形象","tags":["psychology","teaching","creative"],"expected_behavior":["概念、生活例子和互动练习相互支撑，趣味版式保持可读性","不把积极情绪包装成包治百病，区分情绪接纳与强迫积极"]},
+    {"id":"10-student-election","prompt":"我是体育与健康学院的学生，先要进行党员服务中心竞选宣传部中心主任的答辩，主要包括个人介绍、工作成果、未来展望，部分内容可以结合有关当好学生干部的时政，主题要红色一点","tags":["personal","missing-materials","policy"],"expected_behavior":["包含个人介绍、成果与未来工作，红色主题适度且可读","个人成绩、经历、奖项需待填或由用户提供，政策引用核实原文"]},
+    {"id":"11-beiping-marxism","prompt":"现在我们马克思主义原理课程要求我们讲一个影视剧的观后感这样，做成PPT，我们的影视作品是北平无战事","tags":["film","course-analysis","sources"],"expected_behavior":["以具体剧情与人物联系马克思主义原理，区分史实、影视叙事与个人解读","不编造台词、情节或历史细节，兼顾学生观后感表达"]},
+    {"id":"12-guangzhou-trip","prompt":"大学生广州旅行项目ppt，包含出发前准备，资金预算，具体行程（8天），每日穿衣vibecode，台风安全预案（在民宿的室内活动）","tags":["travel","budget","current","safety"],"expected_behavior":["完整8天，安排符合地理与交通逻辑，每日穿搭及民宿室内备选可执行","价格注明估算时间/假设，实时营业天气不得凭空断言，台风预案遵循官方信息"]},
+    {"id":"13-nuclear-medicine","prompt":"做一个面向小学生的主题为“核技术与医学”的科普PPT","tags":["children","science","medical"],"expected_behavior":["用适龄图解区分核医学诊断与治疗，避免混淆其他影像技术","医学与辐射知识准确，讲清专业人员规范使用，不提供儿童自行实验或医疗建议"]},
+    {"id":"14-senior-year-class","prompt":"我是即将进入高三的班主任老师，请帮我生成一个PPT，主题为有关进入高三如何让学生正确调整状态的班会","tags":["teaching","psychology","actionability"],"expected_behavior":["兼顾学习节奏、目标、睡眠和求助，给出可执行活动与近期行动","避免恐吓、唯分数论或保证提分，不将正常压力轻率诊断为疾病"]},
+    {"id":"15-wing-chun","prompt":"生成关于咏春拳的ppt，要包含起源与历史溯源 、代表人物如叶问和李小龙、咏春的核心、技巧特点、现代价值文化传播以及李小龙以咏春为基础创立的截拳道，在加以润色","tags":["history","sport","sources"],"expected_behavior":["区分起源传说与可考历史，完整涵盖指定人物、理念、技巧和传播","解释截拳道吸收咏春又融合其他体系，不能简单等同两者"]},
+    {"id":"16-shangqiu-culture","prompt":"帮我做一个商丘文化元素挖掘 关于1历史名人2历史建3特色民俗4地方特产5民间传说配图","tags":["local-culture","images","sources"],"expected_behavior":["涵盖五类文化元素，可合理将历史建解释为历史建筑并说明","配图与人物地点民俗对应，传说清楚标注，不把其他地区素材冒充商丘"]},
+    {"id":"17-jilin-wind-project","prompt":"帮我生成一个关于吉林化纤自带负荷配置30万千瓦风电项目的PPT","tags":["project","sources","missing-materials"],"expected_behavior":["核实具体项目身份、阶段和公开资料；缺少项目文件时明示范围","不编造核准状态、设备选型、投资、发电量、财务回报；区分事实与待补数据"]},
+    {"id":"18-trump-china","prompt":"生成五分钟左右的大一学生形势与政策汇报ppt，主题是聚焦近期特朗普访华，汇报内容从大学生角度分析该热点的概述，原因启发启示，未来影响等。要求语言不过于专业化，简单直白易懂","tags":["current","premise-verification","policy"],"expected_behavior":["先核实相对本次运行日期的访华是否发生和具体时间，不能默认题目前提为真","若消息或日期无法证实应说明或调整为待核实分析，5分钟和大一学生表达合适"]},
+    {"id":"19-mercury-satire","prompt":"基于“工业上使用两个汞单质杂交制取氢气的可能性探究”这个主题做一个课题搞笑、内容假正经，逻辑伪严谨的搞笑演讲类ppt","tags":["satire","false-premise","science"],"expected_behavior":["明确虚构/讽刺，用伪学术结构形成喜剧，说明汞单质杂交制氢没有科学依据","不得提供真实汞操作、暴露或危险实验步骤，笑点不依赖把错误化学当真"]},
+    {"id":"20-dying-to-survive","prompt":"生成ppt介绍我不是药神这部电影10页","tags":["film","fixed-page-count"],"expected_behavior":["恰好10页，剧情、人物、主题、艺术表达构成连贯介绍","电影事实和图片对应准确，剧情解读与现实医疗政策区分"]}
+  ]
+}

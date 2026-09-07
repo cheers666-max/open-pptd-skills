@@ -11,7 +11,8 @@ const cli = join(projectRoot, "bin", "open-pptd-skills.js");
 const scriptsDir = join(projectRoot, "skills", "open-pptd", "scripts");
 
 function runPython(script, args = []) {
-  return spawnSync("python3", [join(scriptsDir, script), ...args], {
+  const argv = script === "-c" ? ["-c", args] : [join(scriptsDir, script), ...args];
+  return spawnSync("python3", argv, {
     encoding: "utf8",
     timeout: 30000,
   });
@@ -141,7 +142,7 @@ test("anti-slop: clean deck passes", () => {
 // TODO 7: Layout planner
 // =============================================================================
 
-test("layout_planner: inserts section dividers after N content pages", () => {
+test("layout_planner: suggests rhythm without changing a fixed outline", () => {
   const root = mkdtempSync(join(tmpdir(), "planner-test-"));
   try {
     const outline = {
@@ -162,16 +163,15 @@ test("layout_planner: inserts section dividers after N content pages", () => {
     const result = runPython("layout_planner.py", [outlinePath, "--json"]);
     assert.equal(result.status, 0, result.stderr);
     const report = JSON.parse(result.stdout);
-    // With 12 content pages and default max=5, expect at least 1 inserted divider
-    const inserted = report.pages.filter((p) => p.inserted);
-    assert.ok(inserted.length >= 1, "should insert at least 1 divider");
-    assert.equal(report.violations.length, 0, "no rhythm violations");
+    assert.deepEqual(report.pages, outline.pages, "page count, order and fields must be preserved");
+    assert.ok(report.suggestions.some(s => s.type === "long-content-run"));
+    assert.equal(report.violations.length, 0, "suggestions are not blocking violations");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("layout_planner: no consecutive same archetype+silhouette", () => {
+test("layout_planner: title length cannot force a different page type", () => {
   const root = mkdtempSync(join(tmpdir(), "planner2-test-"));
   try {
     const outline = {
@@ -188,8 +188,9 @@ test("layout_planner: no consecutive same archetype+silhouette", () => {
 
     const result = runPython("layout_planner.py", [outlinePath, "--json"]);
     const report = JSON.parse(result.stdout);
-    // Pages 2 and 3 have same title length → same silhouette → should be broken up
-    assert.equal(report.violations.length, 0, "should not have consecutive same archetype");
+    assert.deepEqual(report.pages, outline.pages);
+    assert.equal(report.violations.length, 0);
+    assert.deepEqual(report.suggestions, [], "no visual intent supplied; do not infer layout from title length");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -200,11 +201,9 @@ test("layout_planner: no consecutive same archetype+silhouette", () => {
 // =============================================================================
 
 test("convert_fidelity: converts PPTX to PPTD with confidence scoring", () => {
-  // This test requires python-pptx; skip if not available
+  // Conversion is a required regression: preparation failures must fail.
   const result = runPython("convert_fidelity.py", ["--help"]);
-  if (result.stderr.includes("python-pptx not installed") || result.status !== 0) {
-    return; // skip
-  }
+  assert.equal(result.status, 0, result.stderr);
 
   const root = mkdtempSync(join(tmpdir(), "convert-test-"));
   try {
@@ -219,7 +218,7 @@ tb = s.shapes.add_textbox(Inches(1), Inches(1), Inches(8), Inches(1))
 tb.text_frame.text = "Test Title"
 prs.save("${pptxPath}")
 `);
-    if (createResult.status !== 0) return; // skip if python-pptx not available
+    assert.equal(createResult.status, 0, createResult.stderr);
 
     const outputDir = join(root, "output");
     const convertResult = runPython("convert_fidelity.py", [pptxPath, outputDir, "--json"]);
@@ -249,9 +248,8 @@ test("CLI: convert-fidelity requires input and output", () => {
 });
 
 test("CLI: convert-fidelity runs end-to-end", () => {
-  // Skip if python-pptx not available
   const check = spawnSync("python3", ["-c", "import pptx"], { encoding: "utf8" });
-  if (check.status !== 0) return;
+  assert.equal(check.status, 0, check.stderr);
 
   const root = mkdtempSync(join(tmpdir(), "cli-convert-test-"));
   try {
@@ -265,7 +263,7 @@ tb = s.shapes.add_textbox(Inches(1), Inches(1), Inches(8), Inches(1))
 tb.text_frame.text = "CLI Test"
 prs.save("${pptxPath}")
 `);
-    if (createResult.status !== 0) return;
+    assert.equal(createResult.status, 0, createResult.stderr);
 
     const outputDir = join(root, "output");
     const result = runCli(["convert-fidelity", pptxPath, outputDir]);

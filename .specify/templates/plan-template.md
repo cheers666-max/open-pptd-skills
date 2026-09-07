@@ -1,199 +1,113 @@
-# Implementation Plan: Open-PPTD Skill Optimization
+# Implementation Plan: [FEATURE]
 
-## Phase 1: Foundation & Audit Infrastructure (Week 1-2)
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 
-### Task 1.1: Post-Rendering Pixel Audit (`audit_rendered_hard`)
-**Owner**: Core Engine  
-**Priority**: P0  
-**Effort**: 5 days  
-**Dependencies**: export_images.py, export_html.py
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Subtasks**:
-- [ ] Implement `scripts/audit_rendered.py` (headless Chrome + PIL/Pillow)
-  - Render each page to PNG via existing viewer infrastructure
-  - Calculate text-background contrast ratio (WCAG AA ≥4.5:1)
-  - Detect element occlusion via pixel overlap analysis
-  - Detect alignment deviations (grid consistency across pages)
-  - Generate annotated PNG with bounding boxes + JSON report
-- [ ] Integrate into `validate_deck.py` as new check category `rendered_audit`
-- [ ] Add whitelist mechanism for intentional design choices (bleed, overlay, etc.)
-- [ ] Add CLI flag `--audit-rendered` to `open-pptd-skills validate`
+**Note**: This template is filled in by the `__SPECKIT_COMMAND_PLAN__` command; its definition describes the execution workflow.
 
-**Validation**:
-- Unit tests with synthetic decks (known contrast violations, occlusion cases)
-- Integration test with 10-page deck (verify audit report completeness)
+## Summary
 
-### Task 1.2: Layout Rhythm Constraints (`layout_planner`)
-**Owner**: Content Engine  
-**Priority**: P0  
-**Effort**: 3 days  
-**Dependencies**: None
+[Extract from feature spec: primary requirement + technical approach from research]
 
-**Subtasks**:
-- [ ] Define `page_archetypes.yaml` (cover, toc, section, content, data, quote, closing)
-- [ ] Implement `scripts/layout_planner.py`
-  - Assign archetype to each page based on content + pageType
-  - Enforce no consecutive same-archetype pages (except content with different silhouettes)
-  - Calculate silhouette hash (element bounds histogram) for variation detection
-  - Generate rhythm plan (page sequence + archetype assignments) as JSON
-- [ ] Integrate into SKILL.md step2 (after page count determination)
-- [ ] Add user confirmation step (show rhythm plan before generation)
+## Technical Context
 
-**Validation**:
-- Unit tests for archetype assignment logic
-- Integration test with 15-page deck (verify rhythm constraints enforced)
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
 
-## Phase 2: Edit Fidelity & Design System (Week 3-4)
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
 
-### Task 2.1: Lossless Edit Workflow
-**Owner**: Conversion Engine  
-**Priority**: P1  
-**Effort**: 4 days  
-**Dependencies**: export_pptx.mjs, vendor/open-ppt-engine
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
 
-**Subtasks**:
-- [ ] Implement `scripts/convert_fidelity.py`
-  - Parse original PPTX (python-pptx or custom parser)
-  - Convert to PPTD with fidelity scoring per element
-  - Flag elements with confidence <90% for manual review
-  - Generate side-by-side diff report (original screenshot vs PPTD render)
-- [ ] Add "edit in place" mode to preserve original element IDs and positions
-- [ ] Integrate into SKILL.md step3 (editing workflow)
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
-**Validation**:
-- Test with 10 real-world PPTX files (varied complexity)
-- Measure element preservation rate (target ≥95%)
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
 
-### Task 2.2: Tiered Design System Loading
-**Owner**: Design Engine  
-**Priority**: P1  
-**Effort**: 3 days  
-**Dependencies**: design_system/ directory
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
 
-**Subtasks**:
-- [ ] Create `design_system/index.json` (lightweight registry)
-  - Extract name, description, thumbnail path, tags from each design system
-  - Merge parallel structures (`01_strategy/` + `consulting/`) into single registry
-- [ ] Implement `scripts/design_system_loader.py`
-  - Load index on startup (≤100KB)
-  - Load full spec only on user selection (lazy loading)
-  - Support search/filter by industry, mood, color temperature
-- [ ] Update SKILL.md step2 (design system selection workflow)
+**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
 
-**Validation**:
-- Measure initial context cost (target ≤100KB)
-- Measure full spec load time (target ≤2s)
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
 
-## Phase 3: Chart Vocabulary & Anti-Slop (Week 5-6)
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
 
-### Task 3.1: Chart Vocabulary Expansion
-**Owner**: Chart Engine  
-**Priority**: P0  
-**Effort**: 6 days  
-**Dependencies**: pptd.md schema, kimi-slides reference
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
-**Subtasks**:
-- [ ] Extend `reference/pptd.md` with 13+ series types
-  - Add waterfall, sankey, treemap, sunburst, funnel, gauge, heatmap schemas
-  - Define `encode` field for column-based data mapping
-  - Define `seriesDefaults` one-level shallow merge rules
-- [ ] Implement chart validation in `validate_deck.py`
-  - Sankey requires nodes + links
-  - Waterfall requires measure type
-  - Treemap requires hierarchical data
-- [ ] Add chart examples to `reference/chart-examples/` (one per series type)
-- [ ] Update `slides_categories/analysis-decision.md` with chart usage guidance
+## Constitution Check
 
-**Validation**:
-- Unit tests for each chart type (valid + invalid cases)
-- Integration test with data-heavy deck (verify chart rendering)
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-### Task 3.2: Anti-AI-Slop Enforcement
-**Owner**: Content Engine  
-**Priority**: P1  
-**Effort**: 2 days  
-**Dependencies**: kimi-slides reference
+[Gates determined based on constitution file]
 
-**Subtasks**:
-- [ ] Extract banned phrase list from kimi-slides SKILL.md
-- [ ] Add content validation to `validate_deck.py`
-  - Flag "不是X而是Y", "闭环", "第N件事", etc.
-  - Flag "not X, but Y", "closed loop", "key takeaway", etc.
-- [ ] Add design pattern detection to `audit_rendered.py`
-  - Detect card layouts (rounded rectangles in grid)
-  - Detect rainbow color schemes (red + purple + yellow + green on same page)
-- [ ] Integrate into SKILL.md step4 (validation workflow)
+## Project Structure
 
-**Validation**:
-- Test with synthetic content containing banned phrases
-- Test with real decks (verify no false positives on intentional design choices)
+### Documentation (this feature)
 
-## Phase 4: Integration & Testing (Week 7-8)
+```text
+specs/[###-feature]/
+├── plan.md              # This file (__SPECKIT_COMMAND_PLAN__ command output)
+├── research.md          # Phase 0 output (__SPECKIT_COMMAND_PLAN__ command)
+├── data-model.md        # Phase 1 output (__SPECKIT_COMMAND_PLAN__ command)
+├── quickstart.md        # Phase 1 output (__SPECKIT_COMMAND_PLAN__ command)
+├── contracts/           # Phase 1 output (__SPECKIT_COMMAND_PLAN__ command)
+└── tasks.md             # Phase 2 output (__SPECKIT_COMMAND_TASKS__ command - NOT created by __SPECKIT_COMMAND_PLAN__)
+```
 
-### Task 4.1: End-to-End Integration
-**Owner**: All  
-**Priority**: P0  
-**Effort**: 5 days  
-**Dependencies**: All previous tasks
+### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
-**Subtasks**:
-- [ ] Update SKILL.md with new workflow steps
-  - Add `layout_planner` to step2
-  - Add `convert_fidelity` to step3 (editing)
-  - Add `audit_rendered_hard` to step4
-  - Update step5 with new deliverables (rhythm plan, fidelity report, audit report)
-- [ ] Add CLI commands for new features
-  - `open-pptd-skills plan-rhythm <deck>`
-  - `open-pptd-skills audit-rendered <deck>`
-  - `open-pptd-skills convert-fidelity <pptx>`
-- [ ] Create comprehensive test suite
-  - Unit tests for all new scripts
-  - Integration tests with real decks
-  - Performance tests (measure audit overhead, design system load time)
+```text
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
 
-**Validation**:
-- Full workflow test (create → validate → export) with 20-page deck
-- Edit workflow test (convert → edit → export) with 10-page PPTX
-- Performance test (measure total generation time for 20-page deck)
+tests/
+├── contract/
+├── integration/
+└── unit/
 
-### Task 4.2: Documentation & Release
-**Owner**: Documentation  
-**Priority**: P1  
-**Effort**: 2 days  
-**Dependencies**: Task 4.1
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
 
-**Subtasks**:
-- [ ] Update README.md with new features
-- [ ] Create migration guide for existing users
-- [ ] Add examples to `example/` directory
-- [ ] Tag release v2.1.0
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
 
-**Validation**:
-- Documentation review by 2+ users
-- Example decks render correctly
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
 
-## Risk Mitigation
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
+```
 
-### Risk 1: Performance Overhead
-**Impact**: Audit adds 30-60s per deck  
-**Mitigation**: Make audit optional (`--audit-rendered` flag), optimize with parallel rendering
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
-### Risk 2: False Positives in Audit
-**Impact**: Audit flags intentional design choices  
-**Mitigation**: Whitelist mechanism, manual review mode, precision tuning
+## Complexity Tracking
 
-### Risk 3: Backward Compatibility
-**Impact**: Existing decks break with new validation  
-**Mitigation**: Audit is advisory (not blocking), migration guide for design system changes
+> **Fill ONLY if Constitution Check has violations that must be justified**
 
-### Risk 4: Context Cost
-**Impact**: New features increase SKILL.md size  
-**Mitigation**: Split detailed reference into separate files, load on demand
-
-## Success Criteria
-- [ ] All new features integrated into SKILL.md workflow
-- [ ] Audit precision ≥90% (measured on 50+ decks)
-- [ ] Edit fidelity ≥95% (measured on 20+ PPTX files)
-- [ ] Design system loading ≤100KB initial context
-- [ ] 13+ chart types supported with validation
-- [ ] User satisfaction: ≤1 revision round (down from 2-3)
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

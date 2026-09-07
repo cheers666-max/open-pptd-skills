@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""audit_rendered.py — 渲染后像素级硬审计。
+"""audit_rendered.py — conservative post-render contrast/overlap review.
 
-对 PPTD 工程做真实渲染（headless Chrome）→ 像素级分析：
-  1. 文字-背景对比度（WCAG AA ≥4.5:1）
-  2. 元素遮挡检测（bounding box 重叠 + 像素采样）
-  3. 跨页对齐/网格一致性（标题位置、页边距）
-  4. 生成带 bounding box 的标注图 + JSON 报告
-
-用法：
-  python3 audit_rendered.py <project_dir|deck.pptd> [--workers N] [--output DIR]
+Pure-color contrast uses declared resolved colors, never region-average pixels.
+Complex backgrounds and uncertain overlaps are advisory/not_checked. This tool
+neither measures browser text overflow nor proves PPTX playback correctness.
 """
 from __future__ import annotations
 
@@ -28,7 +23,7 @@ SCRIPTS_DIR = SKILL_DIR / "scripts"
 
 # 复用现有导出基础设施
 sys.path.insert(0, str(SCRIPTS_DIR))
-from export_images import export_images, find_deck, ExportError  # noqa: E402
+from export_images import export_images, find_deck, ExportError, ensure_yaml  # noqa: E402
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -81,115 +76,119 @@ def sample_region_average(img: Image.Image, x: int, y: int, w: int, h: int) -> T
 # YAML 解析（轻量，只提取 elementId/bounds/text）
 # ---------------------------------------------------------------------------
 
-def _parse_page_elements(page_path: Path) -> List[Dict[str, Any]]:
-    """解析 .page 文件，提取元素列表。"""
-    try:
-        import yaml
-    except ImportError:
-        return []
+def _parse_page(page_path: Path) -> Dict[str, Any]:
+    yaml = ensure_yaml()
     try:
         data = yaml.safe_load(page_path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    elements = data.get("elements", [])
-    result = []
-    for el in elements:
-        if not isinstance(el, dict):
-            continue
-        result.append({
-            "elementId": el.get("elementId", ""),
-            "elementType": el.get("elementType", ""),
-            "bounds": el.get("bounds", [0, 0, 0, 0]),
-            "text": el.get("content", {}).get("text", "") if el.get("elementType") == "text" else "",
-            "fontSize": el.get("content", {}).get("fontSize", 18),
-            "color": el.get("content", {}).get("color", "#000000"),
-        })
-    return result
+    except Exception as exc:
+        raise ValueError(f"Cannot parse {page_path}: {exc}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("elements", []), list):
+        raise ValueError(f"Invalid page structure: {page_path}")
+    if not all(isinstance(el, dict) for el in data.get("elements", [])):
+        raise ValueError(f"Invalid element in {page_path}")
+    return data
 
 
-# ---------------------------------------------------------------------------
-# 核心审计逻辑
-# ---------------------------------------------------------------------------
+def _parse_page_elements(page_path: Path) -> List[Dict[str, Any]]:
+    return _parse_page(page_path).get("elements", [])
 
-def audit_page(
-    img_path: Path,
-    page_path: Path,
-    scale: float,
-    page_index: int,
-    min_contrast: float = 4.5,
-) -> List[Dict[str, Any]]:
-    """审计单页，返回 issue 列表。"""
-    issues = []
+
+def _rgb(value, colors):
+    if isinstance(value, str) and value.startswith("$"):
+        value = colors.get(value[1:])
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower()
+    value = {"black": "#000000", "white": "#ffffff"}.get(value, value)
+    if re.fullmatch(r"#[0-9a-f]{3}", value):
+        value = "#" + "".join(c * 2 for c in value[1:])
+    if not re.fullmatch(r"#[0-9a-f]{6}(?:ff)?", value):
+        return None
+    return tuple(int(value[i:i+2], 16) for i in (1, 3, 5))
+
+
+def _bounds(el):
+    b = el.get("bounds")
+    if not isinstance(b, list) or len(b) != 4 or not all(isinstance(x, (int, float)) and math.isfinite(x) for x in b):
+        return None
+    return b if b[2] > 0 and b[3] > 0 else None
+
+
+def _overlap(a, b):
+    return min(a[0]+a[2], b[0]+b[2]) > max(a[0], b[0]) and min(a[1]+a[3], b[1]+b[3]) > max(a[1], b[1])
+
+
+def _contains(a, b):
+    return a[0] <= b[0] and a[1] <= b[1] and a[0]+a[2] >= b[0]+b[2] and a[1]+a[3] >= b[1]+b[3]
+
+
+def _transparent(el):
+    fill = el.get("fill") or {}
+    color = fill.get("color", "") if isinstance(fill, dict) else fill
+    return el.get("opacity") == 0 or (isinstance(fill, dict) and fill.get("opacity") == 0) or color in ("transparent", "none") or bool(re.fullmatch(r"#[0-9a-fA-F]{6}00", str(color)))
+
+
+def _solid(fill, colors):
+    if not isinstance(fill, dict) or fill.get("type", "solid") != "solid" or fill.get("opacity", 1) != 1:
+        return None
+    return _rgb(fill.get("color"), colors)
+
+
+def audit_page(img_path: Path, page_path: Path, scale: float, page_index: int,
+               min_contrast: float = 4.5, theme: Optional[Dict] = None) -> List[Dict[str, Any]]:
+    """Inspect declared colors after successful rendering, with bounded certainty."""
     if not HAS_PIL:
-        return [{"type": "error", "message": "Pillow not available"}]
-
-    img = Image.open(img_path)
-    elements = _parse_page_elements(page_path)
-
-    for el in elements:
-        if el["elementType"] != "text" or not el["text"]:
+        raise ExportError("Pillow not available")
+    with Image.open(img_path) as image:
+        image.verify()
+    page = _parse_page(page_path)
+    elements = page.get("elements", [])
+    colors = (theme or {}).get("colors", {})
+    base = _solid(page.get("background", {"type": "solid", "color": "#FFFFFF"}), colors)
+    issues = []
+    for i, el in enumerate(elements):
+        content = el.get("content") or {}
+        b = _bounds(el)
+        if el.get("elementType") != "text" or not content.get("text") or not b or el.get("opacity") == 0:
             continue
-
-        bounds = el["bounds"]
-        if len(bounds) < 4:
-            continue
-
-        # 坐标转换：PPTD 坐标 → 渲染图像素坐标
-        x = int(bounds[0] * scale)
-        y = int(bounds[1] * scale)
-        w = int(bounds[2] * scale)
-        h = int(bounds[3] * scale)
-
-        if w <= 0 or h <= 0:
-            continue
-
-        # 采样文字区域和背景区域
-        text_color = sample_region_average(img, x + w // 4, y + h // 4, w // 2, h // 2)
-        # 背景采样：文字区域外围
-        bg_x, bg_y = x - 10, y - 10
-        bg_color = sample_region_average(img, bg_x, bg_y, w + 20, h + 20)
-
-        l_text = relative_luminance(*text_color)
-        l_bg = relative_luminance(*bg_color)
-        ratio = contrast_ratio(l_text, l_bg)
-
-        if ratio < min_contrast:
-            issues.append({
-                "type": "contrast",
-                "severity": "error" if ratio < 3.0 else "warning",
-                "elementId": el["elementId"],
-                "page": page_index,
-                "bounds": bounds,
-                "ratio": round(ratio, 2),
-                "min_required": min_contrast,
-                "message": f"Text contrast {ratio:.2f}:1 below WCAG AA {min_contrast}:1",
-            })
-
-    # 元素遮挡检测（简单重叠 + 层级）
-    for i, el1 in enumerate(elements):
-        for j, el2 in enumerate(elements):
-            if i >= j:
+        common = {"elementId": el.get("elementId"), "page": page_index, "bounds": b}
+        bg = base
+        for under in elements[:i]:
+            ub = _bounds(under)
+            if not ub or not _overlap(b, ub) or _transparent(under):
                 continue
-            b1 = el1["bounds"]
-            b2 = el2["bounds"]
-            if len(b1) < 4 or len(b2) < 4:
-                continue
-            # 检查是否重叠
-            x_overlap = max(0, min(b1[0] + b1[2], b2[0] + b2[2]) - max(b1[0], b2[0]))
-            y_overlap = max(0, min(b1[1] + b1[3], b2[1] + b2[3]) - max(b1[1], b2[1]))
-            if x_overlap > 0 and y_overlap > 0:
-                # 文字被图片/形状遮挡
-                if el1["elementType"] == "text" and el2["elementType"] in ("image", "shape"):
-                    issues.append({
-                        "type": "occlusion",
-                        "severity": "warning",
-                        "elementId": el1["elementId"],
-                        "occluded_by": el2["elementId"],
-                        "page": page_index,
-                        "overlap": [x_overlap, y_overlap],
-                        "message": f"Text '{el1['elementId']}' may be occluded by {el2['elementType']} '{el2['elementId']}'",
-                    })
-
+            fill = under.get("fill")
+            if (under.get("elementType") == "shape" and under.get("shapeName", "rect") == "rect"
+                    and _contains(ub, b) and under.get("opacity", 1) == 1 and not under.get("rotation")):
+                bg = _solid(fill, colors)
+            else:
+                bg = None  # image, partial fill, rounded edges, other text, etc.
+        style = content
+        ref = content.get("style")
+        if isinstance(ref, str) and ref.startswith("$"):
+            style = {**(theme or {}).get("textStyles", {}).get(ref[1:], {}), **content}
+        fg = _rgb(style.get("color", "#1e1e1e"), colors)
+        if style.get("backgroundColor"):
+            bg = _rgb(style["backgroundColor"], colors)
+        rich = str(content["text"])
+        uncertain = (el.get("opacity", 1) != 1 or el.get("rotation") or style.get("gradient")
+                     or re.search(r"(?:color|background|opacity)\s*:", rich, re.I)
+                     or (ref and not isinstance(ref, str)))
+        if fg is None or bg is None or uncertain:
+            issues.append({**common, "type": "contrast-unchecked", "severity": "info", "status": "not_checked",
+                           "message": "Complex or unresolved colors/background; review the rendered page."})
+        else:
+            ratio = contrast_ratio(relative_luminance(*fg), relative_luminance(*bg))
+            if ratio < min_contrast:
+                issues.append({**common, "type": "contrast", "severity": "error" if ratio < 3 else "warning",
+                               "method": "declared-solid-colors", "ratio": round(ratio, 2), "min_required": min_contrast,
+                               "message": f"Declared text/background contrast {ratio:.2f}:1 below {min_contrast}:1"})
+        for over in elements[i+1:]:
+            ob = _bounds(over)
+            if ob and _overlap(b, ob) and not _transparent(over) and over.get("elementType") in ("image", "shape"):
+                issues.append({**common, "type": "occlusion", "severity": "info", "status": "not_checked",
+                               "occluded_by": over.get("elementId"), "method": "bounds-only",
+                               "message": "Bounds overlap; actual occlusion requires visual review."})
     return issues
 
 
@@ -202,7 +201,8 @@ def annotate_image(
     """在渲染图上标注 issue 位置。"""
     if not HAS_PIL:
         return
-    img = Image.open(img_path).copy()
+    with Image.open(img_path) as source:
+        img = source.copy()
     draw = ImageDraw.Draw(img)
 
     for issue in issues:
@@ -227,17 +227,28 @@ def run_audit(
     workers: int = 4,
     min_contrast: float = 4.5,
     scale: float = 2.0,
+    images_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
     """运行完整审计流程。"""
     deck = find_deck(project)
     project_dir = deck.parent
 
-    # 1. 渲染所有页面
+    manifest = ensure_yaml().safe_load(deck.read_text(encoding="utf-8"))
+    theme = manifest.get("theme", {})
     qa_dir = Path(output_dir) if output_dir else project_dir / ".qa-images"
-    print(f"[1/3] Rendering pages to {qa_dir}...", file=sys.stderr)
-    summary = export_images(
-        deck, qa_dir, scale, 30000, 90, force=True, workers=workers,
-    )
+    if images_dir:
+        # Caller must supply current images; no claim that old screenshots are fresh.
+        qa_dir = Path(images_dir)
+        refs = manifest.get("pages", [])
+        summary = {"pages": len(refs), "images": [
+            {"index": i, "image": f"pages/page_{i:02d}.png", "page": ref}
+            for i, ref in enumerate(refs, 1)]}
+        if not all((qa_dir / item["image"]).is_file() for item in summary["images"]):
+            raise ExportError("--images requires current screenshots for every manifest page")
+        print(f"[1/3] Reusing supplied images from {qa_dir}; freshness is caller-verified", file=sys.stderr)
+    else:
+        print(f"[1/3] Rendering pages to {qa_dir}...", file=sys.stderr)
+        summary = export_images(deck, qa_dir, scale, 30000, 90, force=True, workers=workers)
 
     # 2. 逐页审计
     print(f"[2/3] Auditing {summary['pages']} pages...", file=sys.stderr)
@@ -247,12 +258,12 @@ def run_audit(
         img_path = qa_dir / img_info["image"]
         page_file = img_info.get("page")
         if not page_file:
-            continue
+            raise ExportError("Image has no corresponding page")
         page_path = project_dir / page_file
         if not page_path.exists():
-            continue
+            raise ExportError(f"Page missing: {page_path}")
 
-        issues = audit_page(img_path, page_path, scale, page_index, min_contrast)
+        issues = audit_page(img_path, page_path, scale, page_index, min_contrast, theme)
         all_issues.extend(issues)
 
         # 标注问题页
@@ -266,6 +277,9 @@ def run_audit(
         "project": str(project_dir),
         "total_pages": summary["pages"],
         "total_issues": len(all_issues),
+        "not_checked": sum(i.get("status") == "not_checked" for i in all_issues),
+        "scope": "Declared solid-color contrast; overlap is advisory. No text overflow or PPTX playback measurement.",
+        "images_reused": bool(images_dir),
         "errors": sum(1 for i in all_issues if i["severity"] == "error"),
         "warnings": sum(1 for i in all_issues if i["severity"] == "warning"),
         "issues": all_issues,
@@ -281,9 +295,10 @@ def run_audit(
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Rendered pixel-level hard audit for PPTD projects")
+    ap = argparse.ArgumentParser(description="Conservative post-render contrast and overlap review")
     ap.add_argument("project", help="Project directory or .pptd file")
     ap.add_argument("--output", "-o", help="Output directory (default: <project>/.qa-images)")
+    ap.add_argument("--images", help="Reuse current export_images output; caller must verify freshness")
     ap.add_argument("--workers", "-w", type=int, default=4, help="Parallel render workers")
     ap.add_argument("--min-contrast", type=float, default=4.5, help="Minimum contrast ratio (default: 4.5)")
     ap.add_argument("--scale", type=float, default=2.0, help="Render scale factor (default: 2.0)")
@@ -297,8 +312,9 @@ def main():
             workers=args.workers,
             min_contrast=args.min_contrast,
             scale=args.scale,
+            images_dir=args.images,
         )
-    except (ExportError, OSError, subprocess.SubprocessError) as exc:
+    except (ExportError, OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"[err] audit failed: {exc}", file=sys.stderr)
         return 1
 

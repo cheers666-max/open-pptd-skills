@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "open-pptd-quality/1.0",
+  "runId": "schema-example-only",
+  "tool": {
+    "name": "quality",
+    "version": "planned"
+  },
+  "input": {
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "manifestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "pageHashes": {
+      "pages/01.page": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "mediaHashes": {},
+    "contextHash": null,
+    "policyHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "scope": {
+    "profile": "delivery",
+    "pageRefs": [
+      "pages/01.page"
+    ],
+    "formats": [
+      "pptd",
+      "pptx",
+      "html"
+    ],
+    "requiredChecks": [
+      "structure",
+      "content-review"
+    ]
+  },
+  "checks": [
+    {
+      "id": "structure",
+      "status": "passed",
+      "required": true,
+      "method": "static",
+      "pageRefs": [
+        "pages/01.page"
+      ],
+      "reason": "Example status, not an executed check",
+      "evidence": [
+        {
+          "kind": "fixture"
+        }
+      ]
+    },
+    {
+      "id": "content-review",
+      "status": "not_checked",
+      "required": true,
+      "method": "author_review",
+      "pageRefs": [
+        "pages/01.page"
+      ],
+      "reason": "Legacy project has no content review evidence",
+      "evidence": []
+    }
+  ],
+  "issues": [
+    {
+      "code": "content-review-missing",
+      "severity": "warning",
+      "checkId": "content-review",
+      "message": "Missing required review evidence must not become passed",
+      "evidence": []
+    }
+  ],
+  "artifacts": [],
+  "rawReports": [],
+  "decision": "incomplete",
+  "summary": "Schema example; placeholder hashes are not real evidence."
+}

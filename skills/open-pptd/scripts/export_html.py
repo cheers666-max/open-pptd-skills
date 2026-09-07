@@ -30,6 +30,7 @@ import sys
 import time
 import zipfile
 from pathlib import Path
+from urllib.parse import quote, urlencode
 
 from deck_server import start_deck_server
 
@@ -95,7 +96,8 @@ def run_viewer_export(viewer: Path, deck: Path, chrome: str, timeout: int) -> by
     server, port = start_deck_server(viewer, deck.parent)
     chrome_proc = None
     try:
-        url = f"http://127.0.0.1:{port}/viewer?deck=http://127.0.0.1:{port}/deck/{deck.name}&export-test=1"
+        deck_url = f"http://127.0.0.1:{port}/deck/{quote(deck.name, safe='')}"
+        url = f"http://127.0.0.1:{port}/viewer?{urlencode({'deck': deck_url, 'export-test': 1})}"
 
         # Launch Chrome with remote debugging — retry up to 3 times
         ws_url = None
@@ -238,9 +240,7 @@ def main() -> None:
             "page_count": sum(1 for n in names if re.fullmatch(r"page_\d+\.html", n)),
             "zip_bytes": len(zip_bytes),
         }
-    except SystemExit:
-        raise
-    except Exception as exc:  # noqa: BLE001 — 统一转为 JSON/可读错误
+    except (Exception, SystemExit) as exc:  # noqa: BLE001 — 统一转为 JSON/可读错误
         result = {"ok": False, "error": str(exc)}
         if not args.json:
             print(f"❌ HTML 导出失败: {exc}", file=sys.stderr)
@@ -252,6 +252,9 @@ def main() -> None:
         print(f"✅ HTML 导出完成 → {result['output_dir']}")
         for f in result["files"]:
             print(f"   {f}")
+
+    if not result["ok"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

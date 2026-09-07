@@ -6,20 +6,23 @@ description: Create, edit, replicate, read, and export presentations. For every 
 # Definition
 open-pptd is a local-first presentation creation and export skill built around the PPTD format. It defines a YAML-format intermediate DSL (`.pptd`) that abstracts OOXML and keeps each page self-contained. All exports (PPTX, HTML, images) run fully local — no remote editor, no external service.
 
-**The default output is not PPTD-only.** Unless the user explicitly opts out, always produce both:
+**The default output is not PPTD-only.** Unless the user explicitly opts out, always produce all three:
 
 1. the complete editable PPTD project directory (`.pptd` + `pages/` + `media/` and other referenced dependencies);
-2. the matching locally generated `.pptx`, with fade slide transitions applied by default.
+2. the matching locally generated `.pptx`, with fade slide transitions applied by default;
+3. the matching self-contained `html/` export.
 
-Existing PPTX files may also be converted into PPTD for editing, after which both outputs are delivered again.
+Existing PPTX files may also be converted into PPTD for editing, after which the requested formats are delivered again.
 
 ## The pptd format
-The .pptd format is a simplified abstraction layer over OOXML that follows basic YAML syntax. This abstraction preserves the core content of OOXML (theme, page layout, element positions and definitions, etc.) while removing complex nesting logic such as Masters; every page is self-contained — what you see is what you get. Read reference/pptd.md for the complete definition of this DSL.
+The .pptd format is a simplified abstraction layer over OOXML that follows basic YAML syntax. This abstraction preserves the core content of OOXML (theme, page layout, element positions and definitions, etc.) while removing complex nesting logic such as Masters; every page is self-contained — what you see is what you get. Start with `reference/pptd-quickstart.md`; the complete `reference/pptd.md` specification is for targeted lookups.
 
 ## PPT production workflow
 
+Resolve script/reference paths relative to this installed skill directory. Examples below use `~/.agents/skills/open-pptd`; substitute the actual installation path in pi or another host. Use only tools exposed by the current session. Subagents are optional: without them, research and write sequentially with the same checks. Never require a tool named `task`, install a pi extension, or assume more workers make completion time constant.
+
 ### step0. Check local prerequisites
-Default delivery includes PPTX export (and optional `npx open-pptd-skills serve`), which need a local toolchain. **Before generating**, verify:
+Default delivery includes PPTX export (and optional `npx open-pptd-skills serve`), which need a local toolchain. Batch independent prerequisite checks in one tool invocation where supported; do not repeat checks already established for this session. **Before generating**, verify:
 
 1. **Node.js 18+**: run `node --version`. If `node` is missing or the major version is below 18, **stop immediately**, tell the user to install Node.js 18+ from https://nodejs.org (or their OS package manager), and do not continue with PPTX export / `npx` until it is available. Only continue with PPTD-only output when the user explicitly opts out of PPTX.
 2. **npm / npx**: run `npm --version`. They ship with Node.js; if missing, treat Node.js as not installed correctly and guide the user to reinstall/fix PATH.
@@ -28,7 +31,7 @@ Default delivery includes PPTX export (and optional `npx open-pptd-skills serve`
 5. Soft deps are auto-handled by the scripts when missing: **PyYAML**, **Pillow**, and **websocket-client** are auto-installed with `pip --user`. The PPTX engine's Node dependencies (yaml, sharp, jszip, fontkit) are auto-installed on first run.
 
 ### step1. Read the context thoroughly
-Read **all files uploaded by the user**, the provided URLs, and the pptd format guide `reference/pptd.md` to fully understand the user's requirements.
+Read **all files uploaded by the user** and the provided URLs to understand the user's requirements. For a new deck, read `reference/pptd-quickstart.md` once; consult the relevant sections of `reference/pptd.md` only for features outside the quickstart. Do not load the entire format catalog repeatedly.
 
 ### step2. Understand the user's requirements
 Understand the user's requirements based on the context:
@@ -47,15 +50,10 @@ Understand the user's requirements based on the context:
   - Topic only: only a PPT topic direction or content requirements for the presentation are given, with no concrete content
   - Full document: the user provides a complete document (paper, research report, press release, etc.)
   - Outline: the user provides a page-by-page outline, speech script, or similar content
-  * When the "user input type" is [Full document] or [Outline] and it is not specified whether expansion is allowed: since a page-by-page outline, speech script, or user document can hardly support the full content of a presentation, prefer using search to expand with more relevant material, cases, etc., unless the user explicitly says not to expand
+  * For a full document or outline, preserve its scope. Use it as the primary source; do not silently add external claims or pages.
+  * If necessary materials are missing, list them early. When the task specifically adapts an absent source/script, request it and do not claim a generic replacement fulfills that task. If a useful pending draft is possible, use clearly labelled fields. Keep unsupported qualitative conclusions pending too (experience, growth, capacity, credit), not just numbers. An empty data slot should be a labelled text/table area, not a zero-valued chart. If producing a pending draft, it still needs visual review and the requested formats; state what must be supplied before external use.
 
-> **Parallel research strategy.** When the topic requires gathering material from multiple angles (background, data, cases, comparisons, quotes, images), **dispatch independent subagents to search different sub-topics concurrently** rather than searching sequentially. Each subagent receives:
->
-> 1. A specific search angle (e.g., "find statistics about X", "find historical examples of Y", "find images of Z").
-> 2. The deck's topic and tone context so results are relevant.
-> 3. Instructions to return structured findings (key facts, numbers, quotes, image URLs).
->
-> The main agent then synthesizes all subagent results into a unified content plan. This turns O(n) searches into O(1) wall-clock time. For simple topics with ≤ 2 search angles, search directly without subagents.
+> **Research and synthesis.** Use supplied material first; search only when needed and allowed. Tie each lookup to a key conclusion or required example in the short page plan, using the source-sufficiency rule in `reference/authoring-context.md`. Start writing supported pages while checking remaining local gaps; keep dependent claims explicitly pending. Once the plan has supporting evidence or identified blockers, stop broad research rather than collecting more background. Do not expand a complete outline or scoped edit without authorization. Optional research workers receive the assigned claim, scope and source locators (file/page or URL/date/measurement basis); the main writer reconciles findings before asserting them. An API key is not authorization to contact a service.
 
 4. Page count
   - If the user requests a specific page count, the user's requirement takes priority
@@ -64,16 +62,16 @@ Understand the user's requirements based on the context:
 
 ### step3. Generate the presentation based on the user's requirements
 
-Before generating, first read `reference/pptd.md` to understand the pptd format definition and constraints.
+Use the format quickstart already read in step1. Look up the exact specification and example before using an unfamiliar element. For ordinary multi-page new decks, follow its modular writing strategy: reuse `scripts/authoring_helpers.py`, write shared setup first, then complete 2–3-page modules with explicit `path` and `content`; retry only a failed module. Preserve all planned content, page-specific layouts and generation/review rounds. Run the quickstart one-page example with your chosen fields before expanding an unfamiliar pattern. Produce an early renderable draft; avoid duplicating full slide content in planning notes.
 
-> **Parallel generation strategy.** Once you have the page-by-page outline and shared context (theme, fonts, content plan), **dispatch independent subagents to write each `.page` file concurrently** rather than writing them sequentially. Each subagent receives:
+For a small task with an explicit simple design, the quickstart and shared author rules are enough to start. Skip unrelated scenario catalogs and optional icon searches; consult a design reference only for a concrete design decision. Use an actual available tool to write and run the authoring script, in one invocation when supported. An unexecuted script or tool-call markup in prose is not a generated deck.
+If you repair the generator, execute it again to update the actual pages before validating them; changing the script alone does not repair its previous output.
+
+> **Shared author instructions.** Read `reference/authoring-context.md`. For a multi-page deck, write a short `DESIGN_CONTEXT.md` containing task boundaries, chosen design, page responsibilities and sourced metrics; for a simple single page, keep the same information in the working context. Use the same instructions for sequential and parallel writing. Any worker receives the shared context, assigned page/outline, format rules and available local assets. Workers edit only their assigned pages. Search placeholders are resolved in step3.5, after writing.
 >
-> 1. The page number and outline content for that page.
-> 2. Shared design context: theme tokens, fonts, color scheme, common component patterns.
-> 3. The `reference/pptd.md` format rules.
-> 4. Any page-specific media references (resolved image paths from step3.5).
+> Rich text containing `style=` uses a YAML block scalar (`text: |`), never a double-quoted YAML string. No emoji; use supported `fas:` icons or meaningful local shapes and inspect PPTX warnings. Capacity estimates are hints: respect paragraphs, inline font sizes and fixed line heights, then review the rendered result. Follow the selected design's density; do not impose a universal element count.
 >
-> This turns O(n) page writes into O(1) wall-clock time. For decks with ≤ 4 pages you may write directly; for larger decks use the task tool to fan out. After all pages are written, do a quick structural validation pass (step4) before proceeding to visual QA.
+> For longer decks (typically >10 pages), optionally run `scripts/layout_planner.py <outline.json> --json` between the outline and writing. Its suggestions must preserve page count, order and intended teaching continuity; do not insert pages automatically.
 
 #### Replicating a PPT
 - Analyze the images to estimate element positions, fonts and sizes, etc., and **replicate 1:1 as closely as possible**.
@@ -88,7 +86,7 @@ Before generating, first read `reference/pptd.md` to understand the pptd format 
 #### Generating a PPT
 When generating a PPT, adopt different production approaches for different user [design directions]
 ##### Self-directed design
-1. Read the design guide `reference/slides_categories.md`, and read the scenario document corresponding to the user's query
+1. Use `reference/slides_categories.md` to select a design direction when one is needed; read the matching scenario's relevant sections. Small tasks with an explicit simple design can use the quickstart directly.
 2. Produce the presentation based on the above
 
 #### Generating content in other formats
@@ -112,12 +110,11 @@ When generating a PPT, adopt different production approaches for different user 
 
 ### step3.5. Resolve image placeholders (required when pages use `search:` or remote image URLs)
 
-**Page-type background constraints:**
+**Backgrounds and real subjects:**
 
-- **Cover page** (`pageType: cover`): MUST have a full-page background image. Place an `image` element spanning `[0, 0, W, H]` with `fit: {mode: cover}` as the bottom-most element, or use `background: {type: image, src: ...}`. Do NOT leave the cover with only a solid/gradient background.
-- **End page** (`pageType: final` or last page): same rule — MUST have a full-page background image.
-- **Chapter/section divider pages** (`pageType: chapter`): MUST have a background image or a large side image covering ≥ 30% of the page area. Use the same `fit: {mode: cover}` technique.
-- When searching for background images, use queries that describe the overall theme (e.g., `search:tang dynasty palace sunset` for a Tang dynasty deck), not generic or overly specific objects.
+- Apply the selected design/template and explicit user image restrictions. Cover/final/chapter backgrounds normally use a local image. In self-directed design, the main writer may designate a purely atmospheric slot as decorative in DESIGN_CONTEXT.md and permit a local gradient if search fails. Mark only that slot `# pptd-image: decorative fallback=gradient` on its `src:` line (see the image-search reference). Base this choice on the image's purpose, not page type alone; a required authentic subject remains required.
+- A product, person, evidence screenshot or required template image must remain authentic. If unavailable, report the unresolved slot; a decorative gradient cannot stand in for it.
+- Offline work uses existing local assets and `--offline`; use online search only within the task's existing authorization. Missing dependencies/fonts must be prepared before offline export; the image script's offline flag does not make all other scripts offline.
 
 **Image sizing strategy:**
 
@@ -130,15 +127,19 @@ When generating a PPT, adopt different production approaches for different user 
    ```bash
    python3 ~/.agents/skills/open-pptd/scripts/image_search/search_images.py \
      /abs/path/project \
-     --backend auto --workers 4
+     --backend auto --workers 4 --timeout 30 --budget 120
    ```
 
-2. The script searches image backends (`baidu`, `openverse`, `wikimedia`, `vertical`; auto-cascaded), downloads candidates, ranks them (landscape-first based on element `bounds` ratio), saves the winner to `media/`, and rewrites the `.page` `src:` lines in place to local relative paths. **Optional VLM visual judging** (relevance / watermark / quality scoring) activates when `PPT_API_KEY` (or `QIHOO_360_API_KEY` / `QIHOO_API_KEY`) is set; without a key the ranking falls back to pure geometry/resolution gates and still works normally. Pass `--no-vlm` to skip VLM explicitly.
+2. The script searches, downloads and filters candidates with a complete-attempt timeout and an overall budget, then saves local media and rewrites `src:`. Download/filter failure also tries the next backend. Progress and heartbeats go to stderr; inspect `images_report.json`. VLM judging requires explicit `--vlm` plus a configured key and task authorization; `--no-vlm` remains supported. `--offline` never calls image backends or VLM and permits only marked decorative substitutes.
 3. Pass `--localize-remote` to also download existing `https?://` image `src:` references into `media/` (Wikimedia Commons thumbnail URLs with non-whitelisted widths are rewritten automatically; see `reference/image-search.md`).
 4. Exit codes: `0` = every slot resolved; `2` = unresolved slots remain — inspect `<project>/images_report.json`, adjust the `.page` element (query, bounds, or element choice) and re-run; `1` = usage/IO error.
+   After an automatic attempt has exhausted all backends, do not rerun the same backends individually without a meaningful query/asset/access change. Use the designated decorative fallback where allowed, or report the missing required image and preserve the completed content.
 5. Do not leave unresolved `search:` placeholders or broken remote URLs in delivered pages; the renderer and exporters drop remote assets that were not fetched locally. See `reference/image-search.md` for the full CLI reference, slot conventions, and backend caveats.
 
 ### step4. PPT validation
+
+**Main-writer final review comes first**, after all material/page rewrites. Compare actual text, tables and charts with the shared metrics and source passages: check unit, year, denominator, theoretical/measured/forecast labels and policy wording. For professional instruction, check prerequisites and applicable limits, and ensure diagrams teach the same sequence and roles as the text. Review the page sequence for repeated claims, missing transitions and unsupported conclusions. For editing, compare changed files with the original scope and check affected references. Local user data and labelled teaching examples need no invented public URL. A source link or a static pass does not certify truth. Record unresolved content briefly in DESIGN_CONTEXT.md and resolve it before claiming a complete delivery. Any later edit requires rechecking affected content and re-exporting.
+
 1. **Deterministic audit** — run `scripts/validate_deck.py` to catch measurable failures automatically:
 
    ```bash
@@ -146,10 +147,11 @@ When generating a PPT, adopt different production approaches for different user 
      --project /abs/path/project
    ```
 
-   It reports: orphan-last-line （孤字）, forbidden-line-start-punctuation, text-capacity-overflow, unexpected-wrap, element-overflow-viewport, low-effective-image-resolution, missing-required-background (cover/final/chapter), and unresolved search/remote image placeholders. Fix all reported issues before proceeding to visual review.
+   It reports: orphan-last-line （孤字）, forbidden-line-start-punctuation, text-capacity-overflow, unexpected-wrap, element-overflow-viewport, low-effective-image-resolution, invalid-gradient, missing-required-background (cover/final/chapter), and unresolved search/remote image placeholders. Fix structural errors (invalid YAML, unsupported fields/resources, viewport overflow) before proceeding. For estimated capacity, orphan lines and card-layout advice, render the affected pages first and confirm the issue visually; do not repeatedly edit until heuristic counts reach zero before the first render. Batch confirmed layout fixes, then recheck affected pages. Capacity is estimated; card-layout detection is a geometric heuristic. Review evidence against the selected design and explicit user requirements, record any justified exception, and do not blindly grow boxes or alter the card threshold.
+   Preserve the validator/exporter's exit code. If shortening logs through a shell pipeline, use `set -o pipefail` or capture the original exit code; a successful `tail` command does not mean the check passed.
 
-2. **Structural review** — validate the generated pptd against the format definition in `reference/pptd.md` (required fields, types, bounds, theme tokens, resource paths, etc.) and repair issues over multiple rounds
-3. **Visual review** — with exported page images — **required before PPTX export when the model supports image input (multimodal)**:
+2. **Structural review** — check required fields, types, bounds, theme tokens and resource paths. Consult matching sections of `reference/pptd.md` when needed; repair confirmed issues without rereading unrelated element specifications.
+3. **Rendered and visual review** — export page images and run the auxiliary audit for every deck. When the model supports image input, visual review is required before PPTX export:
    - Run `scripts/export_images.py`. It renders each page through the skill's local viewer with headless Chrome, saves per-page PNGs, and stitches all pages into one overview image:
 
      ```bash
@@ -160,7 +162,8 @@ When generating a PPT, adopt different production approaches for different user 
      ```
 
      The script prints a JSON summary mapping each stitched label (`P1`…`Pn`, 1-based page order) to its `.page` file.
-   - Read the stitched overview image (`.qa-images/overview.jpg`) and check every page against this list:
+   - After rendering, run `python3 <skill-dir>/scripts/audit_rendered.py /abs/path/project --images /abs/path/project/.qa-images --json` for auxiliary pure-color contrast and overlap review. Reuse only current images from the preceding export. It does not measure actual text overflow or replace looking at images; complex backgrounds/overlays are explicitly unmeasured. Inspect confirmed errors and review advisory items without treating them as proven occlusion.
+   - With image input, read the stitched overview (`.qa-images/overview.jpg`) and check every page against this list:
      1. 图片是否清晰、不变形（无拉伸、压缩、模糊）
      2. 文字是否压在关键画面（人脸、产品主体、Logo 等）上
      3. 元素坐标是否超出页面边界
@@ -168,10 +171,11 @@ When generating a PPT, adopt different production approaches for different user 
      5. 排版是否统一（对齐、间距、字号层级、页边距）
      6. 文字是否可能溢出文本框（文本过长、行距过密、字号过大）
      7. 内容是否被上层元素遮挡
+     8. 图片实际内容是否支持本页论点；核对主体、场景、图注和来源。检索关键词命中不等于相关，别家团队／门店／作品不能作为本公司的实绩。资料图须明确标注；无合适图时保留待补位置，不能用无关图填满版面。
    - For any suspicious page, read its full-resolution image (`.qa-images/pages/page_NN.png`) to confirm the problem before editing.
    - Fix issues in the corresponding `.page` file, then re-run `scripts/export_images.py --force` and review the new overview; repeat until every page passes.
-   - Do not export the PPTX until the visual review passes. `.qa-images/` is an intermediate QA artifact and may be deleted after delivery.
-3. When the model cannot read images, fall back to a structural review of the generated pages (bounds, overflow-prone long text, contrast, hierarchy, layout density) over multiple rounds, and state that image-based visual QA was skipped.
+   - With image input, do not export the PPTX until this visual review passes. Keep the current images available for any independent visual review.
+4. **Text-only authors:** a file-read tool accepting an image path does not mean the model received image pixels. Run the same `validate_deck.py`, `export_images.py` and `audit_rendered.py` checks, and complete the fallback structural review (bounds, overflow-prone long text, contrast, hierarchy, layout density) over multiple rounds. Reuse these tools and their documented options; do not build a separate DOM/scroll-height/pixel detector to substitute for looking at the slides. A machine report cannot verify image relevance, cropping or visual acceptance. Send current overview/full-resolution images to an available authorized image-capable reviewer; otherwise keep them for independent visual inspection and state that it remains pending. Produce the requested formats with that limitation stated; never claim a visual pass. Independent inspection of the actual images remains necessary to close the visual-review gap.
 
 ### step5. PPT output and delivery
 1. Always produce a self-contained project directory. Keep the `.pptd` manifest and every referenced dependency together; never deliver a standalone manifest without its referenced files. Use this layout unless an existing project already has a valid equivalent structure:
@@ -190,6 +194,7 @@ When generating a PPT, adopt different production approaches for different user 
     ```
 
 2. Generate the `.pptx` by default after PPTD validation, even when the user only asks to create or edit a presentation. Skip PPTX export only when the user explicitly requests PPTD-only output or the environment cannot run the exporter; in the latter case, report the exact blocker and still deliver the complete PPTD project.
+   After the applicable step4 review, PPTX and HTML export are independent: batch them in one tool turn when supported, preserving both exit codes and reports. The text-only fallback does not waive independent visual inspection or any export checks.
 3. Deliver with normal clickable local links using absolute paths. In the final response, link all of the following:
    - the project directory;
    - the `.pptd` manifest;
@@ -200,7 +205,7 @@ When generating a PPT, adopt different production approaches for different user 
 5. Default PPTX options:
    - page transition: `fade` (淡入淡出), written to every slide by the engine;
    - override with `--transition none` to disable transitions.
-   - font embedding: enabled by default. The exporter scans the deck for `fontFamily` references, resolves each to a local font file (auto-downloading open-source fonts on first use), and embeds subsetted font data into the PPTX so it renders correctly on machines without those fonts installed.
+   - font embedding: enabled by default. The exporter scans the deck for `fontFamily` references, resolves each to a local font file (auto-downloading open-source fonts on first use), and embeds font data into the PPTX. Full CJK fonts can substantially increase file size; confirm appearance in the target presentation application.
    - override with `--no-embed-fonts` to disable font embedding.
    - after PPTX export, also run HTML export (step 5.10) by default to produce `html/` alongside the PPTX.
 6. Export command:
@@ -208,7 +213,8 @@ When generating a PPT, adopt different production approaches for different user 
    ```bash
    node ~/.agents/skills/open-pptd/scripts/export_pptx.mjs \
      /abs/path/project/deck.pptd \
-     --output /abs/path/project/deck.pptx
+     --output /abs/path/project/deck.pptx \
+     --report /abs/path/project/pptx-report.json
    ```
 
    A project directory may be passed instead of the manifest only when it contains exactly one `.pptd` file.
@@ -225,7 +231,8 @@ When generating a PPT, adopt different production approaches for different user 
    - If a font cannot be auto-downloaded (e.g., CDN unavailable), the exporter falls back to: (1) manually placed files in `scripts/fonts/`, (2) system font directories. You can also pre-download fonts with `python3 scripts/download-fonts.py --download-all`.
    - To disable font embedding, pass `--no-embed-fonts` to the exporter. The resulting PPTX will reference font names only and depend on the viewer's machine having those fonts installed.
    - The HTML export and browser preview always use the system's local font stack (MiSans, PingFang SC, Microsoft YaHei, etc.) and do not embed fonts.
-8. After export, verify that the output exists and report the generated path. The PPTX ZIP passes integrity checks and every slide has a root-level fade transition in valid CT_Slide order. For higher-risk decks, additionally inspect font parts and representative rendered/opened pages as appropriate.
+8. After export, check the command exit code and `pptx-report.json` warnings, including the affected page/element. Verify this run's PPTX/HTML files, page count/order and important charts/icons; a file existing or a warning count alone is not acceptance. Verify ZIP integrity and root-level fade transitions in valid CT_Slide order. Do not claim these checks passed without running them. For higher-risk decks, additionally inspect font parts and representative rendered/opened pages as appropriate.
+   Write completion statements only after checking the actual outputs. Early input-request or planning notes must distinguish intended deliverables from files already produced.
 9. When the user wants to open, edit, or preview a PPTD project manually, start the local viewer with `npx open-pptd-skills serve`. Ask the user to open `http://127.0.0.1:55173/` and select the complete PPTD project directory. The viewer runs entirely in the browser with no server-side processing.
 10. Static HTML export (default deliverable): use `scripts/export_html.py` to produce a `html/` folder next to the deck. It renders through the skill's own deterministic HTML5 renderer (`scripts/viewer.html`) via headless Chrome, with no network access:
 

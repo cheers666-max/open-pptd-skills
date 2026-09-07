@@ -10,10 +10,10 @@
 1. **Every page has a clear reader task**: what this page should make the reader understand, believe, decide, or do — think this through before designing.
 2. **Paging has rhythm**: decide for yourself whether a table of contents or section dividers are needed; the reader should feel a change of rhythm as they flip through — some pages are taken in at a glance, others are worth stopping to read carefully.
 3. **Use charts and shape combinations flexibly**: if a body of information can be expressed through a complex chart that goes beyond what the current chart syntax can express, you are encouraged to flexibly use shapes and other means to construct the expression.
-4. **Master-level output**: every PPT is a carefully crafted work of art that could be entered into a competition; pay close attention to every detail of layout, typography, and color — details determine success or failure.
+4. **Audience-ready output**: prioritize correct content, useful visual explanations, clear reading order, typography and spacing. Produce a renderable draft promptly, then fix concrete review findings; elaborate planning notes and decoration are not substitutes for a usable deck.
 5. **Use image search/generation sensibly**: use image search/generation tools to obtain images and place them in suitable positions. But image abuse is strictly forbidden. If the user's uploaded files contain useful images, use them on suitable pages.
 6. **Defer to the user and the subject**: user-specified templates, brand guidelines, color schemes, fonts, and style references take priority over this guide.
-7. **Source attribution**: pages involving external facts and data must state the source, date or time period, and measurement basis. Source text should use an <a href="url"> hyperlink pointing to the original report or data page. When citing specific sources in footnotes, likewise use <a href="url"> hyperlinks to the original source to strengthen professional credibility.
+7. **Source attribution**: external facts and data state the source, date/time period and measurement basis; use an <a href="url"> link to the original source when it is public. User-provided material can cite its file/page/section. Label teaching examples and assumptions; do not invent a public URL for local material or illustrative content.
 
 ### Strictly forbidden
 - **Evidence boundaries**: do not fabricate data, citations, customer cases, experimental results, or sources; when material is missing, clearly mark it as a placeholder, an assumption, or to-be-supplied information.

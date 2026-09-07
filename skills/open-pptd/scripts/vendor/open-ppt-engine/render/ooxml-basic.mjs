@@ -1106,7 +1106,7 @@ function imageXml(element, index, entry) {
   };
   const srcRect = crop ? `<a:srcRect l="${cropValue(crop.left)}" t="${cropValue(crop.top)}" r="${cropValue(crop.right)}" b="${cropValue(crop.bottom)}"/>` : "";
   const blip = entry.fallbackRelationshipId
-    ? `<a:blip r:embed="${entry.fallbackRelationshipId}">${alpha}<a:extLst><a:ext uri="{28A0092B-C50C-407E-A947-70E740481C1C}"><a14:useLocalDpi val="0"/></a:ext><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${entry.relationshipId}"/></a:ext></a:extLst></a:blip>`
+    ? `<a:blip r:embed="${entry.fallbackRelationshipId}">${alpha}<a:extLst><a:ext uri="{28A0092B-C50C-407E-A947-70E740481C1C}"><a14:useLocalDpi xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" val="0"/></a:ext><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${entry.relationshipId}"/></a:ext></a:extLst></a:blip>`
     : payload.mimeType === "image/svg+xml"
       ? `<a:blip>${alpha}<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${entry.relationshipId}"/></a:ext></a:extLst></a:blip>`
     : `<a:blip r:embed="${entry.relationshipId}">${alpha}</a:blip>`;

@@ -570,10 +570,20 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
     返回 (winner, tried)。winner={url,bytes,w,h,fmt,backend,license,landing,score,vlm}。
     无合适返回 (None, tried)。tried 记录每个候选的命运（诊断/报告用）。
     """
+    if backend == "auto":
+        attempts = []
+        for name in AUTO_ORDER:
+            winner, tried = acquire(query, backend=name, want=want, min_dim=min_dim,
+                                    use_vlm=use_vlm, deck_brief=deck_brief, page_text=page_text,
+                                    seen_hashes=seen_hashes, seen_urls=seen_urls, ratio=ratio, limit=limit)
+            attempts.extend(tried)
+            if winner:
+                return winner, attempts
+        return None, attempts
     cands = search(query, limit=limit, backend=backend, ratio=ratio)
     tried: List[Dict] = []
     if not cands:
-        return None, tried
+        return None, [{"backend": backend, "fate": "search_empty"}]
 
     # 预过滤：域名水印 / 重复 URL / 已知尺寸不过关
     pool: List[Dict] = []
@@ -610,7 +620,10 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
         futs = {ex.submit(_fetch, c["url"]): c for c in pool[:10]}
         for fut in as_completed(futs):
             c = futs[fut]
-            b = fut.result()
+            try:
+                b = fut.result()
+            except Exception:
+                b = None
             rec = {"url": c["url"], "backend": c.get("backend"), "fate": ""}
             if not b:
                 rec["fate"] = "fetch_fail"

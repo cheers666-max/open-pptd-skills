@@ -11,23 +11,29 @@ the deck files — ``file://`` protocol blocks the viewer's subresource
 fetches for decks with many pages or media.
 
 Dependencies: a Chrome/Chromium binary (``CHROME_BIN`` env or common paths),
-PyYAML (auto-installed with ``pip --user`` when missing), and Pillow for the
-overview stitch (also auto-installed).
+the same websocket-client CDP dependency used by export_html.py, PyYAML,
+and Pillow for the overview stitch (auto-installed when missing).
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import math
+import os
+import signal
 import subprocess
+import tempfile
+import time
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+from urllib.parse import quote, urlencode
 
 from deck_server import start_deck_server
-from export_html import find_chrome, find_deck
+from export_html import ensure_websocket, find_chrome, find_deck
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 VIEWER_DEFAULT = SKILL_DIR / "scripts" / "viewer.html"
@@ -134,29 +140,143 @@ def screenshot_page(
     virtual_time_ms: int,
     output: Path,
     timeout: int,
-) -> None:
-    url = f"{viewer_url}&page={page_number}&bare=1"
-    cmd = [
-        chrome,
-        "--headless=new",
-        "--disable-gpu",
-        "--hide-scrollbars",
-        f"--virtual-time-budget={virtual_time_ms}",
-        f"--window-size={width},{height}",
-        f"--force-device-scale-factor={scale:g}",
-        f"--screenshot={output}",
-        url,
-    ]
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
-        raise ExportError(f"page {page_number}: headless Chrome timed out ({timeout}s)") from exc
-    if proc.returncode != 0:
-        raise ExportError(
-            f"page {page_number}: Chrome exited {proc.returncode}: {proc.stderr[-500:]}"
-        )
-    if not output.is_file() or output.stat().st_size < 1024:
-        raise ExportError(f"page {page_number}: screenshot missing or suspiciously small: {output}")
+) -> Dict[str, Any]:
+    # CDP waits for real async decode/font readiness. --dump-dom can finish its
+    # virtual-time budget while those promises are still pending on image decks.
+    websocket = ensure_websocket()
+    deadline = time.monotonic() + timeout
+    proc = None
+    ws = None
+
+    def remaining() -> float:
+        value = deadline - time.monotonic()
+        if value <= 0:
+            raise ExportError(f"page {page_number}: renderer did not report ready or finish capture within {timeout}s")
+        return value
+
+    # Keep a fresh destination so failed rendering/capture never promotes an old PNG.
+    with tempfile.TemporaryDirectory(prefix=".render-", dir=output.parent) as folder:
+        fresh_output = Path(folder) / "page.png"
+        profile = Path(folder) / "chrome-profile"
+        url = f"{viewer_url}&page={page_number}&bare=1"
+        cmd = [
+            chrome,
+            "--headless=new",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-gpu",
+            "--hide-scrollbars",
+            "--remote-debugging-port=0",
+            f"--user-data-dir={profile}",
+            f"--window-size={width},{height}",
+            "about:blank",
+        ]
+        with tempfile.TemporaryFile() as chrome_errors:
+            try:
+                proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=chrome_errors, start_new_session=True)
+                port_file = profile / "DevToolsActivePort"
+                while True:
+                    remaining()
+                    if proc.poll() is not None:
+                        chrome_errors.seek(0)
+                        detail = chrome_errors.read().decode("utf-8", "replace")[-500:]
+                        raise ExportError(f"page {page_number}: Chrome exited {proc.returncode}: {detail}")
+                    if port_file.exists():
+                        lines = port_file.read_text().splitlines()
+                        if len(lines) >= 2:
+                            break
+                    time.sleep(min(0.05, remaining()))
+                # Explicit loopback no-proxy avoids mutating os.environ while workers connect.
+                ws = websocket.create_connection(f"ws://127.0.0.1:{int(lines[0])}{lines[1]}",
+                    timeout=remaining(), suppress_origin=True, http_no_proxy=["127.0.0.1", "localhost"])
+                message_id = 0
+
+                def cdp(method, params=None, session_id=None):
+                    nonlocal message_id
+                    message_id += 1
+                    request = {"id": message_id, "method": method, "params": params or {}}
+                    if session_id:
+                        request["sessionId"] = session_id
+                    ws.settimeout(remaining())
+                    ws.send(json.dumps(request))
+                    while True:
+                        ws.settimeout(remaining())
+                        response = json.loads(ws.recv())
+                        if response.get("id") != message_id:
+                            continue
+                        if "error" in response:
+                            raise ExportError(f"page {page_number}: CDP {method}: {response['error']}")
+                        return response.get("result", {})
+
+                target = cdp("Target.createTarget", {"url": "about:blank"})["targetId"]
+                session = cdp("Target.attachToTarget", {"targetId": target, "flatten": True})["sessionId"]
+                cdp("Page.enable", session_id=session)
+                cdp("Emulation.setDeviceMetricsOverride", {"width": width, "height": height,
+                    "deviceScaleFactor": scale, "mobile": False}, session)
+                cdp("Page.bringToFront", session_id=session)
+                navigation = cdp("Page.navigate", {"url": url}, session)
+                if navigation.get("errorText"):
+                    raise ExportError(f"page {page_number}: navigation failed: {navigation['errorText']}")
+                probe = """(() => {
+                    const health = document.querySelector('body > pre#render-health');
+                    if (health) return JSON.parse(health.textContent);
+                    const status = document.getElementById('status-line')?.textContent || '';
+                    if (status.includes('失败')) return {ready: true, ok: false, errors: [status]};
+                    return null;
+                })()"""
+                while True:
+                    result = cdp("Runtime.evaluate", {"expression": probe, "returnByValue": True}, session)
+                    if result.get("exceptionDetails"):
+                        raise ExportError(f"page {page_number}: invalid renderer health response")
+                    health = result.get("result", {}).get("value")
+                    if isinstance(health, dict) and health.get("ready"):
+                        if not health.get("ok"):
+                            raise ExportError(f"page {page_number}: render failed: {health.get('errors')}")
+                        if health.get("pageNumber") != page_number:
+                            raise ExportError(f"page {page_number}: renderer page identity mismatch: {health.get('pageNumber')}")
+                        break
+                    time.sleep(min(0.1, remaining()))
+                # Preserve the legacy virtual-time animation position without using
+                # virtual time as a network/image/font readiness deadline.
+                settle = f"""(async () => {{
+                    for (const animation of document.getAnimations()) {{
+                        const end = animation.effect?.getComputedTiming().endTime;
+                        try {{ animation.pause(); animation.currentTime = Math.min({max(0, virtual_time_ms)}, Number.isFinite(end) ? end : {max(0, virtual_time_ms)}); }} catch {{}}
+                    }}
+                    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                    return true;
+                }})()"""
+                painted = cdp("Runtime.evaluate", {"expression": settle, "awaitPromise": True, "returnByValue": True}, session)
+                if painted.get("exceptionDetails"):
+                    raise ExportError(f"page {page_number}: renderer did not finish painting")
+                capture = cdp("Page.captureScreenshot", {"format": "png", "fromSurface": True,
+                    "captureBeyondViewport": False, "clip": {"x": 0, "y": 0, "width": width, "height": height, "scale": 1}}, session)
+                fresh_output.write_bytes(base64.b64decode(capture["data"], validate=True))
+                if fresh_output.stat().st_size < 1024:
+                    raise ExportError(f"page {page_number}: screenshot missing or suspiciously small: {output}")
+                fresh_output.replace(output)
+                return health
+            except ExportError:
+                raise
+            except Exception as exc:
+                raise ExportError(f"page {page_number}: Chrome readiness/capture failed: {exc}") from exc
+            finally:
+                if ws is not None:
+                    ws.close()
+                if proc is not None:
+                    try:
+                        os.killpg(proc.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        proc.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        pass
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    proc.wait()  # Reap the browser even when graceful termination timed out.
 
 
 def check_not_blank(image_path: Path, image_cls: Any, page_number: int) -> None:
@@ -189,7 +309,7 @@ def stitch_overview(
             thumb = frame.resize(
                 (OVERVIEW_THUMB_WIDTH, max(1, round(frame.height * ratio)))
             )
-        thumbs.append((f"P{index}", thumb))
+        thumbs.append((f"P{int(path.stem.split('_')[-1])}", thumb))
 
     columns = _overview_columns(len(thumbs))
     rows = math.ceil(len(thumbs) / columns)
@@ -248,6 +368,8 @@ def export_images(
             else:
                 selected.add(int(part))
         page_indices = sorted(selected)
+        if not page_indices:
+            raise ExportError(f"empty page selection: {page_spec}")
         if any(i < 1 or i > len(page_files) for i in page_indices):
             raise ExportError(f"page numbers out of range: {page_spec} (deck has {len(page_files)} pages)")
     else:
@@ -257,6 +379,7 @@ def export_images(
     if not viewer.is_file():
         raise ExportError(f"viewer.html not found: {viewer}")
     chrome = find_chrome(None)
+    ensure_websocket()  # Prepare the existing CDP dependency once before parallel workers.
     image_cls, draw_cls, image_font = ensure_pillow()
 
     deck_dir = deck.parent
@@ -266,11 +389,13 @@ def export_images(
 
     server, port = start_deck_server(viewer, deck_dir)
     try:
-        viewer_url = f"http://127.0.0.1:{port}/viewer?deck=http://127.0.0.1:{port}/deck/{deck_name}"
+        deck_url = f"http://127.0.0.1:{port}/deck/{quote(deck_name, safe='')}"
+        viewer_url = f"http://127.0.0.1:{port}/viewer?{urlencode({'deck': deck_url})}"
         pages_dir = output / "pages"
         pages_dir.mkdir(parents=True, exist_ok=True)
 
         images: List[Path] = []
+        health_by_page = {}
         if workers > 1 and len(page_indices) > 1:
             # Parallel: launch multiple Chrome processes concurrently
             with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -284,7 +409,7 @@ def export_images(
                     futures[fut] = (index, target)
                 for fut in as_completed(futures):
                     index, target = futures[fut]
-                    fut.result()  # raises on error
+                    health_by_page[index] = fut.result()  # raises on error
                     check_not_blank(target, image_cls, index)
                     images.append(target)
                     log(f"page {index}/{len(page_files)} → {target.name}")
@@ -293,7 +418,7 @@ def export_images(
         else:
             for index in page_indices:
                 target = pages_dir / f"page_{index:02d}.png"
-                screenshot_page(
+                health_by_page[index] = screenshot_page(
                     chrome, viewer_url, index, width, height, scale,
                     virtual_time_ms, target, timeout,
                 )
@@ -309,13 +434,14 @@ def export_images(
         "pages": len(images),
         "overview": str(overview),
         "output": str(output),
+        "renderHealth": [health_by_page[i] for i in page_indices],
         "images": [
             {
                 "index": index,
                 "image": f"pages/{path.name}",
                 "page": page_files[index - 1] if index - 1 < len(page_files) else None,
             }
-            for index, path in enumerate(images, start=1)
+            for index, path in zip(page_indices, images)
         ],
     }
 
@@ -344,7 +470,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--virtual-time",
         type=int,
         default=30000,
-        help="virtual-time budget per page in ms (default: 30000)",
+        help="animation seek position in ms (default: 30000); real readiness is bounded by --timeout",
     )
     parser.add_argument(
         "--timeout",

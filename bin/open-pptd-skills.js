@@ -360,7 +360,8 @@ async function main() {
   if (options.command === "validate") {
     const script = join(sourceDirectory, "scripts", "validate_deck.py");
     const child = spawn("python3", [script, "--project", options.project, ...(options.manifest ? ["--manifest", options.manifest] : []), "--target-width", String(options.targetWidth), "--min-image-scale", String(options.minImageScale), ...(options.output ? ["--output", options.output] : []), ...(options.json ? ["--json"] : [])], { stdio: "inherit" });
-    child.on("close", (code) => process.exit(code ?? 0));
+    child.on("error", (error) => { console.error(`Could not start child: ${error.message}`); process.exitCode = 1; });
+    child.on("close", (code, signal) => { process.exitCode = signal || code === null ? 1 : code; });
     return;
   }
 
@@ -375,7 +376,8 @@ async function main() {
       ...(options.output ? ["--output", options.output] : []),
       ...(options.json ? ["--json"] : []),
     ], { stdio: "inherit" });
-    child.on("close", (code) => process.exit(code ?? 0));
+    child.on("error", (error) => { console.error(`Could not start child: ${error.message}`); process.exitCode = 1; });
+    child.on("close", (code, signal) => { process.exitCode = signal || code === null ? 1 : code; });
     return;
   }
 
@@ -386,7 +388,8 @@ async function main() {
       ...(options.output ? ["--output", options.output] : []),
       ...(options.page ? ["--page", options.page] : []),
     ], { stdio: "inherit" });
-    child.on("close", (code) => process.exit(code ?? 0));
+    child.on("error", (error) => { console.error(`Could not start child: ${error.message}`); process.exitCode = 1; });
+    child.on("close", (code, signal) => { process.exitCode = signal || code === null ? 1 : code; });
     return;
   }
 
@@ -396,7 +399,8 @@ async function main() {
       script, options.input,
       ...(options.output ? ["--output", options.output] : []),
     ], { stdio: "inherit" });
-    child.on("close", (code) => process.exit(code ?? 0));
+    child.on("error", (error) => { console.error(`Could not start child: ${error.message}`); process.exitCode = 1; });
+    child.on("close", (code, signal) => { process.exitCode = signal || code === null ? 1 : code; });
     return;
   }
 
@@ -406,7 +410,8 @@ async function main() {
     if (options.report) args.push("--report", options.report);
     if (options.json) args.push("--json");
     const child = spawn("python3", args, { stdio: "inherit" });
-    child.on("close", (code) => process.exit(code ?? 0));
+    child.on("error", (error) => { console.error(`Could not start child: ${error.message}`); process.exitCode = 1; });
+    child.on("close", (code, signal) => { process.exitCode = signal || code === null ? 1 : code; });
     return;
   }
 
@@ -420,7 +425,8 @@ async function main() {
       args.push(options.name);
     }
     const child = spawn("python3", args, { stdio: "inherit" });
-    child.on("close", (code) => process.exit(code ?? 0));
+    child.on("error", (error) => { console.error(`Could not start child: ${error.message}`); process.exitCode = 1; });
+    child.on("close", (code, signal) => { process.exitCode = signal || code === null ? 1 : code; });
     return;
   }
 

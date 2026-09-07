@@ -67,7 +67,7 @@ def parse_bounds_aspect(bounds: Optional[List[float]]) -> Optional[float]:
 
 class Slot:
     __slots__ = ("page", "line_no", "kind", "element_id", "raw_src", "query",
-                 "want", "ratio", "fit", "bounds", "status", "local_path", "winner", "tried")
+                 "want", "ratio", "fit", "bounds", "status", "local_path", "winner", "tried", "allow_fallback")
 
     def __init__(self, page: str, line_no: int, kind: str, element_id: str,
                  raw_src: str, want: str, ratio: float | None, fit: str, bounds: Optional[List[float]]):
@@ -85,6 +85,7 @@ class Slot:
         self.local_path = ""            # 本地化后的 media/... 相对路径
         self.winner: Optional[Dict] = None
         self.tried: List[Dict] = []
+        self.allow_fallback = False
 
     @property
     def is_search(self) -> bool:
@@ -166,6 +167,9 @@ def extract_slots(page_text: str, page_rel: str) -> List[Slot]:
         want = parse_bounds_ratio(cur_bounds)
         slots.append(Slot(page_rel, i, kind, cur_elem_id, val, want,
                           parse_bounds_aspect(cur_bounds), cur_fit, cur_bounds))
+        # Permission is explicit and scoped to this src line, never inferred from page type.
+        slots[-1].allow_fallback = bool(re.search(
+            r"#\s*pptd-image:\s*decorative\s+fallback=gradient\s*$", line))
     return slots
 
 

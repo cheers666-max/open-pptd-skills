@@ -238,5 +238,29 @@ class TestVlmJudgement(unittest.TestCase):
         self.assertEqual(res["composite"], 20 + 6)  # 2*10 + 2*3
 
 
+
+class TestAcquisitionFallback(unittest.TestCase):
+    def test_auto_falls_back_after_download_failure(self):
+        candidate = lambda backend: {"url": f"https://{backend}.example/image.png", "backend": backend}
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8 + struct.pack(">II", 1000, 600) + b"\x00" * 100
+        with patch.dict(pool.BACKENDS, {"baidu": lambda *a, **k: [candidate("baidu")],
+                                       "openverse": lambda *a, **k: [candidate("openverse")]}), \
+             patch.object(pool, "AUTO_ORDER", ("baidu", "openverse")), \
+             patch.object(pool, "_fetch", side_effect=lambda url: None if "baidu" in url else png):
+            winner, tried = pool.acquire("test", use_vlm=False)
+        self.assertIsNotNone(winner, "download failure must try the next backend")
+        self.assertEqual(winner["backend"], "openverse")
+        self.assertTrue(any(r.get("fate") == "fetch_fail" for r in tried))
+
+    def test_auto_falls_back_after_filter_failure(self):
+        small = {"url": "https://small.example/a.png", "width": 10, "height": 10, "backend": "baidu"}
+        good = {"url": "https://good.example/a.png", "backend": "openverse"}
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8 + struct.pack(">II", 1000, 600) + b"\x00" * 100
+        with patch.dict(pool.BACKENDS, {"baidu": lambda *a, **k: [small], "openverse": lambda *a, **k: [good]}), \
+             patch.object(pool, "AUTO_ORDER", ("baidu", "openverse")), patch.object(pool, "_fetch", return_value=png):
+            winner, tried = pool.acquire("test", use_vlm=False)
+        self.assertIsNotNone(winner, "filter failure must try the next backend")
+        self.assertTrue(any(r.get("fate") == "too_small_meta" for r in tried))
+
 if __name__ == "__main__":
     unittest.main()
