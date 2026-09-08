@@ -822,6 +822,36 @@ def empty_band_issue(page: dict[str, Any], page_number: int, page_ref: str,
     }
 VALID_H_ALIGN = {"left", "center", "right", "justify", "distributed"}
 VALID_V_ALIGN = {"top", "middle", "bottom"}
+# Mirrors normalizeAlign() in vendor/open-ppt-engine/adapters/pptd.mjs and viewer.html: the
+# renderers flatten nested pairs, map synonyms (start/end, center↔middle) and read numbers as
+# positions, so only values they cannot resolve are reported.
+H_ALIGN_SYNONYMS = {"start": "left", "end": "right", "middle": "center"}
+V_ALIGN_SYNONYMS = {"start": "top", "end": "bottom", "center": "middle"}
+
+
+def _flatten_align(value: Any) -> List[Any]:
+    """Flatten the shapes authors produce: "right", [h, v], [[h, v]], [0.5, 0.5]."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        return [value]
+    flat: List[Any] = []
+    for item in value:
+        flat.extend(item if isinstance(item, list) else [item])
+    return flat
+
+
+def _align_resolves(word: Any, valid: set, synonyms: Dict[str, str]) -> bool:
+    if isinstance(word, bool):
+        return False
+    if isinstance(word, (int, float)):
+        return True  # renderers read a number as a position on the axis
+    if not isinstance(word, str):
+        return False
+    key = word.lower()
+    return key in valid or key in synonyms
+
+
 
 
 def element_schema_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
@@ -835,15 +865,29 @@ def element_schema_issues(page: dict[str, Any], page_number: int, page_ref: str)
         content = el.get("content")
         if isinstance(content, dict) and "align" in content:
             align = content.get("align")
-            ok = (isinstance(align, list) and 1 <= len(align) <= 2 and all(isinstance(a, str) for a in align)
-                  and align[0] in VALID_H_ALIGN and (len(align) == 1 or align[1] in VALID_V_ALIGN))
-            if not ok:
+            flat = _flatten_align(align)
+            resolves = (len(flat) <= 2
+                        and (not flat or _align_resolves(flat[0], VALID_H_ALIGN, H_ALIGN_SYNONYMS))
+                        and (len(flat) < 2 or _align_resolves(flat[1], VALID_V_ALIGN, V_ALIGN_SYNONYMS)))
+            canonical = (isinstance(align, list) and 1 <= len(align) <= 2
+                         and all(isinstance(a, str) for a in align)
+                         and align[0] in VALID_H_ALIGN
+                         and (len(align) == 1 or align[1] in VALID_V_ALIGN))
+            if not resolves:
                 issues.append({
                     "code": "invalid-align",
                     "pageNumber": page_number, "pageRef": page_ref, "elementId": eid,
                     "value": str(align)[:60],
-                    "detail": "align must be a flat pair like [center, middle]; nested lists or unknown words fall back to left/top and text spills out of its shape",
+                    "detail": "the renderers cannot read this align value and fall back to left/top, so text spills out of its shape; use a horizontal word and an optional vertical word",
                     "repairability": "text",
+                })
+            elif not canonical:
+                issues.append({
+                    "code": "non-canonical-align",
+                    "pageNumber": page_number, "pageRef": page_ref, "elementId": eid,
+                    "value": str(align)[:60],
+                    "detail": "align renders correctly but is not written as a flat [h, v] pair of words; prefer [center, middle] over nested lists, numbers or synonyms",
+                    "repairability": "style",
                 })
         if el.get("elementType") == "line" and el.get("points") and isinstance(el.get("viewBox"), list) and len(el["viewBox"]) >= 2:
             try:
@@ -1103,7 +1147,8 @@ def audit_project(
         issues.extend(unresolved_src_issues(page, page_number, str(page_ref)))
         issues.extend(anti_slop_text_issues(page, page_number, str(page_ref)))
         issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
-        issues.extend(element_schema_issues(page, page_number, str(page_ref)))
+        for schema_issue in element_schema_issues(page, page_number, str(page_ref)):
+            (advisories if schema_issue["code"] == "non-canonical-align" else issues).append(schema_issue)
         density = text_density_advisory(page, page_number, str(page_ref), max_page_chars)
         if density is not None:
             advisories.append(density)
