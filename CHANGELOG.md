@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.4 — 2026-09-08
+
+### open-pptd skill
+- `validate_deck.py`: new blocking rule `empty-body-band`. A layout helper whose return value the authoring script never appends leaves a page with its title, lead-in and footer around a hole; the deck still exported three formats and no check objected. The rule unions the vertical spans of a page's elements and reports the widest gap *between* them, so `prepare_deck.py` stops before export. Threshold 0.25 of the slide height comes from 477 pages of the 2026-09 evaluations: the airiest page nobody flagged spans 0.228, the page whose body was dropped spans 0.537. Margins never count and a page-filling element covers every band.
+
 ## 2.1.3 — 2026-09-08
 
 ### open-pptd skill
