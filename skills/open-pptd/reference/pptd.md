@@ -275,6 +275,7 @@ type Fill = SolidFill | GradientFill | ImageFill;
 interface SolidFill {
   type: "solid";
   color: Color;
+  opacity?: number;                  // default: 1; finite number in [0, 1]
 }
 
 interface GradientFill {
@@ -292,6 +293,8 @@ interface ImageFill {
   opacity?: number;                  // default: 1; constraint: [0, 1]
 }
 ```
+
+> **Shape solid-fill transparency:** HTML and PPTX multiply the color's HEX8 alpha, `fill.opacity`, and the containing shape element's `opacity`. For example, `#00000080` with `fill.opacity: 0.5` has approximately 25% fill opacity before element opacity. Values must be numbers, not strings/null. For new simple overlays, use HEX8 or `fill.opacity` deliberately rather than unintentionally stacking them. This fill rule does not certify all border/shadow effects or cross-viewer equivalence.
 
 > `GradientFill.angle` takes values in `[0, 360)`; `0` means left to right, increasing clockwise. Examples: `90` = top→bottom, `180` = right→left.
 

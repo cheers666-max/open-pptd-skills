@@ -82,6 +82,8 @@ npx open-pptd-skills@latest install --target ~/.claude/skills
 
 在仓库中可直接启动 `pi --skill ./skills/open-pptd`，无需额外子代理插件；按当前工具顺序执行即可。制作流程与简短作者约束见 [SKILL.md](skills/open-pptd/SKILL.md)。
 
+此分支用 `python3 skills/open-pptd/scripts/prepare_deck.py /abs/project/deck.pptd` 合并静态检查、增量截图和辅助审计。首个 2–3 页模块即检查，修复后复用未变化页的截图并重新生成完整总览；内容和视觉评审修复仍保留。看图检查后加 `--export html,pptx` 生成默认格式，详细结果见项目的 `.qa-images/prepare-report.json`。七维独立评分仅在明确请求时另跑，不进入日常生成流程。
+
 开发者可用 [20 题固定验证集](eval/README.md) 做有限并发评测；已完成的[首轮实测报告](eval/reports/2026-09-05.md)记录实际失败与复测结果：
 
 ```bash

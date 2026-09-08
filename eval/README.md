@@ -2,6 +2,8 @@
 
 使用用户给出的 [20 个原始题目](cases.json) 做有限、可重复的端到端运行。pi 负责调用 skill；这里仅是单文件 runner 和评阅约定，不引入调度平台或自动评分服务。
 
+**日常生成保留内容检查、看图评审、修复和复检。** 本目录的独立评分是额外实验，默认不自动执行：生成结束不再接七维判官，也不等待“已完成独立评审”才能交付。`run_pi.py` 记录生成状态，`review.json` 可以保持空分；只有明确请求评测时才调用下文的独立评阅命令。生成耗时与额外评分耗时分开记录。
+
 ## 运行
 
 依赖本机 Python 3.9+、pi，以及 skill 已准备好的 Node/Python/浏览器/字体依赖。2026-09-06批次开局记录 pi 0.84.4，但运行期间全局入口变为0.85.1；未逐进程测版本，详见本轮报告。先完成一批 skill 修改和针对性测试，再启动快照；运行中继续修改仓库不会改变本轮副本。
@@ -180,12 +182,13 @@ python3 eval/render_pptx.py /abs/path/run --case 03,08
 [本轮实施与实测记录](reports/2026-09-07-continuation.md)：开发 runner 现在对正常提前停止且缺正式交付的任务最多同会话续行2次，共享原60分钟截止；保留历史错误并单独判断当前终态。skill 增加分模块写入、按页纲补证据和复用现有检查的要求。真实两页通用题完成三格式并做独立多格式检查；电影题被服务端 content_filter 终止。代表题进度和最终结果以该记录为准，不代表新的完整20题通过，也不自动改变日常 pi 的全局行为。
 
 
-## 自动化判官（auto_judge.py）
+## 可选的七维独立判官（auto_judge.py）
 
-对已完成的成稿目录做双模型评审：内容判官读逐页文字（对照原题与 `expected_behavior`），视觉判官看整套页面拼图；7 个维度 1–5 分取判官均值，保留分歧与逐题问题，输出 `summary.json`、`summary.md` 与 `auto-eval.html`。2026-09-07 的 20 题实测与优化分析见 [reports/2026-09-07-production20.md](reports/2026-09-07-production20.md)。
+仅在明确要求独立评分时，对已完成的成稿目录做双模型评审：内容判官读逐页文字（对照原题与 `expected_behavior`），视觉判官看整套页面拼图；7 个维度 1–5 分取判官均值，保留分歧与逐题问题，输出 `summary.json`、`summary.md` 与 `auto-eval.html`。不要把此命令接到生成结束钩子、必要的交付检查或自动修复链路；生成内的内容/视觉评审修复按 SKILL 照常执行。2026-09-07 的历史实测与优化分析见 [reports/2026-09-07-production20.md](reports/2026-09-07-production20.md)，历史报告保留原状。
 
 ```bash
-# 成稿目录里每题一个子目录：deck.pptd + pages/ + .qa-images/pages/*.png（先跑 export_images.py）
+# 成稿目录里每题一个子目录：deck.pptd + pages/ + .qa-images/pages/*.png
+# 先确认 PNG 对应当前稿；需要复检时用 prepare_deck.py，复用未变化页。
 python3 eval/auto_judge.py judge  --presentations /path/presentations --cases-file eval/cases.json \
     --out /path/presentations/_auto_eval --key-env QIHOO_API_KEY --workers 3 \
     --context-dir /path/inputs      # 可选：已核实的资料包，避免判官把训练截止后的事件判成编造

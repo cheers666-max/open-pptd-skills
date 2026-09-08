@@ -138,3 +138,9 @@ The engine automatically parses `bounds: [x, y, w, h]` on image elements to dedu
    - `license` metadata
    - Image dimensions and sniffed format
    - VLM evaluation score and verdict
+
+### Rebuilds and partial re-search
+
+Keep `images_report.json` beside the draft and its `media/`. Re-running resolution after a generator restores matching search placeholders can reuse existing verified image bytes; it need not repeat network search. Reuse matches page, element ID and slot kind, original query/URL, file content hash, orientation and minimum size. Anonymous/ambiguous slots are not guessed. Legacy generated filenames with a matching short content hash can be upgraded to a full SHA256 record.
+
+Re-searching one slot merges its result with other live local slots, retaining their source/landing URL, supplied license, VLM result and attempt history. Deleted slots, manually replaced paths, missing files or changed bytes at the same path cannot inherit old provenance. A failed new search does not erase unrelated valid records. This is a content-identity check, not a new license or image-relevance judgment: inspect the actual crop/subject after changes, and keep unknown licenses unknown.
