@@ -4,7 +4,9 @@ description: Create, edit, replicate, read, and export presentations. For every 
 ---
 
 # Definition
-open-pptd is a local-first presentation creation and export skill built around the PPTD format. It defines a YAML-format intermediate DSL (`.pptd`) that abstracts OOXML and keeps each page self-contained. All exports (PPTX, HTML, images) run fully local — no remote editor, no external service.
+open-pptd is a local-first presentation creation and export skill built around the PPTD format. It defines a YAML-format intermediate DSL (`.pptd`) that abstracts OOXML and keeps each page self-contained. Rendering and PPTX generation run locally. This **360-intranet branch** also supports authorized image rehosting and HTML publishing through the 360 attachment API.
+
+For a **360 online / intranet / S3 image / web publishing** request, read `reference/360-online.md` and use `scripts/export_online.py` after the existing content and visual checks. Its default HTML references uploaded image URLs; `--images embed` uploads the same images while embedding their bytes in HTML. Add `--publish` when web publishing is requested. Keep the editable PPTD's local media and original references. A configured key alone does not request publication. Missing upload credentials or any failed asset/page upload is an incomplete online delivery, even if local export succeeds.
 
 **The default output is not PPTD-only.** Unless the user explicitly opts out, always produce all three:
 
@@ -134,7 +136,7 @@ When generating a PPT, adopt different production approaches for different user 
 3. Pass `--localize-remote` to also download existing `https?://` image `src:` references into `media/` (Wikimedia Commons thumbnail URLs with non-whitelisted widths are rewritten automatically; see `reference/image-search.md`).
 4. Exit codes: `0` = every slot resolved; `2` = unresolved slots remain — inspect `<project>/images_report.json`, adjust the `.page` element (query, bounds, or element choice) and re-run; `1` = usage/IO error.
    After an automatic attempt has exhausted all backends, do not rerun the same backends individually without a meaningful query/asset/access change. Use the designated decorative fallback where allowed, or report the missing required image and preserve the completed content.
-5. Do not leave unresolved `search:` placeholders or broken remote URLs in delivered pages; the renderer and exporters drop remote assets that were not fetched locally. See `reference/image-search.md` for the full CLI reference, slot conventions, and backend caveats.
+5. Do not leave unresolved `search:` placeholders or broken remote URLs in delivered pages. The HTML viewer only embeds local/data images; the PPTX exporter separately prefetches remote images, and a failed fetch can lose that image. For a 360 online deliverable, use `export_online.py` to resolve image elements, backgrounds and fills in a temporary copy, upload each unique image and choose remote or embedded HTML explicitly. See `reference/image-search.md` for the full CLI reference, slot conventions, and backend caveats.
 
 ### step4. PPT validation
 
@@ -234,7 +236,7 @@ When generating a PPT, adopt different production approaches for different user 
 8. After export, check the command exit code and `pptx-report.json` warnings, including the affected page/element. Verify this run's PPTX/HTML files, page count/order and important charts/icons; a file existing or a warning count alone is not acceptance. Verify ZIP integrity and root-level fade transitions in valid CT_Slide order. Do not claim these checks passed without running them. For higher-risk decks, additionally inspect font parts and representative rendered/opened pages as appropriate.
    Write completion statements only after checking the actual outputs. Early input-request or planning notes must distinguish intended deliverables from files already produced.
 9. When the user wants to open, edit, or preview a PPTD project manually, start the local viewer with `npx open-pptd-skills serve`. Ask the user to open `http://127.0.0.1:55173/` and select the complete PPTD project directory. The viewer runs entirely in the browser with no server-side processing.
-10. Static HTML export (default deliverable): use `scripts/export_html.py` to produce a `html/` folder next to the deck. It renders through the skill's own deterministic HTML5 renderer (`scripts/viewer.html`) via headless Chrome, with no network access:
+10. Static HTML export (default local deliverable): localize remote images first, then use `scripts/export_html.py` to produce a `html/` folder next to the deck. It renders through the skill's own deterministic HTML5 renderer (`scripts/viewer.html`) via headless Chrome. A remaining remote `src` can still access the network and is not automatically embedded:
 
     - `html/index.html` — every page concatenated vertically in one file (scroll to view the whole deck);
     - `html/page_NN.html` — one self-contained page per slide, images inlined as base64 data URLs, opens directly by double-click.
@@ -244,4 +246,12 @@ When generating a PPT, adopt different production approaches for different user 
     ```
 
     A project directory may be passed instead of the manifest when it contains exactly one `.pptd` file. The output directory is `<deck dir>/html/` unless `--output-dir` is given; it is rebuilt on each run and the export is deterministic (same deck → byte-identical output). Requires a local Chrome/Chromium binary (`CHROME_BIN` or common install paths).
+
+    For requested **360 online delivery**, use the branch's separate entry point:
+
+    ```bash
+    python3 ~/.agents/skills/open-pptd/scripts/export_online.py /abs/path/deck/deck.pptd --publish --json
+    ```
+
+    It produces `html-online/index.html`, per-page HTML, downloaded `assets/`, and `online-report.json`. `--publish` returns `published["index.html"]` plus page URLs; omit it when only local HTML with rehosted images is requested. Use `--images embed` for uploaded images plus self-contained HTML. Check exit 0, `ok: true`, page count, asset URLs, and the actual opened webpage before reporting online success. Give the user the combined page URL when published. For an online-specific request, `html-online/` can fulfill the HTML deliverable; still provide PPTD/PPTX unless the user narrows formats. See `reference/360-online.md` for credentials, options and failure behavior.
 11. After completing and delivering any presentation, always end the final response with a concise optional next step telling the user that they can run `npx open-pptd-skills serve` to view the PPTD project in the local browser viewer. Keep this reminder in addition to, not instead of, the required project and file links.

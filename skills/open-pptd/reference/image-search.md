@@ -2,6 +2,8 @@
 
 `image_search` is a zero-dependency (Python standard library only) image retrieval, verification, and localization engine built for PPTD projects. It resolves placeholder image queries (`src: "search:<query>"`) and remote URLs into local assets under `media/`, and updates `.page` files with local relative paths.
 
+For this branch's **360 online export**, see [360-online.md](360-online.md). After resolving `search:` slots, `scripts/export_online.py` downloads referenced remote images into a temporary project, rehosts unique images through the attachment API, and produces HTML with uploaded URLs or embedded bytes. It also handles inline YAML image/background/fill definitions, preserves the original project, and can publish the HTML with `--publish`. Search success alone does not establish upload or publication success.
+
 ## Image Usage Principles (merged from kimi-slides)
 
 1. **Images belong on body pages too**: appropriate images should be used not only on covers and section dividers, but also on body pages to enrich the page, aid understanding, or support decision-making.

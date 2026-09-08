@@ -1,5 +1,7 @@
 # open-pptd-skills
 
+> **360 intranet branch: `360-intranet`.** Adds image downloads, 360 attachment uploads, URL rewriting and HTML publication while retaining local PPTD/PPTX/HTML export. See [360 online export](skills/open-pptd/reference/360-online.md). Check out this branch and run `node bin/open-pptd-skills.js install`; npm installation/update instructions below refer to the public release, not this branch.
+
 [简体中文](README.md) | [English](README_EN.md)
 
 [![npm version](https://img.shields.io/npm/v/open-pptd-skills)](https://www.npmjs.com/package/open-pptd-skills)
@@ -8,7 +10,7 @@
 An open-source presentation skill for AI coding agents. It lets your agent create, edit, replicate, read, and export PPT/PPTX files. **Default delivery includes three formats: an editable PPTD project, PPTX and self-contained HTML** — fade transitions included — plus a local in-browser PPTD viewer. Works with pi, Codex, Claude Code, Cursor, WorkBuddy, and any agent that supports the SKILL.md format.
 
 > [!IMPORTANT]
-> This project uses the PPTD format as an intermediate layer and exports PPTX through a local OOXML engine. It runs entirely locally with no remote editor or external service dependencies.
+> This project uses PPTD as an intermediate format and exports PPTX through a local OOXML engine without a remote editor. This branch's optional online image rehosting and HTML publication require the 360 upload service; local export remains available.
 
 ## Install
 
@@ -209,7 +211,7 @@ deck/
 - The CLI serves static files on `127.0.0.1` only and does not listen on LAN interfaces.
 - The browser reads a complete PPTD project directory only after explicit user authorization.
 - Save callbacks may only modify `.pptd` and `.page` files; absolute paths and `..` traversal are rejected.
-- All exports (PPTX, HTML, images) run entirely locally with no remote editor or external service dependencies.
+- Rendering and PPTX generation run locally. The optional 360 online export uploads images and, when requested, HTML through the attachment service.
 - PPTX export uses a local OOXML engine (`open-ppt-engine`) that compiles YAML pages into OOXML format via Node.js.
 
 ## Compatibility

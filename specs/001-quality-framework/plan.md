@@ -1,5 +1,19 @@
 # Implementation Plan: open-pptd 轻量优化
 
+## 2026-09-08：360 内网独立分支
+
+用户授权在 `360-intranet` 分支实施、验证、提交并推送本次适配；这覆盖下文历史阶段的“不提交”限制。本次不修改原分支。
+
+目标：360 online 图片下载、附件上传与 HTML 导出。复用现有 viewer/CDP 导出，新增 `scripts/export_online.py`；在临时 PPTD 副本中解析 manifest 实际引用的页面并本地化图片，校验后按字节哈希去重上传。原稿保留；默认在线 HTML 引用上传 URL，`--images embed` 保留内嵌图片，`--publish` 另上传 HTML。协议参照已核对的 slide-creator master `2736de22`：multipart `file`、Bearer `PPT_API_KEY`、响应 `data.url`，独立实现适配器，不复制内部编排代码。
+
+1. 用 Python unittest 的本地 HTTP 服务先覆盖成功、重复图片、离线内嵌、失败、越界路径和凭证隔离；确认缺功能时失败。
+2. 实现入口、临时快照、图片校验、上传及 HTML 地址替换；超时/无效响应/失败须非零退出，失败不覆盖上次成功输出。
+3. 更新 SKILL、图片说明、分支安装文档与无密钥配置示例；复测三个技能使用场景。
+4. 运行针对性测试、现有 npm/Python 回归、打包检查；如有可用凭证，用自建公开测试图验证真实上传与网页访问。未实测项目如实记录。
+5. 审核差异和敏感数据后提交，只推送新分支到用户指定 remote。
+
+实施前已确认：无现有上传实现，沿用 Python/PyYAML/Pillow/Chrome，当前 HTML 仅内嵌本地图片的缺口已最小复现，上传协议与本地参考代码一致。网络接口实际可用性待 smoke 验证。
+
 **Branch**: 001-quality-framework | **Updated**: 2026-09-07
 **Spec**: [spec.md](spec.md) | **Tasks**: [tasks.md](tasks.md)
 **状态**: 已实施，工具回归通过，首轮20题及两题复测完成；真实生成仍有失败。pi 是用户的执行宿主，优化对象是现有 skill。

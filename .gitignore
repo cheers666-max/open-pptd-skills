@@ -23,6 +23,12 @@ skills/open-pptd/scripts/package-lock.json
 output/
 
 # Local config
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+online-report.json
 .pi/
 skills/open-pptd/scripts/fonts/*.ttf
 skills/open-pptd/scripts/fonts/*.otf

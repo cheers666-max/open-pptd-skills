@@ -1,5 +1,17 @@
 # Implementation and validation log
 
+## 2026-09-08 — 360-intranet branch
+
+New `scripts/export_online.py` uses a temporary PPTD snapshot and the existing viewer, uploads validated images through the attachment protocol, and writes remote-URL or embedded HTML. `--publish` additionally uploads each HTML file. The original branch and source deck are preserved. User explicitly authorized committing and pushing this separate branch; historical no-push statements below describe earlier work.
+
+- Baseline installation tests: 5 passed; existing image search tests: 26 passed.
+- Online tests: **16 passed**, included in the final **40/40** Python suite (Homebrew Python 3.14, 25.523 s); the first 15 also passed on Python 3.9.6. Includes real Chrome rendering, remote/background/fill images, data URIs and SVG, theme table styles, content deduplication, upload/read-back, missing credentials, invalid responses, redirect refusal, upload failure, path/symlink protection, non-export output protection, and backup-cleanup failure. Reproduced missing entry point, unsafe output overlap, SVG whitespace handling and missing theme images before their fixes. Existing image-search suite also passed **26/26** on the final branch.
+- Full `npm test` using Homebrew Python 3.14: **42 passed, 0 failed, 4 skipped**, 48.745 s. The existing four font tests require cached fonts absent from the isolated worktree. Native LibreOffice rendering passed. Initial runs used system Python without python-pptx, then Anaconda whose MuPDF diagnostics polluted JSON; the project-compatible Homebrew interpreter resolved those environment failures without changing existing tests.
+- `npm pack --dry-run --json`: 188 entries; online script, reference and credential-free example included. No node_modules, Python bytecode or private `.env` included. No npm publication.
+- Final-page smoke: public Wikimedia Example.jpg plus a locally authored SVG, repeated on two pages. A local attachment-protocol service received two unique images and three HTML files. The resulting hosted page was loaded in headless Chrome; both remote image references decoded (172×178 and 480×270). Screenshot inspected: both images, title and caption visible. This was a local service test, not a successful 360 production upload.
+- Real 360 probe: the existing model configuration's `api.360.cn/v1/upload/attachment` returned HTTP 404; the reference gateway `aigw.aijjt.com/v1/upload/attachment` returned HTTP 401 with the available key. Actual production publication remains unverified until the upload service's endpoint/credentials are supplied. No credential values stored in code, reports or logs.
+- Independent review found and verified fixes for theme table image materialization and post-success backup cleanup. Six table-style combinations matched the viewer's original JavaScript precedence. Skill baseline failed all online requirements; updated instructions cover remote, embed and failed-credential scenarios.
+
 2026-09-05. Lightweight SpecKit plan implemented in the existing skill and scripts; the optional pi evaluation lives under `eval/`. No global pi extension/configuration changes, no commit/push/npm publication.
 
 ## Final verification
