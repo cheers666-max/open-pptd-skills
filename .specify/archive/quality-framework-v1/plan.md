@@ -1,7 +1,7 @@
 # Implementation Plan: 通用 Skill 质量框架
 
 **Branch**: 001-quality-framework | **Date**: 2026-09-05 | **Spec**: [spec.md](spec.md)
-**Input**: /Users/yuajing/Downloads/open-kimi-ppt-skill-main/specs/001-quality-framework/spec.md
+**Input**: ~/Downloads/open-kimi-ppt-skill-main/specs/001-quality-framework/spec.md
 **Status**: 仅规划。任务未实现；不修改实战 case，不 commit/push，不发布 npm。
 
 ## Summary

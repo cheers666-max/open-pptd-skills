@@ -1,6 +1,6 @@
 {
   "status": "all_cases_ended",
-  "runDirectory": "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48",
+  "runDirectory": "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48",
   "configuration": {
     "provider": "qihoo",
     "model": "360zhinao-turbo-aippt-agent-260824",
@@ -15,28 +15,28 @@
     "observedAtUtc": "2026-09-06T04:46:58.316917+00:00",
     "runStartedAtUtc": "2026-09-06T02:25:05.799341+00:00",
     "runRecordedPiVersion": "0.84.4",
-    "recordedBin": "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
-    "currentRealpath": "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
-    "currentVersionCommand": "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi --version",
+    "recordedBin": "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
+    "currentRealpath": "~/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+    "currentVersionCommand": "~/.local/node-v22.23.2-darwin-arm64/bin/pi --version",
     "currentVersionStdout": "0.85.1",
     "currentPackageVersion": "0.85.1",
     "fileMetadata": [
       {
-        "path": "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+        "path": "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
         "isSymlink": true,
         "mtimeUtc": "2026-09-06T03:00:08.807564+00:00",
         "ctimeUtc": "2026-09-06T03:00:08.807564+00:00",
         "birthtimeUtc": "2026-09-06T03:00:08.807564+00:00"
       },
       {
-        "path": "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+        "path": "~/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
         "isSymlink": false,
         "mtimeUtc": "2026-09-06T03:00:06.285553+00:00",
         "ctimeUtc": "2026-09-06T03:00:08.807760+00:00",
         "birthtimeUtc": "2026-09-06T03:00:06.285473+00:00"
       },
       {
-        "path": "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/package.json",
+        "path": "~/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/package.json",
         "isSymlink": false,
         "mtimeUtc": "2026-09-06T03:00:06.595027+00:00",
         "ctimeUtc": "2026-09-06T03:00:06.595027+00:00",
@@ -212,7 +212,7 @@
       "observedAtUtc": "2026-09-06T08:21:00.160195+00:00",
       "versionStdout": "0.85.1",
       "versionExitCode": 0,
-      "entryRealpath": "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+      "entryRealpath": "~/.local/node-v22.23.2-darwin-arm64/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
       "entrySha256": "e6d7fcf36a239cf3746e67ddf4222081ac01a601b85a3ee688bdfe9c161d754c",
       "cases": [
         {
@@ -4726,7 +4726,7 @@
       "20-dying-to-survive"
     ],
     "qualityStatus": "not_reviewed",
-    "runDirectory": "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48",
+    "runDirectory": "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48",
     "elapsedSeconds": 20963.615,
     "results": [
       {
@@ -4737,7 +4737,7 @@
           "地方史人物、事件、年代有可追溯依据，区分常州与周边区域"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -4750,7 +4750,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/01-changzhou-history/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/01-changzhou-history/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -4760,7 +4760,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/01-changzhou-history/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/01-changzhou-history/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -4845,7 +4845,7 @@
           "提供适合约10岁儿童的可执行教学活动和循序渐进的练习，不鼓励危险强压训练"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -4858,7 +4858,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/02-classical-dance/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/02-classical-dance/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -4868,7 +4868,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/02-classical-dance/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/02-classical-dance/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -5025,7 +5025,7 @@
           "讲解防守应对、战术变式及合法掩护边界，图示人物与移动路径一致"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -5038,7 +5038,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/03-elevator-basketball/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/03-elevator-basketball/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -5048,7 +5048,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/03-elevator-basketball/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/03-elevator-basketball/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -5466,7 +5466,7 @@
           "缺材料可提供标明待填的框架，不得编造公司财务、加盟门店或用图库冒充门店实景"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -5479,7 +5479,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/04-jewelry-renewal/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/04-jewelry-renewal/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -5489,7 +5489,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/04-jewelry-renewal/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/04-jewelry-renewal/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -5673,7 +5673,7 @@
           "不编造政策条款、认证规则或组织的实际业绩"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -5686,7 +5686,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/05-performance-certification/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/05-performance-certification/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -5696,7 +5696,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/05-performance-certification/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/05-performance-certification/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -5898,7 +5898,7 @@
           "不使用数据分析图、表格，不虚构该事件细节或群体统计"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -5911,7 +5911,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/06-consumption-psychology/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/06-consumption-psychology/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -5921,7 +5921,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/06-consumption-psychology/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/06-consumption-psychology/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -6812,7 +6812,7 @@
           "案例页明确留空待填，不杜撰客户、奖项、团队资历或既往案例"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -6825,7 +6825,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/07-video-company/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/07-video-company/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -6835,7 +6835,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/07-video-company/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/07-video-company/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -7655,7 +7655,7 @@
           "不得声称已读稿件或臆造影片、时间地点、主持词；此例正常结果可以是 needs_input"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -7668,7 +7668,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/08-peer-film-host/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/08-peer-film-host/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -7678,7 +7678,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/08-peer-film-host/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/08-peer-film-host/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {
@@ -8739,7 +8739,7 @@
           "不把积极情绪包装成包治百病，区分情绪接纳与强迫积极"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -8752,7 +8752,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/09-positive-emotions/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/09-positive-emotions/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -8762,7 +8762,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/09-positive-emotions/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/09-positive-emotions/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -9684,7 +9684,7 @@
           "个人成绩、经历、奖项需待填或由用户提供，政策引用核实原文"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -9697,7 +9697,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/10-student-election/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/10-student-election/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -9707,7 +9707,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/10-student-election/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/10-student-election/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -10199,7 +10199,7 @@
           "不编造台词、情节或历史细节，兼顾学生观后感表达"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -10212,7 +10212,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/11-beiping-marxism/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/11-beiping-marxism/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -10222,7 +10222,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/11-beiping-marxism/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/11-beiping-marxism/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -10352,7 +10352,7 @@
           "价格注明估算时间/假设，实时营业天气不得凭空断言，台风预案遵循官方信息"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -10365,7 +10365,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/12-guangzhou-trip/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/12-guangzhou-trip/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -10375,7 +10375,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/12-guangzhou-trip/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/12-guangzhou-trip/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -11076,7 +11076,7 @@
           "医学与辐射知识准确，讲清专业人员规范使用，不提供儿童自行实验或医疗建议"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -11089,7 +11089,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/13-nuclear-medicine/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/13-nuclear-medicine/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -11099,7 +11099,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/13-nuclear-medicine/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/13-nuclear-medicine/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -12109,7 +12109,7 @@
           "避免恐吓、唯分数论或保证提分，不将正常压力轻率诊断为疾病"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -12122,7 +12122,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/14-senior-year-class/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/14-senior-year-class/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -12132,7 +12132,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/14-senior-year-class/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/14-senior-year-class/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {
@@ -13136,7 +13136,7 @@
           "解释截拳道吸收咏春又融合其他体系，不能简单等同两者"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -13149,7 +13149,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/15-wing-chun/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/15-wing-chun/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -13159,7 +13159,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/15-wing-chun/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/15-wing-chun/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {
@@ -14115,7 +14115,7 @@
           "配图与人物地点民俗对应，传说清楚标注，不把其他地区素材冒充商丘"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -14128,7 +14128,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/16-shangqiu-culture/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/16-shangqiu-culture/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -14138,7 +14138,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/16-shangqiu-culture/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/16-shangqiu-culture/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -14259,7 +14259,7 @@
           "不编造核准状态、设备选型、投资、发电量、财务回报；区分事实与待补数据"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -14272,7 +14272,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/17-jilin-wind-project/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/17-jilin-wind-project/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -14282,7 +14282,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/17-jilin-wind-project/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/17-jilin-wind-project/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -15275,7 +15275,7 @@
           "若消息或日期无法证实应说明或调整为待核实分析，5分钟和大一学生表达合适"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -15288,7 +15288,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/18-trump-china/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/18-trump-china/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -15298,7 +15298,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/18-trump-china/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/18-trump-china/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -15484,7 +15484,7 @@
           "不得提供真实汞操作、暴露或危险实验步骤，笑点不依赖把错误化学当真"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -15497,7 +15497,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/19-mercury-satire/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/19-mercury-satire/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -15507,7 +15507,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/19-mercury-satire/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/19-mercury-satire/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
@@ -16300,7 +16300,7 @@
           "电影事实和图片对应准确，剧情解读与现实医疗政策区分"
         ],
         "command": [
-          "/Users/yuajing/.local/node-v22.23.2-darwin-arm64/bin/pi",
+          "~/.local/node-v22.23.2-darwin-arm64/bin/pi",
           "--print",
           "--mode",
           "json",
@@ -16313,7 +16313,7 @@
           "--no-context-files",
           "--no-approve",
           "--skill",
-          "/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/20-dying-to-survive/work/skill",
+          "~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/20-dying-to-survive/work/skill",
           "--tools",
           "read,bash,edit,write,grep,find,ls",
           "--provider",
@@ -16323,7 +16323,7 @@
           "--thinking",
           "off",
           "--",
-          "@/Users/yuajing/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/20-dying-to-survive/prompt.md"
+          "@~/Downloads/open-pptd-eval-runs/20260906-102503-gts1xz48/cases/20-dying-to-survive/prompt.md"
         ],
         "qualityStatus": "not_reviewed",
         "selfReport": {},
