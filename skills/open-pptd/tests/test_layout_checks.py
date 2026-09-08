@@ -198,13 +198,39 @@ class DuplicateImageValidityTests(unittest.TestCase):
 
 
 class ElementSchemaTests(unittest.TestCase):
-    def test_nested_align_and_percent_points_are_reported(self):
+    def test_unreadable_align_blocks_and_readable_variants_are_advice(self):
         page = {'elements': [
             {'elementId': 'n', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '1', 'align': [['center', 'middle']]}},
-            {'elementId': 'ok', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '2', 'align': ['center', 'middle']}},
-            {'elementId': 'bad-word', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '3', 'align': ['centre', 'middle']}},
+            {'elementId': 'bare', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '2', 'align': 'right'}},
+            {'elementId': 'num', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '3', 'align': [0.5, 0.5]}},
+            {'elementId': 'synonym', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '4', 'align': ['left', 'center']}},
+            {'elementId': 'ok', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '5', 'align': ['center', 'middle']}},
+            {'elementId': 'bad-word', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '6', 'align': ['centre', 'middle']}},
+            {'elementId': 'too-long', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '7', 'align': ['left', 'top', 'left']}},
             {'elementId': 'arrow', 'elementType': 'line', 'bounds': [0, 0, 12, 18], 'viewBox': [12, 18], 'points': '0,0 0,100'},
             {'elementId': 'arrow-ok', 'elementType': 'line', 'bounds': [0, 0, 12, 18], 'viewBox': [12, 18], 'points': '0,0 0,18'},
         ]}
         codes = sorted((i['code'], i['elementId']) for i in validate.element_schema_issues(page, 1, 'pages/01.page'))
-        self.assertEqual(codes, [('invalid-align', 'bad-word'), ('invalid-align', 'n'), ('line-points-outside-viewbox', 'arrow')])
+        self.assertEqual(codes, [
+            ('invalid-align', 'bad-word'),
+            ('invalid-align', 'too-long'),
+            ('line-points-outside-viewbox', 'arrow'),
+            ('non-canonical-align', 'bare'),
+            ('non-canonical-align', 'n'),
+            ('non-canonical-align', 'num'),
+            ('non-canonical-align', 'synonym'),
+        ])
+
+    def test_non_canonical_align_is_advice_and_does_not_fail_a_deck(self):
+        import tempfile, pathlib, json as _json
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            (root / 'pages').mkdir()
+            (root / 'deck.pptd').write_text('version: v2\ntitle: T\nsize: [960, 540]\npages:\n  - pages/01.page\n')
+            (root / 'pages/01.page').write_text(
+                'pageType: content\nelements:\n'
+                '- elementId: t\n  elementType: text\n  bounds: [48, 48, 400, 40]\n'
+                '  content:\n    text: hi\n    fontSize: 18\n    align: right\n')
+            report = validate.audit_project(root)
+            self.assertTrue(report['valid'])
+            self.assertEqual(report['advisoryCounts'].get('non-canonical-align'), 1)

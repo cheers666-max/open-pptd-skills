@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.5 — 2026-09-09
+
+### open-pptd skill
+- `validate_deck.py`: `invalid-align` now blocks only values the renderers cannot read. Since 2.1.2 both renderers flatten nested pairs, map synonyms (`start`/`end`, `center`↔`middle`) and read numbers as positions, so `align: right`, `[[center, middle]]` and `[left, center]` render exactly as written — blocking them forced edits with no visual effect. Those shapes are now the non-blocking advisory `non-canonical-align`; unknown words such as `centre` and lists longer than two still block. Checked against 20 evaluation decks: 5 of them carried 154 such values and none rendered wrong.
+
 ## 2.1.4 — 2026-09-08
 
 ### open-pptd skill
