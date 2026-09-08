@@ -32,6 +32,31 @@ class CapacityTests(unittest.TestCase):
         good = dict(type='gradient',stops=[dict(position=0,color='#000000'),dict(position=1,color='#FFFFFF')])
         self.assertEqual(validate.gradient_issues(dict(background=good),1,'pages/1.page'),[])
 
+    def test_missing_body_leaves_a_flagged_empty_band(self):
+        page = dict(pageType='content', elements=[
+            dict(elementId='title', elementType='text', bounds=[48, 48, 864, 40],
+                 content=dict(text='八元素与三种圆')),
+            dict(elementId='lead', elementType='text', bounds=[48, 114, 400, 20],
+                 content=dict(text='八个基本元素')),
+            dict(elementId='foot', elementType='text', bounds=[48, 424, 864, 24],
+                 content=dict(text='来源：教材')),
+        ])
+        issue = validate.empty_band_issue(page, 6, 'pages/06.page', 540)
+        self.assertEqual(issue['code'], 'empty-body-band')
+        self.assertEqual(issue['bandTop'], 134.0)
+        self.assertGreater(issue['bandRatio'], 0.5)
+
+    def test_deliberate_whitespace_around_a_body_is_not_flagged(self):
+        page = dict(pageType='content', elements=[
+            dict(elementId='title', elementType='text', bounds=[48, 48, 864, 40],
+                 content=dict(text='留白但完整的一页')),
+            dict(elementId='body', elementType='text', bounds=[48, 220, 500, 120],
+                 content=dict(text='正文写在中间')),
+            dict(elementId='foot', elementType='text', bounds=[48, 460, 864, 24],
+                 content=dict(text='来源：示例')),
+        ])
+        self.assertIsNone(validate.empty_band_issue(page, 1, 'pages/01.page', 540))
+
     def test_paragraph_boundaries_count_as_lines(self):
         r = validate.layout_text('<p>First</p><p>Second</p>', 12, 1.5, 400, 20)
         self.assertEqual(r['lineCount'], 2)

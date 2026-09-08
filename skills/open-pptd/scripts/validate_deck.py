@@ -769,6 +769,59 @@ def text_density_advisory(page: dict[str, Any], page_number: int, page_ref: str,
     }
 
 
+MIN_EMPTY_BAND_RATIO = 0.25
+
+
+def empty_band_issue(page: dict[str, Any], page_number: int, page_ref: str,
+                     slide_height: float,
+                     min_ratio: float = MIN_EMPTY_BAND_RATIO) -> Optional[dict[str, Any]]:
+    """A full-width horizontal band between elements that nothing covers — the signature of a
+    body block that was never written into the page (a layout helper whose return value the
+    authoring script forgot to append), which renders as a title, a lead-in and a footer around
+    a hole.
+
+    Only bands *between* elements count; top and bottom margins are design. A page-filling
+    element (a full-bleed photo or backdrop) covers every band, so those pages never match.
+
+    Threshold from 477 pages of the 2026-09 evaluations: the airiest page nobody flagged spans
+    0.228 of the slide height, the one page whose body was silently dropped spans 0.537.
+    """
+    spans: List[Tuple[float, float]] = []
+    for element in page.get("elements", []) or []:
+        if not isinstance(element, dict):
+            continue
+        box = valid_bounds(element)
+        if box is None:
+            continue
+        _, y, width, height = box
+        spans.append((y, y + height))
+    if len(spans) < 2:
+        return None
+
+    spans.sort()
+    widest = 0.0
+    band: Optional[Tuple[float, float]] = None
+    covered_to = spans[0][1]
+    for start, end in spans[1:]:
+        if start > covered_to and start - covered_to > widest:
+            widest, band = start - covered_to, (covered_to, start)
+        covered_to = max(covered_to, end)
+
+    if band is None or slide_height <= 0 or widest / slide_height < min_ratio:
+        return None
+    return {
+        "code": "empty-body-band",
+        "pageNumber": page_number,
+        "pageRef": page_ref,
+        "bandTop": round(band[0], 1),
+        "bandHeight": round(widest, 1),
+        "bandRatio": round(widest / slide_height, 3),
+        "detail": (f"nothing is placed between y={band[0]:.0f} and y={band[1]:.0f} "
+                   f"({widest / slide_height:.0%} of the slide height); the page body looks missing"),
+        "repairability": "upstream-layout",
+    }
+
+
 def internal_token_leak_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
     """Audience-facing text must not carry internal artifact names or workflow vocabulary.
 
@@ -1014,6 +1067,9 @@ def audit_project(
         if density is not None:
             advisories.append(density)
         issues.extend(anti_slop_design_issues(page, page_number, str(page_ref)))
+        band = empty_band_issue(page, page_number, str(page_ref), slide_size[1])
+        if band is not None:
+            issues.append(band)
 
         for element in page.get("elements", []):
             if not isinstance(element, dict):
