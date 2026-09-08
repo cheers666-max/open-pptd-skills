@@ -82,7 +82,7 @@ npx open-pptd-skills@latest install --target ~/.claude/skills
 
 ```bash
 python3 eval/run_pi.py --list
-python3 eval/run_pi.py --provider qihoo --model 360zhinao-turbo-aippt-agent-260824 --allow-web --concurrency 2 --timeout 3600
+python3 eval/run_pi.py --provider qihoo --model 360zhinao-turbo-aippt-agent-260824 --allow-web --concurrency 2 --timeout 3600 --pass-env QIHOO_API_KEY
 ```
 
 以上显式使用本机已配置的360zhinao模型；其他环境可替换为已有provider/model。结果在仓库外独立目录，记录快照、耗时、失败和逐维证据评分；不修改全局 pi 设置。模型生成、静态检查、实际看图和原生 PPTX 打开分开记录。无自动总分，也不无限循环。实施进度与实际通过/未通过项见 [验证记录](specs/001-quality-framework/validation.md)。
