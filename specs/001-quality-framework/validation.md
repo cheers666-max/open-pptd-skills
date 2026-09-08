@@ -1,5 +1,16 @@
 # Implementation and validation log
 
+## 2026-09-08 — Existing OBS configuration, real publication
+
+The follow-up uses the existing protected Zhengzhou OBS YAML directly, without copying its credentials. The new optional `obs_upload.py` backend supports legacy `obs`, `profiles` and `targets`, environment credential references, independent endpoint/signing region/bucket, safe unique prefixes, conflict refusal and object/public readback verification. The attachment backend remains available; OBS needs no model/attachment key.
+
+- New OBS tests first failed for the absent backend; partial-transfer reporting tests also failed before implementation. Narrow-browser regression reproduced the fixed canvas overflow, then passed after an online-only scaling script was added.
+- Online suite: **29 passed** (17 attachment/export/browser tests, 12 OBS tests), Python 3.14. Final `npm test`: **42 passed, 0 failed, 4 skipped**, 47.823 s. The four existing font tests require uncached fonts and were not downloaded. OBS tests use botocore Stubber and synthetic credentials, not the user's config.
+- Real final upload: existing Zhengzhou config, region `cn-north-4`, bucket `mcp-yue-tool`. Created **5 objects** in a fresh UUID prefix: two unique images (remote Wikimedia JPG and local SVG) plus two page HTMLs and the combined index. Every object's metadata, authenticated byte readback and unauthenticated public byte readback passed. No existing remote objects were replaced.
+- [Verified two-page demo](https://cn-zhengzhou-3.xstore.qihu.com/mcp-yue-tool/open-pptd/bf028b2e4a9b4b44b8871cc9b6c6b288/index.html): headless Chrome opened index and both pages at **1280px and 390px**. All document/image responses were HTTP 200, all images decoded, no console/network errors, and scroll width equalled viewport width in all six checks. Desktop/mobile screenshots were inspected: title, JPG, SVG and caption visible, both pages intact.
+- `npm pack --dry-run --json`: **190 entries**, including the OBS adapter and credential-free example; no protected config, private `.env` or online report. Real credentials were never printed or written into repository files.
+- The earlier attachment HTTP 404/401 result below still describes that service. **OBS publication is now verified**; Beijing's example profile and other providers were not tested. No bucket/ACL/DNS changes, remote deletion or npm publication.
+
 ## 2026-09-08 — 360-intranet branch
 
 New `scripts/export_online.py` uses a temporary PPTD snapshot and the existing viewer, uploads validated images through the attachment protocol, and writes remote-URL or embedded HTML. `--publish` additionally uploads each HTML file. The original branch and source deck are preserved. User explicitly authorized committing and pushing this separate branch; historical no-push statements below describe earlier work.

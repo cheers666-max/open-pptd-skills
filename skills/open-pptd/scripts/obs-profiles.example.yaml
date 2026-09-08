@@ -1,0 +1,20 @@
+# No credentials are stored here. Use an existing protected config, or inject
+# the environment variables referenced below. This file is not auto-loaded.
+version: 1
+profiles:
+  zhengzhou:
+    endpoint: https://cn-zhengzhou-3.xstore.qihu.com
+    region: cn-north-4
+    bucket: mcp-yue-tool
+    addressing_style: path
+    public_base_url: https://cn-zhengzhou-3.xstore.qihu.com/mcp-yue-tool
+    access_key_env: ZHENGZHOU_OBS_AK
+    secret_key_env: ZHENGZHOU_OBS_SK
+  beijing:
+    endpoint: https://beijing2.xstore.qihoo.net
+    region: beijing2
+    bucket: agent-ppt
+    addressing_style: path
+    public_base_url: https://beijing2.xstore.qihoo.net/agent-ppt
+    access_key_env: BEIJING_OBS_ACCESS_KEY_ID
+    secret_key_env: BEIJING_OBS_ACCESS_KEY_SECRET

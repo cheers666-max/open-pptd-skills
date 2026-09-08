@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""360 online HTML export: download images, upload attachments, export with stable URLs.
+"""360 online HTML export: download images, upload to OBS or attachments, export stable URLs.
 
 Uses the existing local viewer in a temporary PPTD snapshot. Original project
 files are unchanged. PPT_API_KEY authenticates uploads only; S3_API_URL overrides
-the attachment endpoint derived from PPT_API_BASE. No credentials enter HTML.
+the attachment endpoint derived from PPT_API_BASE. OBS_CONFIG selects an existing
+S3-compatible OBS config instead. No credentials enter HTML.
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from export_html import VIEWER_DEFAULT, find_chrome, find_deck, run_viewer_export
+from obs_upload import OBSClient, ObsError
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 UA = 'Mozilla/5.0 (compatible; open-pptd-online/1.0)'
@@ -123,6 +125,22 @@ def download(url, timeout, limit=MAX_IMAGE_BYTES):
     if len(data) > limit:
         raise OnlineError(f'Asset exceeds {limit // (1024 * 1024)} MiB')
     return data
+
+
+def upload_verified(client, data, filename, mime, timeout, label):
+    url = client.upload(data, filename, mime)
+    try:
+        if download(url, timeout, max(MAX_IMAGE_BYTES, len(data))) != data:
+            raise OnlineError(label + ' verification failed: bytes differ')
+    except OnlineError as exc:
+        if isinstance(client, OBSClient):
+            item = client.objects[-1]
+            raise ObsError(str(exc), {**client.report(), 'failed_key': item['key'],
+                                     'write_succeeded': item['action'] == 'create'}) from None
+        raise
+    if isinstance(client, OBSClient):
+        client.objects[-1]['public_verified'] = True
+    return url
 
 
 def image_type(data):
@@ -310,6 +328,39 @@ def unpack_html(raw, page_count):
         return {name: archive.read(name).decode('utf-8') for name in sorted(expected)}
 
 
+def fit_online_html(content):
+    """Scale the exported fixed canvas to the page width; preserve author coordinates."""
+    if 'class="stage"' not in content or '</body>' not in content:
+        return content
+    script = '''<script>
+(() => {
+  const stages = Array.from(document.querySelectorAll('.stage')).map(stage => ({
+    stage, canvas: stage.firstElementChild,
+    width: parseFloat(stage.style.width), height: parseFloat(stage.style.height)
+  })).filter(item => item.canvas && item.width > 0 && item.height > 0);
+  const print = matchMedia('print');
+  function fit() {
+    for (const {stage, canvas, width, height} of stages) {
+      const parent = stage.parentElement;
+      const style = getComputedStyle(parent);
+      const available = parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const scale = print.matches ? 1 : Math.min(1, Math.max(1, available) / width);
+      stage.style.width = `${width * scale}px`;
+      stage.style.height = `${height * scale}px`;
+      stage.style.overflow = 'hidden';
+      canvas.style.transformOrigin = 'top left';
+      canvas.style.transform = `scale(${scale})`;
+    }
+  }
+  fit();
+  addEventListener('resize', fit);
+  print.addEventListener('change', fit);
+})();
+</script>'''
+    content = content.replace('</head>', '<link rel="icon" href="data:,">\n</head>')
+    return content.replace('</body>', script + '\n</body>')
+
+
 def replace_output(staged, output):
     """Publish a complete directory; roll back if its final rename fails."""
     backup = output.with_name(output.name + '.previous-' + uuid.uuid4().hex)
@@ -328,7 +379,8 @@ def replace_output(staged, output):
             progress(f'Export succeeded; previous output backup retained: {backup}')
 
 
-def run(deck_arg, *, output_dir=None, images='remote', publish=False, timeout=180, request_timeout=30, chrome=None):
+def run(deck_arg, *, output_dir=None, images='remote', publish=False, timeout=180, request_timeout=30, chrome=None,
+        upload_backend=None, obs_config=None, obs_profile=None, obs_prefix=None):
     if images not in ('remote', 'embed'):
         raise OnlineError('images must be remote or embed')
     if not all(math.isfinite(x) and x > 0 for x in (timeout, request_timeout)):
@@ -347,7 +399,17 @@ def run(deck_arg, *, output_dir=None, images='remote', publish=False, timeout=18
             previous = None
         if not isinstance(previous, dict) or previous.get('exporter') != 'open-pptd-online':
             raise OnlineError('Output is not a previous online export; choose an empty dedicated directory')
-    client = AttachmentClient(timeout=request_timeout)
+    obs_config = obs_config or os.environ.get('OBS_CONFIG')
+    backend = upload_backend or os.environ.get('PPT_UPLOAD_BACKEND') or ('obs' if obs_config else 'attachment')
+    if backend == 'obs':
+        client = OBSClient(obs_config, profile=obs_profile or os.environ.get('OBS_PROFILE'),
+                           prefix=obs_prefix or os.environ.get('OBS_PREFIX'), timeout=request_timeout)
+    elif backend == 'attachment':
+        if obs_config or obs_profile or obs_prefix:
+            raise OnlineError('OBS options conflict with attachment backend; use --upload-backend obs')
+        client = AttachmentClient(timeout=request_timeout)
+    else:
+        raise OnlineError('upload backend must be attachment or obs')
     chrome = find_chrome(chrome)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='pptd-online-') as temporary:
@@ -360,13 +422,11 @@ def run(deck_arg, *, output_dir=None, images='remote', publish=False, timeout=18
             raise OnlineError('Local HTML rendering failed: ' + str(exc)[:1500]) from None
         # The prepared manifest has exactly the referenced pages, in original order.
         count = len(list((Path(temporary) / 'pages').glob('*.page')))
-        files = unpack_html(raw, count)
+        files = {name: fit_online_html(content) for name, content in unpack_html(raw, count).items()}
         for index, asset in enumerate(assets, 1):
             progress(f'Uploading image {index}/{len(assets)}')
-            asset['url'] = client.upload(asset['bytes'], asset['filename'], asset['mime'])
-            returned = download(asset['url'], request_timeout)
-            if hashlib.sha256(returned).hexdigest() != asset['sha256']:
-                raise OnlineError('Uploaded image verification failed: bytes differ')
+            asset['url'] = upload_verified(client, asset['bytes'], asset['filename'], asset['mime'],
+                                            request_timeout, 'Uploaded image')
             data_url = 'data:' + asset['mime'] + ';base64,' + base64.b64encode(asset['bytes']).decode('ascii')
             if not any(data_url in content for content in files.values()):
                 raise OnlineError('Rendered image missing from HTML; refusing incomplete export')
@@ -375,16 +435,20 @@ def run(deck_arg, *, output_dir=None, images='remote', publish=False, timeout=18
                          for name, content in files.items()}
         published = {}
         if publish:
-            for name, content in files.items():
+            # Publish the combined entry after every page and image has succeeded.
+            for name in sorted(files, key=lambda name: (name == 'index.html', name)):
+                content = files[name]
                 progress(f'Publishing {name}')
                 payload = content.encode('utf-8')
-                url = client.upload(payload, name, 'text/html; charset=utf-8')
-                if download(url, request_timeout, max(MAX_IMAGE_BYTES, len(payload))) != payload:
-                    raise OnlineError('Published HTML verification failed: bytes differ')
+                url = upload_verified(client, payload, name, 'text/html; charset=utf-8',
+                                      request_timeout, 'Published HTML')
                 published[name] = url
-        report = {'ok': True, 'exporter': 'open-pptd-online', 'deck': str(deck), 'output_dir': str(output), 'images': images,
+        report = {'ok': True, 'exporter': 'open-pptd-online', 'upload_backend': backend,
+                  'deck': str(deck), 'output_dir': str(output), 'images': images,
                   'page_count': count, 'files': sorted(files), 'published': published,
                   'assets': [{k: v for k, v in a.items() if k != 'bytes'} for a in assets]}
+        if backend == 'obs':
+            report['storage'] = client.report()
         # Everything has succeeded before the previous delivery is touched.
         with tempfile.TemporaryDirectory(prefix='.pptd-delivery-', dir=output.parent) as delivery:
             staged = Path(delivery) / 'html'
@@ -403,6 +467,10 @@ def main(argv=None):
     parser.add_argument('deck', help='PPTD project directory or manifest')
     parser.add_argument('--images', choices=['remote', 'embed'], default='remote', help='HTML images: uploaded URLs (default) or embedded bytes')
     parser.add_argument('--publish', action='store_true', help='Also upload and verify index.html and every page HTML')
+    parser.add_argument('--upload-backend', choices=['attachment', 'obs'], help='Default: obs when OBS_CONFIG is set, otherwise attachment; or PPT_UPLOAD_BACKEND')
+    parser.add_argument('--obs-config', help='Existing protected OBS YAML config (or OBS_CONFIG); never copied into output')
+    parser.add_argument('--obs-profile', help='Profile in profiles/targets config (or OBS_PROFILE)')
+    parser.add_argument('--obs-prefix', help='Unique object prefix (or OBS_PREFIX; default open-pptd/<random UUID>); conflicts are never overwritten')
     parser.add_argument('--output-dir', help='Dedicated output directory, replaced on success (default: <deck>/html-online)')
     parser.add_argument('--timeout', type=float, default=180, help='Viewer export timeout in seconds')
     parser.add_argument('--request-timeout', type=float, default=30, help='Per HTTP socket timeout in seconds')
@@ -411,11 +479,15 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         report = run(args.deck, output_dir=args.output_dir, images=args.images, publish=args.publish,
-                     timeout=args.timeout, request_timeout=args.request_timeout, chrome=args.chrome)
+                     timeout=args.timeout, request_timeout=args.request_timeout, chrome=args.chrome,
+                     upload_backend=args.upload_backend, obs_config=args.obs_config,
+                     obs_profile=args.obs_profile, obs_prefix=args.obs_prefix)
     except (Exception, SystemExit) as exc:
         # Only our own deliberate error messages are safe for machine/user output.
-        message = str(exc) if isinstance(exc, OnlineError) else f'Online export failed ({type(exc).__name__})'
+        message = str(exc) if isinstance(exc, (OnlineError, ObsError)) else f'Online export failed ({type(exc).__name__})'
         report = {'ok': False, 'error': message}
+        if isinstance(exc, ObsError) and exc.details:
+            report['details'] = exc.details
     if args.json:
         print(json.dumps(report, ensure_ascii=False))
     elif report['ok']:

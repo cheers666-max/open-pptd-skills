@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -20,6 +21,59 @@ import yaml
 SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPTS))
 import export_online as online
+from export_html import ensure_websocket
+
+
+def inspect_narrow_html(path, profile):
+    """Inspect the actual exported DOM at a narrow viewport via a bounded CDP session."""
+    proc = subprocess.Popen([online.find_chrome(None), '--headless=new', '--no-first-run',
+        '--no-default-browser-check', '--disable-gpu', '--remote-debugging-port=0',
+        '--user-data-dir=' + str(profile), 'about:blank'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ws = None
+    try:
+        deadline = time.monotonic() + 15
+        port_file = profile / 'DevToolsActivePort'
+        while not port_file.exists():
+            if time.monotonic() > deadline or proc.poll() is not None:
+                raise RuntimeError('Test browser failed to start')
+            time.sleep(.05)
+        port, suffix = port_file.read_text().splitlines()[:2]
+        ws = ensure_websocket().create_connection(f'ws://127.0.0.1:{port}{suffix}', timeout=10,
+            suppress_origin=True, http_no_proxy=['127.0.0.1'])
+        message_id = 0
+        def cdp(method, params=None, session=None):
+            nonlocal message_id
+            message_id += 1
+            request = {'id': message_id, 'method': method, 'params': params or {}}
+            if session:
+                request['sessionId'] = session
+            ws.send(json.dumps(request))
+            while True:
+                result = json.loads(ws.recv())
+                if result.get('id') == message_id:
+                    if 'error' in result:
+                        raise RuntimeError(str(result['error']))
+                    return result.get('result', {})
+        target = cdp('Target.createTarget', {'url': 'about:blank'})['targetId']
+        sid = cdp('Target.attachToTarget', {'targetId': target, 'flatten': True})['sessionId']
+        cdp('Emulation.setDeviceMetricsOverride', {'width': 390, 'height': 844, 'deviceScaleFactor': 1, 'mobile': False}, sid)
+        cdp('Page.navigate', {'url': path.as_uri()}, sid)
+        while time.monotonic() < deadline:
+            result = cdp('Runtime.evaluate', {'expression': 'document.body && document.body.dataset.fit', 'returnByValue': True}, sid)
+            value = result['result'].get('value')
+            if value is not None:
+                return value
+            time.sleep(.05)
+        raise RuntimeError('Test browser did not finish loading HTML')
+    finally:
+        if ws:
+            ws.close()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
 
 
 def png(color):
@@ -98,7 +152,8 @@ class OnlineExportTests(unittest.TestCase):
         thread.start()
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
-        self.env = {**os.environ, 'PPT_API_KEY': 'test-only-token', 'S3_API_URL': self.base + '/upload'}
+        inherited = {k: v for k, v in os.environ.items() if k not in ('PPT_UPLOAD_BACKEND', 'OBS_CONFIG', 'OBS_PROFILE', 'OBS_PREFIX')}
+        self.env = {**inherited, 'PPT_API_KEY': 'test-only-token', 'S3_API_URL': self.base + '/upload'}
         self.project = self.root / 'project'
         self.project.mkdir()
         (self.project / 'pages').mkdir()
@@ -158,6 +213,24 @@ class OnlineExportTests(unittest.TestCase):
         self.assertNotIn(self.base, html)
         self.assertEqual(len(self.posts), 2)
         self.assertEqual(report['published'], {})
+
+    def test_published_html_fits_narrow_browser_without_cropping_slide(self):
+        result = self.cli('--images', 'embed')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = Path(json.loads(result.stdout)['output_dir'])
+        for name in ['index.html', 'page_01.html']:
+            content = (output / name).read_text()
+            probe = '''<script>
+              const stage = document.querySelector('.stage').getBoundingClientRect();
+              const slide = document.querySelector('.slide').getBoundingClientRect();
+              document.body.dataset.fit = String(document.documentElement.scrollWidth <= innerWidth &&
+                stage.left >= 0 && stage.right <= innerWidth &&
+                Math.abs(stage.width - slide.width) < 1 && Math.abs(stage.height - slide.height) < 1);
+            </script>'''
+            inspected = self.root / name
+            inspected.write_text(content.replace('</body>', probe + '</body>'))
+            self.assertEqual(inspect_narrow_html(inspected, self.root / ('chrome-' + name)), 'true')
+            self.assertIn('rel="icon" href="data:,"', content)
 
     def test_upload_failures_preserve_previous_delivery_and_hide_server_message(self):
         output = self.project / 'html-online'

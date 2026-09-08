@@ -1,6 +1,6 @@
 # open-pptd-skills
 
-> **360 内网分支：`360-intranet`。** 新增在线图片下载、360 附件上传、图片地址替换及网页发布；保留原本的本地 PPTD/PPTX/HTML 能力。配置与命令见 [360 online 导出](skills/open-pptd/reference/360-online.md)。
+> **360 内网分支：`360-intranet`。** 新增在线图片下载、OBS/S3 或 360 附件上传、图片地址替换及网页发布；保留原本的本地 PPTD/PPTX/HTML 能力。配置与命令见 [360 online 导出](skills/open-pptd/reference/360-online.md)。
 >
 > 从此分支 checkout 后执行 `node bin/open-pptd-skills.js install` 安装该版本。下文的 npm 安装/更新命令指向公开发行版，不能用于保持此分支的适配。
 
@@ -12,7 +12,7 @@
 开源演示文稿 Skill：让 AI Coding Agent 能够创建、编辑、复刻、读取并导出 PPT/PPTX。**每次生成默认交付三种格式：可继续编辑的 PPTD 项目、PPTX 和自包含 HTML**（写入淡入淡出切换动画），并提供本地 PPTD 查看器支持随时手动预览。支持 pi、Codex、Claude Code、Cursor、WorkBuddy 等任何兼容 SKILL.md 规范的 Agent。
 
 > [!IMPORTANT]
-> 本项目使用 PPTD 格式作为中间层，通过本地 OOXML 引擎导出 PPTX，不依赖远程编辑器。此分支的 online 图片转存和网页发布需要 360 上传服务；原有本地导出入口保留。
+> 本项目使用 PPTD 格式作为中间层，通过本地 OOXML 引擎导出 PPTX，不依赖远程编辑器。此分支的 online 图片转存和网页发布可复用现有 OBS 配置或 360 附件上传服务；原有本地导出入口保留。
 
 ## 安装
 
