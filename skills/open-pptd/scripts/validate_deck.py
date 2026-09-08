@@ -28,6 +28,7 @@ import unicodedata
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from pptd_structure import page_structure_issues
 
 try:
     import yaml
@@ -991,7 +992,16 @@ def audit_project(
             })
             continue
         page_hashes.append({"pageNumber": page_number, "pageRef": page_ref, "sha256": sha256_file(page_path)})
-        page = load_structured(page_path)
+        try:
+            page = load_structured(page_path)
+        except (RuntimeError, ValueError, yaml.YAMLError) as exc:
+            issues.append(dict(code='invalid-page', pageNumber=page_number, pageRef=str(page_ref),
+                               location='/', message=str(exc), repairability='format'))
+            continue
+        structural = page_structure_issues(page, page_number, str(page_ref))
+        if structural:
+            issues.extend(structural)
+            continue
         loaded_pages.append((page_number, str(page_ref), page))
 
         # Page-level checks

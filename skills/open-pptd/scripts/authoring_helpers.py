@@ -6,6 +6,7 @@ remain the author's decisions. Editing existing decks should preserve their path
 from pathlib import Path
 import re
 import yaml
+from pptd_structure import page_structure_issues
 
 
 class _Dumper(yaml.SafeDumper):
@@ -60,6 +61,10 @@ def write_project(directory, title, pages, *, theme=None, size=(960,540), overwr
     if not pages:
         raise ValueError('A deck needs at least one page')
     refs = [f'pages/{i:02d}.page' for i in range(1,len(pages)+1)]
+    errors = [issue for i, (ref, body) in enumerate(zip(refs, pages), 1)
+              for issue in page_structure_issues(body, i, ref)]
+    if errors:
+        raise ValueError('\n'.join(f"{e['pageRef']} {e['location']}: {e['message']}" for e in errors))
     manifest = dict(version='v2', title=title, size=list(size), theme=theme or {}, pages=refs)
     documents = [(directory/'deck.pptd', manifest), *[(directory/ref, body) for ref,body in zip(refs,pages)]]
     # Serialize and check all destinations before writing any document.
