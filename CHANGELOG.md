@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.3 — 2026-09-08
+
+### open-pptd skill
+- `viewer.html`: element styles are written with a helper that skips `undefined` instead of `Object.assign`, which stringified it. `font-family: undefined` is a *valid* custom-ident, so those elements stopped inheriting the slide font stack and fell back to the browser default font — 12 of the 25 evaluated decks carried it on up to 222 elements per deck, and their exported HTML rendered in the wrong font with the wrong metrics.
+- The slide fallback stack now ends with the bundled `Noto Sans SC` before `system-ui`, and `export_html.py` reads every family in a stack (not just the first), so decks that never name a font still get a deterministic embedded subset.
+- Tests: exported HTML must contain no `font-family: undefined` and must embed faces; PPTX adapter align variants.
+
 ## 2.1.2 — 2026-09-08
 
 ### open-pptd skill

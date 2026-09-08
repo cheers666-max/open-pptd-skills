@@ -181,3 +181,20 @@ test('CLI: child killed by signal cannot become exit zero',t=>{
   const r=spawnSync(process.execPath,[resolve('bin/open-pptd-skills.js'),'validate',dir],{encoding:'utf8',env:{...process.env,PATH:dir}});
   assert.notEqual(r.status,0,r.stderr);
 });
+
+test('render: exported HTML never declares font-family: undefined and carries embedded faces',t=>{
+  // A text element with no fontFamily used to serialize as `font-family: undefined`, a valid
+  // custom-ident: the element stopped inheriting the slide stack and fell back to the browser
+  // default font, so exported pages looked different from the viewer and the PPTX.
+  const dir=fixture(t,`  - elementId: plain\n    elementType: text\n    bounds: [80, 120, 700, 80]\n    content:\n      text: '编号 1 与正文 metrics'\n      fontSize: 24\n`);
+  const r=run('export_html.py',[dir,'--json']);
+  assert.equal(r.status,0,r.stderr);
+  const out=JSON.parse(r.stdout);
+  assert.equal(out.ok,true);
+  for(const name of out.files){
+    const html=readFileSync(join(out.output_dir,name),'utf8');
+    assert.ok(!/font-family:\s*undefined/.test(html),`${name} must not declare font-family: undefined`);
+    assert.ok(/@font-face/.test(html),`${name} must embed the bundled font subset`);
+  }
+  assert.ok(out.fonts.embedded>0 && out.fonts.families.length>0,'font summary reports embedded faces');
+});

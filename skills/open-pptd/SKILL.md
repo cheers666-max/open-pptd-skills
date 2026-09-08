@@ -1,6 +1,7 @@
 ---
 name: open-pptd
-description: Create, edit, replicate, read, and export presentations. For every PPT task, the default deliverables are ALL of: (1) a self-contained PPTD project folder containing the .pptd manifest plus pages/media dependencies, (2) a locally generated .pptx with fade slide transitions, and (3) a `html/` folder with self-contained per-page HTML files plus a combined index.html. Use for any presentation, PowerPoint, PPT/PPTX, slide deck, PPTD, infographic, or poster task unless the user explicitly requests another format. Deliver with normal local file/folder links using absolute paths.
+description: >-
+  Create, edit, replicate, read, and export presentations. For every PPT task, the default deliverables are ALL of: (1) a self-contained PPTD project folder containing the .pptd manifest plus pages/media dependencies, (2) a locally generated .pptx with fade slide transitions, and (3) a `html/` folder with self-contained per-page HTML files plus a combined index.html. Use for any presentation, PowerPoint, PPT/PPTX, slide deck, PPTD, infographic, or poster task unless the user explicitly requests another format. Deliver with normal local file/folder links using absolute paths.
 ---
 
 # Definition
