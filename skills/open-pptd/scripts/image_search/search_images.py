@@ -8,7 +8,7 @@ Only stdlib; the parent owns project writes, disposable workers own network atte
 from __future__ import annotations
 
 import argparse
-from collections import deque
+from collections import defaultdict, deque
 import hashlib
 import json
 import math
@@ -163,25 +163,77 @@ def _gradient(slot):
                 license='', score=0, sha256=hashlib.sha256(data).hexdigest())
 
 
-def _cached(slot, report, project, min_dim):
+def _source_slots(text, page):
+    """Reuse the slot parser for local sources too, without rewriting the page."""
+    lines = text.splitlines(keepends=True)
+    sources = {}
+    for index, line in enumerate(lines):
+        match = slots_mod.SRC_RE.match(line.rstrip('\n'))
+        if match:
+            sources[index] = match.group('val').strip()
+            # A temporary search marker lets the existing parser supply element context.
+            lines[index] = line[:match.start('val')] + 'search:local' + line[match.end('val'):]
+    result = slots_mod.extract_slots(''.join(lines), page)
+    for slot in result:
+        slot.raw_src = sources[slot.line_no]
+        slot.query = slot.raw_src[len(slots_mod.SEARCH_PREFIX):].strip() if slot.is_search else ''
+    return result
+
+
+def _matching_previous(report, current_slots):
+    """A moved line keeps identity; deleted, replaced or ambiguous slots do not."""
+    previous, current = defaultdict(list), defaultdict(list)
     for rec in report.get('slots', []):
-        if rec.get('query') != (slot.query or slot.raw_src) or rec.get('status') not in ('resolved', 'degraded'):
-            continue
-        if rec.get('status') == 'degraded' and not slot.allow_fallback:
-            continue
-        try:
-            path = (project / rec['local']).resolve()
-            if project not in path.parents:
-                continue
-            data = path.read_bytes()
-            w, h, fmt = pool.sniff_size(data)
-            if fmt not in _EXT or not w or not h or min(w, h) < min_dim or not pool._aspect_ok(w, h, slot.want):
-                continue
-            return dict(bytes=data, url=rec.get('source_url', ''), w=w, h=h, fmt=fmt,
-                        backend=rec.get('backend', 'cache'), license=rec.get('license', ''), score=rec.get('score', 0),
-                        sha256=hashlib.sha256(data).hexdigest()), rec.get('status', 'resolved')
-        except (OSError, KeyError, TypeError):
-            continue
+        if isinstance(rec, dict):
+            previous[(rec.get('page'), rec.get('elementId', ''), rec.get('kind'))].append(rec)
+    for slot in current_slots:
+        current[(slot.page, slot.element_id, slot.kind)].append(slot)
+    matched = {}
+    for key, slots in current.items():
+        records = previous.get(key, [])
+        if len(slots) == len(records) == 1:
+            matched[(slots[0].page, slots[0].line_no)] = records[0]
+    return matched
+
+
+def _read_cached_image(rec, project):
+    if rec.get('status') not in ('resolved', 'degraded'):
+        return None
+    try:
+        path = (project / rec['local']).resolve()
+        if project not in path.parents:
+            return None
+        data = path.read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
+        if 'sha256' in rec:
+            expected = rec['sha256']
+            if not isinstance(expected, str) or expected.lower() != digest:
+                return None
+        else:
+            # Older reports stored identity only in the generated media filename.
+            legacy = re.search(r'-([0-9a-f]{10})\.(?:jpg|png|webp|bmp)$', path.name, re.I)
+            if not legacy or legacy.group(1).lower() != digest[:10]:
+                return None
+        w, h, fmt = pool.sniff_size(data)
+        if fmt not in _EXT or not w or not h:
+            return None
+        return dict(bytes=data, url=rec.get('source_url', ''), w=w, h=h, fmt=fmt,
+                    backend=rec.get('backend', 'cache'), license=rec.get('license', ''),
+                    landing=rec.get('landing', ''), vlm=rec.get('vlm', {}), score=rec.get('score', 0),
+                    sha256=digest, _record=rec)
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+
+
+def _cached(slot, rec, project, min_dim):
+    if rec.get('query') != (slot.query or slot.raw_src):
+        return None, 'pending'
+    if rec.get('status') == 'degraded' and not slot.allow_fallback:
+        return None, 'pending'
+    winner = _read_cached_image(rec, project)
+    if winner and min(winner['w'], winner['h']) >= min_dim and pool._aspect_ok(winner['w'], winner['h'], slot.want):
+        slot.tried = list(rec.get('tried', []))
+        return winner, rec['status']
     return None, 'pending'
 
 
@@ -202,7 +254,8 @@ def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=Fa
         match = re.search(r'^\s*title:\s*["\']?([^"\'\n]+)', pptd.read_text(encoding='utf-8'), re.M)
         if match:
             brief = match.group(1).strip()
-    all_slots = [s for page, text in texts.items() for s in slots_mod.extract_slots(text, page)
+    source_slots = [s for page, text in texts.items() for s in _source_slots(text, page)]
+    all_slots = [s for s in source_slots
                  if s.is_search or ((localize_remote or offline) and s.is_remote)]
     use_vlm = bool(use_vlm and not offline and pool.vlm_enabled())
     progress(f'[scan] {len(texts)} pages, {len(all_slots)} slots; backend={backend} offline={offline} vlm={use_vlm}')
@@ -217,8 +270,19 @@ def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=Fa
         previous = json.loads(report_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         previous = {}
+    if not isinstance(previous, dict) or not isinstance(previous.get('slots', []), list):
+        previous = {}
+    matched = _matching_previous(previous, source_slots)
+    records = {}
+    for slot in source_slots:
+        key = (slot.page, slot.line_no)
+        rec = matched.get(key, {})
+        if not slot.is_search and not slot.is_remote and slot.raw_src == rec.get('local'):
+            winner = _read_cached_image(rec, pdir)
+            if winner:
+                records[key] = dict(rec, sha256=winner['sha256'])
     for slot in all_slots:
-        slot.winner, slot.status = _cached(slot, previous, pdir, min_dim)
+        slot.winner, slot.status = _cached(slot, matched.get((slot.page, slot.line_no), {}), pdir, min_dim)
     unresolved = [s for s in all_slots if not s.winner]
     if not offline:
         _attempts(unresolved, texts, brief, backend, workers, timeout, started + budget, use_vlm, min_dim)
@@ -231,10 +295,10 @@ def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=Fa
             slot.winner, slot.status = _gradient(slot), 'degraded'
         else:
             slot.status = 'failed'
-    records = []
     originals = dict(texts)
     for slot in all_slots:
-        rec = dict(page=slot.page, elementId=slot.element_id, kind=slot.kind,
+        rec = dict(slot.winner.get('_record', {})) if slot.winner else {}
+        rec.update(page=slot.page, elementId=slot.element_id, kind=slot.kind,
                    query=slot.query or slot.raw_src, status=slot.status, tried=slot.tried)
         if slot.winner:
             winner = slot.winner
@@ -243,25 +307,24 @@ def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=Fa
             (pdir / 'media' / filename).write_bytes(winner['bytes'])
             local = f'media/{filename}'
             texts[slot.page] = slots_mod.patch_src(texts[slot.page], slot.line_no, slot.raw_src, local)
-            rec.update(local=local, source_url=winner['url'], backend=winner['backend'],
+            rec.update(local=local, sha256=winner['sha256'], source_url=winner['url'], backend=winner['backend'],
                        license=winner.get('license', ''), landing=winner.get('landing', ''),
                        width=winner['w'], height=winner['h'], score=round(float(winner.get('score', 0)), 2),
                        vlm=winner.get('vlm', {}))
             if slot.status == 'degraded':
                 rec['fallback'] = 'Explicitly permitted decorative gradient; no real subject represented'
-        records.append(rec)
+        records[(slot.page, slot.line_no)] = rec
     for page, text in texts.items():
         if text != originals[page]:
             (pdir / page).write_text(text, encoding='utf-8')
-    failed = sum(s.status == 'failed' for s in all_slots)
+    records = [rec for key, rec in sorted(records.items())]
+    failed = sum(rec['status'] == 'failed' for rec in records)
     report = dict(project=pdir.name, deck_brief=brief, backend=backend, vlm=use_vlm, offline=offline,
                   timeout=timeout, budget=budget, elapsed_seconds=round(time.monotonic()-started, 3),
-                  total_slots=len(all_slots), resolved=len(all_slots)-failed, failed=failed,
-                  degraded=sum(s.status == 'degraded' for s in all_slots), slots=records)
-    # Preserve previous provenance on a no-op rerun instead of erasing resolved slots.
-    if all_slots or not report_path.exists():
-        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
-    progress(f"[done] resolved={report['resolved']}/{len(all_slots)} failed={failed} degraded={report['degraded']} → images_report.json")
+                  total_slots=len(records), resolved=len(records)-failed, failed=failed,
+                  degraded=sum(rec['status'] == 'degraded' for rec in records), slots=records)
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+    progress(f"[done] resolved={report['resolved']}/{len(records)} failed={failed} degraded={report['degraded']} → images_report.json")
     if json_output:
         print(json.dumps(report, ensure_ascii=False))
     return 2 if failed else 0
