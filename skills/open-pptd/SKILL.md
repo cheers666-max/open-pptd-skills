@@ -238,10 +238,11 @@ When generating a PPT, adopt different production approaches for different user 
 
     - `html/index.html` — every page concatenated vertically in one file (scroll to view the whole deck);
     - `html/page_NN.html` — one self-contained page per slide, images inlined as base64 data URLs, opens directly by double-click.
+    - Both embed per-file subsets of the bundled fonts (`@font-face`) so numbered markers, bullets and line breaks look the same on machines without Noto Sans SC; pass `--no-embed-fonts` only when the recipient is known to have the fonts installed.
 
     ```bash
     python3 ~/.agents/skills/open-pptd/scripts/export_html.py /abs/path/deck/deck.pptd
     ```
 
-    A project directory may be passed instead of the manifest when it contains exactly one `.pptd` file. The output directory is `<deck dir>/html/` unless `--output-dir` is given; it is rebuilt on each run and the export is deterministic (same deck → byte-identical output). Requires a local Chrome/Chromium binary (`CHROME_BIN` or common install paths).
+    A project directory may be passed instead of the manifest when it contains exactly one `.pptd` file. The output directory is `<deck dir>/html/` unless `--output-dir` is given; it is rebuilt on each run and the export is deterministic (same deck and font files → byte-identical output). Requires a local Chrome/Chromium binary (`CHROME_BIN` or common install paths).
 11. After completing and delivering any presentation, always end the final response with a concise optional next step telling the user that they can run `npx open-pptd-skills serve` to view the PPTD project in the local browser viewer. Keep this reminder in addition to, not instead of, the required project and file links.
