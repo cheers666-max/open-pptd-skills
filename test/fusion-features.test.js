@@ -142,6 +142,81 @@ test("anti-slop: clean deck passes", () => {
 // TODO 7: Layout planner
 // =============================================================================
 
+test("empty-body-band: flags a page whose body was never written", () => {
+  const root = mkdtempSync(join(tmpdir(), "emptyband-test-"));
+  try {
+    const dir = createMinimalProject(root);
+    // Title and lead-in at the top, footer at the bottom, nothing in between.
+    writeFileSync(join(dir, "pages", "01.page"), `pageType: content
+elements:
+  - elementId: title
+    elementType: text
+    bounds: [48, 48, 864, 40]
+    content:
+      fontSize: 27
+      text: "八元素与三种圆"
+  - elementId: lead
+    elementType: text
+    bounds: [48, 114, 400, 20]
+    content:
+      fontSize: 13
+      text: "八个基本元素"
+  - elementId: foot
+    elementType: text
+    bounds: [48, 424, 864, 24]
+    content:
+      fontSize: 11
+      text: "来源：教材"
+`);
+
+    const result = runPython("validate_deck.py", ["--project", dir, "--json"]);
+    const report = JSON.parse(result.stdout);
+    const band = report.issues.find((i) => i.code === "empty-body-band");
+    assert.ok(band, "should flag the missing body");
+    assert.equal(band.pageNumber, 1);
+    assert.ok(band.bandRatio > 0.5, "band should span more than half the slide");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("empty-body-band: an airy page with a covered middle passes", () => {
+  const root = mkdtempSync(join(tmpdir(), "airy-test-"));
+  try {
+    const dir = createMinimalProject(root);
+    writeFileSync(join(dir, "pages", "01.page"), `pageType: content
+elements:
+  - elementId: title
+    elementType: text
+    bounds: [48, 48, 864, 40]
+    content:
+      fontSize: 27
+      text: "留白但完整的一页"
+  - elementId: body
+    elementType: text
+    bounds: [48, 220, 500, 120]
+    content:
+      fontSize: 14
+      text: "正文写在中间，上下留白是设计。"
+  - elementId: foot
+    elementType: text
+    bounds: [48, 460, 864, 24]
+    content:
+      fontSize: 11
+      text: "来源：示例"
+`);
+
+    const result = runPython("validate_deck.py", ["--project", dir, "--json"]);
+    const report = JSON.parse(result.stdout);
+    assert.ok(
+      !report.issues.some((i) => i.code === "empty-body-band"),
+      "deliberate whitespace must not be flagged"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("layout_planner: suggests rhythm without changing a fixed outline", () => {
   const root = mkdtempSync(join(tmpdir(), "planner-test-"));
   try {
