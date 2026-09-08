@@ -290,9 +290,30 @@
     }
   }
 
+  function opacityValue(value, field) {
+    if (value === undefined) return 1;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+      throw new Error(`Invalid PPTD ${field}: expected a finite number in [0,1]`);
+    }
+    return value;
+  }
+
+  function solidFillColor(fill, deck) {
+    const color = cssColor(fill.color, deck);
+    const opacity = opacityValue(fill.opacity, "fill.opacity");
+    if (opacity === 1) return color;
+    // Legacy solid fill.opacity affects only the fill. Element opacity is
+    // applied by baseEl, so it also affects borders and composes naturally.
+    const match = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(color));
+    if (!match) throw new Error("Solid fill.opacity requires a HEX6/HEX8 color or a theme reference to one");
+    const rgb = match[1].match(/../g).map(value => parseInt(value, 16));
+    const alpha = (match[2] === undefined ? 1 : parseInt(match[2], 16) / 255) * opacity;
+    return `rgba(${rgb.join(",")},${alpha})`;
+  }
+
   function fillToCss(fill, deck) {
     if (!fill) return undefined;
-    if (fill.type === "solid") return cssColor(fill.color, deck);
+    if (fill.type === "solid") return solidFillColor(fill, deck);
     if (fill.type === "gradient") {
       validateGradient(fill);
       const stops = (fill.stops || [])
@@ -357,7 +378,7 @@
   // rotation / opacity / flip → CSS
   function transformCss(elem, deck) {
     const css = {};
-    if (elem.opacity !== undefined) css.opacity = elem.opacity;
+    if (elem.opacity !== undefined) css.opacity = opacityValue(elem.opacity, "opacity");
     const t = [];
     if (elem.rotation) t.push(`rotate(${elem.rotation}deg)`);
     if (elem.flip) {

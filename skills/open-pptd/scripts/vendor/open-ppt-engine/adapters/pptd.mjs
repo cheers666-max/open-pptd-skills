@@ -66,6 +66,14 @@ function colorWithOpacity(value, opacity, colors, fallback = "#000000") {
   return `#${raw.slice(0, 6)}${Math.round(existing * amount * 255).toString(16).padStart(2, "0")}`;
 }
 
+function opacityValue(value, context) {
+  if (value === undefined) return 1;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`Invalid PPTD opacity at ${context}: expected a finite number in [0,1]`);
+  }
+  return value;
+}
+
 function resolveStyle(value, theme, field = "textStyles") {
   if (typeof value === "string" && value.startsWith("$")) return record(theme?.[field]?.[tokenKey(value)]);
   return record(value);
@@ -214,7 +222,14 @@ function convertFill(value, theme, warnings, context, opacity = 1) {
   if (!value || value === "none" || value === "transparent") return "none";
   if (typeof value === "string") return colorWithOpacity(value, opacity, theme.colors, "#000000");
   const source = record(value);
-  if (source.type === "solid") return colorWithOpacity(source.color, source.opacity ?? opacity, theme.colors, "#000000");
+  if (source.type === "solid") {
+    const amount = opacityValue(source.opacity, `${context}.fill.opacity`) * opacity;
+    const color = resolveColor(source.color, theme.colors, "#000000");
+    if (amount !== 1 && !/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/iu.test(color)) {
+      throw new Error(`Solid fill opacity at ${context} requires a HEX6/HEX8 color or a theme reference to one`);
+    }
+    return colorWithOpacity(color, amount, theme.colors, "#000000");
+  }
   if (source.type === "gradient" || Array.isArray(source.stops)) {
     if (!Array.isArray(source.stops) || source.stops.length < 2 || source.stops.some(stop =>
       typeof stop?.position !== "number" || !Number.isFinite(stop.position) || stop.position < 0 || stop.position > 1 || typeof stop.color !== "string" || !stop.color)) {
@@ -573,7 +588,7 @@ function addPptdElement(slide, element, context, state) {
   if (type === "shape") {
     const geometry = normalizeGeometry(source.shapeName ?? "rect");
     if (!isPresetGeometry(source.shapeName ?? "rect")) warnings.push({ code: "shape-fallback", context, shapeName: source.shapeName });
-    const opacity = number(source.opacity, 1);
+    const opacity = opacityValue(source.opacity, `${context}.opacity`);
     const style = {
       fill: convertFill(source.fill, theme, warnings, context, opacity),
       line: convertBorder(source.border, theme, warnings, context),
