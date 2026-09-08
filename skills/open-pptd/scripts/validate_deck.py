@@ -820,6 +820,46 @@ def empty_band_issue(page: dict[str, Any], page_number: int, page_ref: str,
                    f"({widest / slide_height:.0%} of the slide height); the page body looks missing"),
         "repairability": "upstream-layout",
     }
+VALID_H_ALIGN = {"left", "center", "right", "justify", "distributed"}
+VALID_V_ALIGN = {"top", "middle", "bottom"}
+
+
+def element_schema_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
+    """Structural mistakes renderers silently degrade: nested/invalid align pairs and line points
+    outside their viewBox (points are viewBox units, not percentages)."""
+    issues: List[dict[str, Any]] = []
+    for el in page.get("elements", []) or []:
+        if not isinstance(el, dict):
+            continue
+        eid = el.get("elementId", "")
+        content = el.get("content")
+        if isinstance(content, dict) and "align" in content:
+            align = content.get("align")
+            ok = (isinstance(align, list) and 1 <= len(align) <= 2 and all(isinstance(a, str) for a in align)
+                  and align[0] in VALID_H_ALIGN and (len(align) == 1 or align[1] in VALID_V_ALIGN))
+            if not ok:
+                issues.append({
+                    "code": "invalid-align",
+                    "pageNumber": page_number, "pageRef": page_ref, "elementId": eid,
+                    "value": str(align)[:60],
+                    "detail": "align must be a flat pair like [center, middle]; nested lists or unknown words fall back to left/top and text spills out of its shape",
+                    "repairability": "text",
+                })
+        if el.get("elementType") == "line" and el.get("points") and isinstance(el.get("viewBox"), list) and len(el["viewBox"]) >= 2:
+            try:
+                vw, vh = float(el["viewBox"][0]), float(el["viewBox"][1])
+                pts = [tuple(float(v) for v in pair.split(",")) for pair in str(el["points"]).split()]
+            except (TypeError, ValueError):
+                continue
+            if any(x < -0.5 or y < -0.5 or x > vw + 0.5 or y > vh + 0.5 for x, y in pts):
+                issues.append({
+                    "code": "line-points-outside-viewbox",
+                    "pageNumber": page_number, "pageRef": page_ref, "elementId": eid,
+                    "viewBox": el["viewBox"][:2], "points": str(el["points"])[:60],
+                    "detail": "line points are viewBox units, not percentages; points beyond the viewBox draw far outside the element bounds and cross other content",
+                    "repairability": "geometry",
+                })
+    return issues
 
 
 def internal_token_leak_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
@@ -1063,6 +1103,7 @@ def audit_project(
         issues.extend(unresolved_src_issues(page, page_number, str(page_ref)))
         issues.extend(anti_slop_text_issues(page, page_number, str(page_ref)))
         issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
+        issues.extend(element_schema_issues(page, page_number, str(page_ref)))
         density = text_density_advisory(page, page_number, str(page_ref), max_page_chars)
         if density is not None:
             advisories.append(density)

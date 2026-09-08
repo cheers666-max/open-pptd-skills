@@ -220,3 +220,16 @@ class DuplicateImageValidityTests(unittest.TestCase):
             self.assertEqual(report['issueCounts'].get('duplicate-image'), 1)
             self.assertEqual(report['advisoryCounts'].get('duplicate-image'), 1)
             self.assertFalse(report['valid'])
+
+
+class ElementSchemaTests(unittest.TestCase):
+    def test_nested_align_and_percent_points_are_reported(self):
+        page = {'elements': [
+            {'elementId': 'n', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '1', 'align': [['center', 'middle']]}},
+            {'elementId': 'ok', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '2', 'align': ['center', 'middle']}},
+            {'elementId': 'bad-word', 'elementType': 'text', 'bounds': [0, 0, 36, 36], 'content': {'text': '3', 'align': ['centre', 'middle']}},
+            {'elementId': 'arrow', 'elementType': 'line', 'bounds': [0, 0, 12, 18], 'viewBox': [12, 18], 'points': '0,0 0,100'},
+            {'elementId': 'arrow-ok', 'elementType': 'line', 'bounds': [0, 0, 12, 18], 'viewBox': [12, 18], 'points': '0,0 0,18'},
+        ]}
+        codes = sorted((i['code'], i['elementId']) for i in validate.element_schema_issues(page, 1, 'pages/01.page'))
+        self.assertEqual(codes, [('invalid-align', 'bad-word'), ('invalid-align', 'n'), ('line-points-outside-viewbox', 'arrow')])

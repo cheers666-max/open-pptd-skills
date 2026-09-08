@@ -201,7 +201,7 @@ function normalizeTextStyle(content, theme, scale, warnings, context) {
   const lineHeight = source.lineHeightPx !== undefined
     ? number(source.lineHeightPx, fontSize) * scale / Math.max(1, fontSize)
     : number(source.lineHeight, 1.15);
-  const align = Array.isArray(source.align) ? source.align : [source.align ?? "left", source.valign ?? "top"];
+  const align = Array.isArray(source.align) ? source.align.flat(2).filter((v) => typeof v === "string") : [source.align ?? "left", source.valign ?? "top"]; // flatten nested [[h, v]]
   if (source.gradient) warnings.push({ code: "text-gradient-fallback", context });
   if (source.backgroundColor) warnings.push({ code: "text-highlight-fallback", context });
   const font = normalizeFontFamily(source.fontFamily, theme.fonts?.body ?? "Aptos");
