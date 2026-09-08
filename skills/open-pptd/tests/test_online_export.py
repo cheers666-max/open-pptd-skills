@@ -82,6 +82,18 @@ def png(color):
     return stream.getvalue()
 
 
+class ImageFormatTests(unittest.TestCase):
+    def test_mpo_photo_is_accepted_as_jpeg_without_reencoding(self):
+        stream = BytesIO()
+        Image.new('RGB', (48, 27), '#008866').save(stream, 'MPO', save_all=True,
+            append_images=[Image.new('RGB', (48, 27), '#4488cc')])
+        raw = stream.getvalue()
+        with Image.open(BytesIO(raw)) as photo:
+            self.assertEqual(photo.format, 'MPO')
+            self.assertEqual(photo.n_frames, 2)
+        self.assertEqual(online.image_type(raw), ('image/jpeg', 'jpg'))
+
+
 class OnlineExportTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

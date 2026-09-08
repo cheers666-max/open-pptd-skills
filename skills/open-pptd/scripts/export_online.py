@@ -172,7 +172,10 @@ def image_type(data):
         with Image.open(io.BytesIO(data)) as image:
             kind = image.format
             image.verify()
+        # MPO is JPEG with multiple pictures/MPF metadata; browsers display the
+        # primary JPEG. Preserve the verified source bytes, including metadata.
         return {'PNG': ('image/png', 'png'), 'JPEG': ('image/jpeg', 'jpg'),
+                'MPO': ('image/jpeg', 'jpg'),
                 'GIF': ('image/gif', 'gif'), 'WEBP': ('image/webp', 'webp'),
                 'BMP': ('image/bmp', 'bmp')}[kind]
     except ImportError:
