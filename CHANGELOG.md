@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.1 — 2026-09-08
+
+### open-pptd skill
+- `export_html.py` now embeds per-file subsets of the bundled fonts (`@font-face`, base64 woff/woff2) into `index.html` and every `page_NN.html`. Previously the HTML only named "Noto Sans SC"; on machines without it the browser fell back to PingFang/YaHei, whose bold weight and metrics shift numbered markers, bullets and line breaks. `--no-embed-fonts` restores the old behaviour. Subsets add roughly 100–300 KB per page.
+- Tests: `tests/test_export_html_fonts.py` (skips when the gitignored fonts are not downloaded).
+
 ## 2.1.0 — 2026-09-07
 
 Driven by the 20-case production run and automated two-judge review (`eval/reports/2026-09-07-production20.md`).

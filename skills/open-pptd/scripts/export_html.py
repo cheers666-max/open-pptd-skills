@@ -206,6 +206,125 @@ def run_viewer_export(viewer: Path, deck: Path, chrome: str, timeout: int) -> by
         server.server_close()
 
 
+# ---------------------------------------------------------------------------
+# Font embedding: the viewer bundle only names fonts (e.g. "Noto Sans SC"); on a
+# machine without them the browser falls back to PingFang/YaHei, whose metrics
+# shift numbered markers, list bullets and line breaks. Embed a per-file subset
+# of every bundled font the page uses so the HTML renders like the viewer/PPTX.
+# ---------------------------------------------------------------------------
+FONTS_DIR = Path(__file__).resolve().parent / "fonts"
+
+
+def _font_manifest() -> dict:
+    manifest = FONTS_DIR / "fonts.json"
+    if not manifest.is_file():
+        return {}
+    try:
+        return json.loads(manifest.read_text(encoding="utf-8")).get("fonts", {})
+    except ValueError:
+        return {}
+
+
+def _html_text_chars(html: str) -> set:
+    body = re.sub(r"<style.*?</style>|<script.*?</script>", " ", html, flags=re.S)
+    body = re.sub(r"<[^>]+>", " ", body)
+    body = re.sub(r"&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);", lambda m: {"quot": '"', "amp": "&", "lt": "<", "gt": ">", "nbsp": " "}.get(m.group(1), " ") if not m.group(1).startswith("#") else chr(int(m.group(1)[2:], 16) if m.group(1)[1] in "xX" else int(m.group(1)[1:])), body)
+    chars = set(body)
+    chars.update(chr(c) for c in range(0x20, 0x7F))  # ASCII always, numbers/punctuation included
+    chars.update("，。、；：？！“”‘’（）《》〈〉【】—…·")
+    return {c for c in chars if not c.isspace() or c == " "}
+
+
+def _subset_font(ttf: Path, chars: set) -> tuple:
+    """Return (bytes, format) of a subset font, woff2 when brotli is available else woff."""
+    from fontTools import subset as ft_subset  # fontTools is a declared dependency of the skill toolchain
+    from fontTools.ttLib import TTFont
+    font = TTFont(str(ttf))
+    options = ft_subset.Options()
+    options.name_IDs = ["*"]
+    options.notdef_outline = True
+    options.layout_features = ["*"]
+    options.hinting = False
+    try:
+        import brotli  # noqa: F401
+        options.flavor = "woff2"
+    except ImportError:
+        options.flavor = "woff"
+    subsetter = ft_subset.Subsetter(options=options)
+    subsetter.populate(text="".join(sorted(chars)))
+    subsetter.subset(font)
+    buf = io.BytesIO()
+    font.flavor = options.flavor
+    font.save(buf)
+    return buf.getvalue(), options.flavor
+
+
+def _families_in_html(html: str) -> set:
+    fams = set()
+    for m in re.finditer(r"font-family:\s*(?:&quot;|['\"])?([^;'\"&]+)", html):
+        fams.add(m.group(1).strip())
+    return fams
+
+
+def embed_fonts(out_dir: Path, enabled: bool = True) -> dict:
+    """Inject @font-face subsets into every exported HTML file. Returns a summary dict."""
+    summary = {"embedded": [], "missing": [], "skipped": not enabled}
+    if not enabled:
+        return summary
+    manifest = _font_manifest()
+    if not manifest:
+        summary["missing"].append("fonts/fonts.json")
+        return summary
+    cache: dict = {}
+    for html_path in sorted(out_dir.glob("*.html")):
+        html = html_path.read_text(encoding="utf-8")
+        if "/* open-pptd embedded fonts */" in html:
+            continue
+        families = _families_in_html(html)
+        wanted = []  # (css family, weight, manifest entry)
+        for fam in families:
+            for name, entry in manifest.items():
+                if name == fam:
+                    wanted.append((fam, 400, entry))
+                elif name == f"{fam} Bold":
+                    wanted.append((fam, 700, entry))
+        if not wanted:
+            continue
+        # A family with only a bold file still gets that file for weight 400 (better than a foreign fallback).
+        have_regular = {fam for fam, w, _ in wanted if w == 400}
+        for fam, w, entry in list(wanted):
+            if w == 700 and fam not in have_regular:
+                wanted.append((fam, 400, entry))
+        chars = _html_text_chars(html)
+        faces = []
+        for fam, weight, entry in wanted:
+            ttf = FONTS_DIR / entry.get("file", "")
+            if not ttf.is_file():
+                summary["missing"].append(str(ttf.name))
+                continue
+            key = (ttf.name, frozenset(chars))
+            if key not in cache:
+                try:
+                    cache[key] = _subset_font(ttf, chars)
+                except Exception as exc:  # noqa: BLE001 — never fail the export because of a font
+                    summary["missing"].append(f"{ttf.name}: {exc}")
+                    continue
+            data, flavor = cache[key]
+            b64 = base64.b64encode(data).decode("ascii")
+            faces.append(f"@font-face{{font-family:\"{fam}\";font-weight:{weight};font-style:normal;font-display:block;"
+                         f"src:url(data:font/{flavor};base64,{b64}) format(\"{flavor}\");}}")
+            summary["embedded"].append({"file": html_path.name, "family": fam, "weight": weight, "bytes": len(data), "format": flavor})
+        if not faces:
+            continue
+        style = "<style>/* open-pptd embedded fonts */" + "".join(faces) + "</style>"
+        if "<head>" in html:
+            html = html.replace("<head>", "<head>" + style, 1)
+        else:
+            html = style + html
+        html_path.write_text(html, encoding="utf-8")
+    return summary
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("deck", help="PPTD 项目目录或 deck.pptd 主文件路径")
@@ -213,6 +332,7 @@ def main() -> None:
     ap.add_argument("--viewer", default=str(VIEWER_DEFAULT), help="viewer.html 路径（默认 skill 自带）")
     ap.add_argument("--chrome", help="Chrome 可执行文件路径（默认自动探测/CHROME_BIN）")
     ap.add_argument("--timeout", type=int, default=180, help="导出等待超时秒数")
+    ap.add_argument("--no-embed-fonts", action="store_true", help="不把字体子集嵌入 HTML（默认嵌入，保证无 Noto 字体的机器上序号/排版不偏移）")
     ap.add_argument("--json", action="store_true", help="输出 JSON 结果")
     args = ap.parse_args()
 
@@ -231,6 +351,7 @@ def main() -> None:
                 raise RuntimeError(f"ZIP 校验失败: {bad}")
             names = zf.namelist()
             zf.extractall(out_dir)
+        fonts = embed_fonts(out_dir, enabled=not args.no_embed_fonts)
 
         result = {
             "ok": True,
@@ -239,6 +360,8 @@ def main() -> None:
             "files": sorted(names),
             "page_count": sum(1 for n in names if re.fullmatch(r"page_\d+\.html", n)),
             "zip_bytes": len(zip_bytes),
+            "fonts": {"embedded": len(fonts["embedded"]), "bytes": sum(f["bytes"] for f in fonts["embedded"]),
+                      "families": sorted({f["family"] for f in fonts["embedded"]}), "missing": sorted(set(fonts["missing"]))},
         }
     except (Exception, SystemExit) as exc:  # noqa: BLE001 — 统一转为 JSON/可读错误
         result = {"ok": False, "error": str(exc)}
