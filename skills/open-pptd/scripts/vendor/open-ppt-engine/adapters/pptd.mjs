@@ -193,6 +193,18 @@ function richText(value, baseStyle, colors, scale = 1) {
   return { runs: runs.length ? runs : [{ text: "" }], paragraphAlign };
 }
 
+// align is a flat [h, v] pair; tolerate nested [[h, v]], numeric 0/0.5/1 and bare strings like "right".
+function normalizeAlign(raw, valign) {
+  const H = { left: "left", center: "center", right: "right", justify: "justify", distributed: "distributed", start: "left", end: "right", middle: "center" };
+  const V = { top: "top", middle: "middle", bottom: "bottom", center: "middle", start: "top", end: "bottom" };
+  const num = (v, table) => (v <= 0.25 ? table[0] : v >= 0.75 ? table[2] : table[1]);
+  const list = Array.isArray(raw) ? raw.flat(2) : raw == null ? [] : [raw];
+  const h = list[0], v = list.length > 1 ? list[1] : valign;
+  const hh = typeof h === "number" ? num(h, ["left", "center", "right"]) : H[String(h ?? "").toLowerCase()] || "left";
+  const vv = typeof v === "number" ? num(v, ["top", "middle", "bottom"]) : V[String(v ?? "").toLowerCase()] || "top";
+  return [hh, vv];
+}
+
 function normalizeTextStyle(content, theme, scale, warnings, context) {
   const colors = theme.colors ?? {};
   const named = resolveStyle(content?.style, theme, "textStyles");
@@ -201,7 +213,7 @@ function normalizeTextStyle(content, theme, scale, warnings, context) {
   const lineHeight = source.lineHeightPx !== undefined
     ? number(source.lineHeightPx, fontSize) * scale / Math.max(1, fontSize)
     : number(source.lineHeight, 1.15);
-  const align = Array.isArray(source.align) ? source.align.flat(2).filter((v) => typeof v === "string") : [source.align ?? "left", source.valign ?? "top"]; // flatten nested [[h, v]]
+  const align = normalizeAlign(source.align, source.valign);
   if (source.gradient) warnings.push({ code: "text-gradient-fallback", context });
   if (source.backgroundColor) warnings.push({ code: "text-highlight-fallback", context });
   const font = normalizeFontFamily(source.fontFamily, theme.fonts?.body ?? "Aptos");

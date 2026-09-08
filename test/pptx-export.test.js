@@ -206,3 +206,22 @@ test('PPTX: native LibreOffice render shows the icon, upward line and filled arr
   assert.equal(actual.wrongDirection,0,`Old incorrect slope pixels: ${JSON.stringify(actual)}`);
   assert.ok(actual.headOutsideShaft>10,`Arrowhead pixels beyond shaft: ${JSON.stringify(actual)}`);
 });
+
+test('PPTX: align variants (nested pair, numeric, bare string) map onto the canonical h/v pair',()=>{
+  const cases=[
+    [[['center','middle']], 'center','middle'],   // nested — used to fall back to left/top
+    [[0.5,0.5],             'center','middle'],   // numeric 0/0.5/1
+    [[1,0],                 'right','top'],
+    [[0,1],                 'left','bottom'],
+    ['right',               'right','top'],       // bare string
+    [['center','middle'],   'center','middle'],   // canonical still works
+    [undefined,             'left','top'],
+  ];
+  for(const [align,h,v] of cases){
+    const el={elementId:'t',elementType:'text',bounds:[0,0,200,50],content:{text:'x',...(align===undefined?{}:{align})}};
+    const deck=pptdToDeck({manifest:{version:'v2',size:[960,540],pages:['pages/1.page']},pages:[{elements:[el]}]},{scale:1});
+    const style=deck.slides[0].elements[0].style;
+    assert.equal(style.align,h,`h for ${JSON.stringify(align)}`);
+    assert.equal(style.valign,v,`v for ${JSON.stringify(align)}`);
+  }
+});

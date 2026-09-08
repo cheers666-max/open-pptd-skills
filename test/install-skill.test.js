@@ -5,9 +5,20 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import YAML from "../skills/open-pptd/scripts/node_modules/yaml/dist/index.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cli = join(projectRoot, "bin", "open-pptd-skills.js");
+
+test("skill frontmatter is valid YAML for native Pi skill discovery", () => {
+  const source = readFileSync(join(projectRoot, "skills", "open-pptd", "SKILL.md"), "utf8");
+  const frontmatter = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  assert.ok(frontmatter, "Skill metadata must be delimited");
+  const metadata = YAML.parse(frontmatter[1]);
+  assert.equal(metadata.name, "open-pptd");
+  assert.equal(typeof metadata.description, "string");
+  assert.match(metadata.description, /ALL of: \(1\)/);
+});
 
 function runCli(args, env = process.env) {
   return spawnSync(process.execPath, [cli, ...args], {

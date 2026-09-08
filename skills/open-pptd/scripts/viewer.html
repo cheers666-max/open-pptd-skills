@@ -109,7 +109,7 @@
   .slide {
     position: absolute; inset: 0; overflow: hidden;
     background: #fff; color: #000;
-    font-family: MiSans, -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-family: MiSans, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
     font-size: 18px; line-height: 1;
   }
   .el { position: absolute; }
@@ -275,6 +275,18 @@
         ? deck.manifest.theme?.textStyles?.[content.style.slice(1)] || {}
         : {};
     return Object.assign({}, base, content);
+  }
+
+
+  // Object.assign onto a CSSStyleDeclaration stringifies undefined. Most properties then hold an
+  // invalid value the browser drops, but `font-family: undefined` is a valid custom-ident: the
+  // element stops inheriting the slide font stack and falls back to the browser default font,
+  // which changes metrics and breaks layout in the exported HTML. Skip undefined/null instead.
+  function setStyle(style, props) {
+    for (const [key, value] of Object.entries(props)) {
+      if (value !== undefined && value !== null) style[key] = value;
+    }
+    return style;
   }
 
   function fontFamilyCss(ff) {
@@ -627,15 +639,27 @@
     return node;
   }
 
+  // align is specified as a flat [h, v] pair; authors also produce [[h, v]], [0.5, 0.5], or "right".
+  // Map those onto the canonical pair instead of silently falling back to left/top.
+  function normalizeAlign(raw) {
+    const H = { left: "left", center: "center", right: "right", justify: "justify", distributed: "distributed", start: "left", end: "right", middle: "center" };
+    const V = { top: "top", middle: "middle", bottom: "bottom", center: "middle", start: "top", end: "bottom" };
+    const num = (v, table) => (v <= 0.25 ? table[0] : v >= 0.75 ? table[2] : table[1]);
+    let list = Array.isArray(raw) ? raw.flat(2) : raw == null ? [] : [raw];
+    const h = list[0], v = list[1];
+    const hh = typeof h === "number" ? num(h, ["left", "center", "right"]) : H[String(h ?? "").toLowerCase()] || "left";
+    const vv = typeof v === "number" ? num(v, ["top", "middle", "bottom"]) : V[String(v ?? "").toLowerCase()] || "top";
+    return [hh, vv];
+  }
+
   function renderText(elem, deck) {
     const node = baseEl(elem, deck);
     node.className = "el el-text";
     const c = elem.content || {};
     const st = effectiveTextStyle(c, deck);
-    const alignRaw = Array.isArray(c.align) ? c.align.flat(2).filter((v) => typeof v === "string") : c.align ? [String(c.align)] : [];
-    const [hAlign, vAlign] = alignRaw.length ? alignRaw : ["left", "top"]; // tolerate nested [[h, v]] written by authors
+    const [hAlign, vAlign] = normalizeAlign(c.align); // tolerates nested [[h, v]], numeric 0/0.5/1 and bare strings
 
-    Object.assign(node.style, {
+    setStyle(node.style, {
       fontSize: st.fontSize !== undefined ? `${st.fontSize}px` : undefined,
       color: st.color !== undefined ? cssColor(st.color, deck) : undefined,
       fontWeight: st.bold ? "bold" : undefined,
@@ -949,7 +973,7 @@
         Object.assign(td.style, cellBorderCss(merged.border, deck));
         if (merged.align) td.style.textAlign = merged.align[0];
         if (merged.align) td.style.verticalAlign = merged.align[1] === "middle" ? "middle" : merged.align[1] === "bottom" ? "bottom" : "top";
-        Object.assign(td.style, {
+        setStyle(td.style, {
           fontSize: merged.fontSize !== undefined ? `${merged.fontSize}px` : undefined,
           color: merged.color !== undefined ? cssColor(merged.color, deck) : undefined,
           fontWeight: merged.bold ? "bold" : undefined,
@@ -2109,7 +2133,7 @@
   // 渲染必需的类样式（导出页嵌入；slide 元素样式本身全部内联）
   const RENDER_CSS = `
 .slide { position: absolute; inset: 0; overflow: hidden; background: #fff; color: #000;
-  font-family: MiSans, -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: MiSans, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
   font-size: 18px; line-height: 1; }
 .el { position: absolute; }
 .el-text p, .el-cell p { margin: 0; }

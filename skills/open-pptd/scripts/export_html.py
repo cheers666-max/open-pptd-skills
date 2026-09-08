@@ -260,9 +260,16 @@ def _subset_font(ttf: Path, chars: set) -> tuple:
 
 
 def _families_in_html(html: str) -> set:
+    """Every family named in any font-family declaration, including each fallback in a stack."""
+    text = html.replace("&quot;", '"').replace("&#39;", "'")
+    generic = {"system-ui", "sans-serif", "serif", "monospace", "cursive", "fantasy", "ui-sans-serif",
+               "ui-serif", "ui-monospace", "inherit", "initial", "unset", "undefined"}
     fams = set()
-    for m in re.finditer(r"font-family:\s*(?:&quot;|['\"])?([^;'\"&]+)", html):
-        fams.add(m.group(1).strip())
+    for m in re.finditer(r"font-family\s*:\s*([^;}\n]+)", text):
+        for part in m.group(1).split(","):
+            name = part.strip().strip('"').strip("'").strip()
+            if name and not name.startswith("-") and name.lower() not in generic:
+                fams.add(name)
     return fams
 
 
