@@ -49,6 +49,8 @@ Keep audience-facing content on the slide; put private speaker cues and facilita
 
 Audience-facing text (titles, body, captions, footnote sources) never mentions internal artifacts or workflow vocabulary: no `images_report.json`, `DESIGN_CONTEXT`, "材料包/资料包", "主写手", "待核对后再使用", and no bare internal source codes such as "(S1)" unless the same page or a sources page spells the code out. Write sources the way the audience would read them: institution or author · year · licence (for photos: "Wikimedia Commons, CC BY-SA 4.0, photographer"). Draft markers belong in notes or in `NEEDS_INPUT`, not on the slide. `validate_deck.py` reports `internal-token-leak` for these tokens and `duplicate-image` when one media file appears on more than one page; a cover/closing pair may share an image only with a different crop or overlay.
 
+Alignment and lines: `align` is one flat pair, `align: [center, middle]` — never a list inside a list, and do not let a YAML dumper turn shared lists into `&id` anchors. `line` element `points` are in the element's `viewBox` units, not percentages: an arrow filling a `viewBox: [12, 18]` is `points: "0,0 0,18"`. `validate_deck.py` reports both mistakes as `invalid-align` and `line-points-outside-viewbox`.
+
 ## Final review by the main writer
 
 After image resolution and all page rewrites, inspect actual pages and sources:

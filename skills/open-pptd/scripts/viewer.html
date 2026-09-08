@@ -611,7 +611,8 @@
     node.className = "el el-text";
     const c = elem.content || {};
     const st = effectiveTextStyle(c, deck);
-    const [hAlign, vAlign] = c.align || ["left", "top"];
+    const alignRaw = Array.isArray(c.align) ? c.align.flat(2).filter((v) => typeof v === "string") : c.align ? [String(c.align)] : [];
+    const [hAlign, vAlign] = alignRaw.length ? alignRaw : ["left", "top"]; // tolerate nested [[h, v]] written by authors
 
     Object.assign(node.style, {
       fontSize: st.fontSize !== undefined ? `${st.fontSize}px` : undefined,

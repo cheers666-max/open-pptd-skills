@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.2 — 2026-09-08
+
+### open-pptd skill
+- `validate_deck.py`: new blocking rules `invalid-align` (align must be a flat `[h, v]` pair; nested `[[center, middle]]` used to fall back to left/top and push text out of its shape) and `line-points-outside-viewbox` (line `points` are viewBox units, not percentages; `0,0 0,100` in a 12×18 viewBox drew a line across the whole column).
+- `viewer.html` and the PPTX adapter flatten nested align pairs instead of silently ignoring them.
+- `reference/authoring-context.md`: notes on align pairs and line points.
+
 ## 2.1.1 — 2026-09-08
 
 ### open-pptd skill
