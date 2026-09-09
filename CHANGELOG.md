@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.0 — 2026-09-09
+
+### open-pptd skill
+- New front stage (step2.5): the page plan is written to `outline.json` *before* any page is authored, shown to the user as a table, and confirmed once. `scripts/outline_contract.py --markdown` prints that table; without `--project` it checks the plan alone (agreed page count, every page has a point and a summary, no content page planned with fewer than two slots).
+- With `--project` the same script holds the built deck to the confirmed plan: `outline-deck-count` (the deck came out shorter or longer), `outline-page-type` (a page became a different kind of page) and `outline-missing-image` (a page that promised a picture has none). These are the failures a per-page renderer cannot see — the 2026-09-08 twenty-deck run produced a 7-page deck where more was planned and pages whose figure never appeared, and nothing objected.
+- Borrowed from the slide-creator pipeline's staged front end (strategy → research → images → outline with a single mandatory confirmation), kept to one artifact and one script rather than a seven-stage orchestrator.
+
 ## 2.1.5 — 2026-09-09
 
 ### open-pptd skill
