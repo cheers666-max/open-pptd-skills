@@ -126,6 +126,8 @@ in that language. The pass shares one hash/URL dedupe set, so two
 pages cannot be handed the same photo. `imageOrientation` (`landscape`/`portrait`) and `imageRatio`
 steer the geometry gate.
 
+Caption from what the pool actually recorded: `images_pool.json` carries the backend, source URL and licence for every picture. A slide caption is 机构／作者 · 年份 · 许可 or nothing — never a retrieval date, never "许可未知", never a bare "资料图". If the pool entry cannot support a real credit line, that is a reason to drop the picture, not to caption it vaguely.
+
 Pages then reference the pool instead of a query or a URL: `src: "pool:p6"`. After authoring, run
 `image_pool.py --project <dir> --resolve` to rewrite those references to their `media/` paths. An id
 that is not in the pool is reported, never guessed, and `validate_deck.py` reports any leftover
@@ -254,7 +256,8 @@ When generating a PPT, adopt different production approaches for different user 
      5. 排版是否统一（对齐、间距、字号层级、页边距）
      6. 文字是否可能溢出文本框（文本过长、行距过密、字号过大）
      7. 内容是否被上层元素遮挡
-     8. 图片实际内容是否支持本页论点；核对主体、场景、图注和来源。检索关键词命中不等于相关，别家团队／门店／作品不能作为本公司的实绩。资料图须明确标注；无合适图时保留待补位置，不能用无关图填满版面。
+     8. 图片实际内容是否支持本页论点；核对主体、场景、图注和来源。检索关键词命中不等于相关，别家团队／门店／作品不能作为本公司的实绩。无合适图时保留待补位置，不能用无关图填满版面。
+     9. 图注只写观众读得懂的署名：机构／作者 · 年份 · 许可。**页面上不写检索日期、"许可未知／授权待核"、"资料图"这类台账**——查不清出处就换一张图或不写图注，台账留在 notes 与 `images_report.json`／`images_pool.json`。`validate_deck.py` 的 `source-caption-noise` 会拦。
    - For any suspicious page, read its full-resolution image (`.qa-images/pages/page_NN.png`) to confirm the problem before editing.
    - Fix issues in the corresponding `.page` file, then re-run `scripts/export_images.py --force` and review the new overview; repeat until every page passes.
    - With image input, do not export the PPTX until this visual review passes. Keep the current images available for any independent visual review.
