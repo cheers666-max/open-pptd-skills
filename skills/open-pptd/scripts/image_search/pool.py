@@ -8,7 +8,7 @@ JPEG/PNG/GIF 头，VLM 直接打 360 网关 OpenAI 兼容 chat/completions。
 
 职责（对照 slide-creator 移植关系）：
   - search backends：baidu(/v1/search engine=baidu/imagesearch) / vertical(/saas/vertical)
-    / openverse(无 key) / wikimedia(无 key)。auto 链式回退。
+    / openverse(无 key)。auto 链式回退；Wikimedia 图源在本分支禁用。
   - 几何门：最小尺寸 / 横竖比例（纯 stdlib 读图头）。
   - 去重：canonical URL + sha256。
   - VLM judge：相关性/水印/画质（有 360 key 才启用，否则跳过）。
@@ -24,11 +24,16 @@ import math
 import os
 import re
 import struct
+import sys
+from pathlib import Path
 import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional, Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from image_source_policy import blocked_record, blocked_source, open_source
 
 # ---------------------------------------------------------------------------
 # 配置（env）
@@ -73,35 +78,6 @@ _WATERMARK_DOMAINS = (
 
 _IMG_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
-# upload.wikimedia.org 只接受标准缩略图尺寸（实测白名单，错误提示见 https://w.wiki/GHai）。
-# 非白名单宽度（320/640/800/1024/1200/2048...）一律 400，必须改写到白名单档位。
-WIKI_THUMB_SIZES = (250, 500, 960, 1280, 1920)
-
-_WIKI_THUMB_RE = re.compile(
-    r"^(?P<base>https://upload\.wikimedia\.org/.+/thumb/[^/]+/[^/]+/(?P<fname>[^/?#]+))/(?P<w>\d+)px-[^/?#]+$")
-
-
-def wikimedia_alt_urls(url: str) -> List[str]:
-    """Wikimedia thumb URL 兜底链。
-
-    thumb 结构：.../thumb/<h1>/<h2>/<file>/<W>px-<file>；原图：.../<h1>/<h2>/<file>。
-    - 宽度不在白名单 → 先给「≥所求宽度的最小白名单档」（超出上限则给最大档）；
-    - 无论宽度是否合规，最后都附原图 URL 作为最终兜底（thumb 渲染失败时原图仍可取）。
-    非 wikimedia thumb URL 返回 []。
-    """
-    m = _WIKI_THUMB_RE.match(url or "")
-    if not m:
-        return []
-    base, fname, w = m.group("base"), m.group("fname"), int(m.group("w"))
-    alts: List[str] = []
-    if w not in WIKI_THUMB_SIZES:
-        bigger = [s for s in WIKI_THUMB_SIZES if s >= w]
-        pick = bigger[0] if bigger else WIKI_THUMB_SIZES[-1]
-        alts.append(f"{base}/{pick}px-{fname}")
-    alts.append(base.replace("/thumb/", "/", 1))
-    return alts
-
-
 class PoolError(RuntimeError):
     pass
 
@@ -116,7 +92,7 @@ def _req(url: str, *, method: str = "GET", headers: Optional[Dict] = None,
     if headers:
         hdrs.update(headers)
     r = urllib.request.Request(url, data=data, method=method, headers=hdrs)
-    with urllib.request.urlopen(r, timeout=timeout) as resp:  # noqa: S310 (公开检索只读)
+    with open_source(r, timeout=timeout) as resp:  # noqa: S310 (公开检索只读)
         return resp.read(MAX_BYTES + 1)
 
 
@@ -340,37 +316,6 @@ def search_openverse(query: str, limit: int = 8) -> List[Dict]:
     return _landscape_first(out)[:limit]
 
 
-def search_wikimedia(query: str, limit: int = 8) -> List[Dict]:
-    """Wikimedia Commons（无 key）。两步：搜文件名→取 imageinfo url+尺寸。
-
-    iiurlwidth 必须走标准白名单（见 WIKI_THUMB_SIZES），选 1280 兼顾高清与成功率。
-    """
-    api = "https://commons.wikimedia.org/w/api.php"
-    q1 = {"action": "query", "format": "json", "generator": "search",
-          "gsrsearch": f"filetype:bitmap {query}", "gsrlimit": str(max(limit * 2, 10)),
-          "gsrnamespace": "6", "prop": "imageinfo", "iiprop": "url|size|extmetadata",
-          "iiurlwidth": "1280"}
-    try:
-        data = _json(f"{api}?{urllib.parse.urlencode(q1)}", timeout=15.0)
-    except Exception:  # noqa: BLE001
-        return []
-    pages = (data.get("query") or {}).get("pages") or {}
-    out = []
-    for p in pages.values():
-        info = (p.get("imageinfo") or [{}])[0]
-        u = info.get("thumburl") or info.get("url") or ""
-        if not u:
-            continue
-        meta = info.get("extmetadata") or {}
-        lic = (meta.get("LicenseShortName") or {}).get("value", "")
-        out.append(_mk(u, title=p.get("title", ""), description=p.get("title", ""),
-                       width=info.get("thumbwidth") or info.get("width"),
-                       height=info.get("thumbheight") or info.get("height"),
-                       license=lic, landing=info.get("descriptionurl") or "",
-                       backend="wikimedia"))
-    return _landscape_first(out)[:limit]
-
-
 def _landscape_first(items: List[Dict]) -> List[Dict]:
     """横图优先（按已知 width/height 分堆，未知视作横）。"""
     land, port = [], []
@@ -390,15 +335,16 @@ BACKENDS = {
     "baidu": search_baidu,
     "vertical": search_vertical,
     "openverse": search_openverse,
-    "wikimedia": search_wikimedia,
 }
-AUTO_ORDER = ("baidu", "openverse", "wikimedia", "vertical")
+AUTO_ORDER = ("baidu", "openverse", "vertical")
 
 
 def search(query: str, limit: int = 8, backend: str = "auto",
            ratio: Optional[float] = None) -> List[Dict]:
     """链式回退检索。backend=auto 时按 AUTO_ORDER 逐个直到有结果。"""
-    names = [backend] if backend in BACKENDS else list(AUTO_ORDER)
+    if backend != "auto" and backend not in BACKENDS:
+        raise ValueError(f"Unsupported image backend in 360 intranet version: {backend}")
+    names = list(AUTO_ORDER) if backend == "auto" else [backend]
     for name in names:
         fn = BACKENDS[name]
         try:
@@ -514,17 +460,15 @@ def judge_image(query: str, image_bytes: bytes, *, deck_brief: str = "",
 # ---------------------------------------------------------------------------
 
 def _fetch_with_url(url: str, timeout: float = 20.0) -> Tuple[Optional[bytes], str]:
-    """下载 URL；wikimedia 缩略图尺寸非法(HTTP 400)时自动改写白名单档/原图重试。
-
-    返回 (bytes|None, 实际抓取成功的 URL)。全部失败返回 (None, 原 url)。
-    """
-    for cand in [url] + wikimedia_alt_urls(url):
-        try:
-            data = _req(cand, timeout=timeout)
-        except Exception:  # noqa: BLE001
-            continue
-        if data and DEFAULT_MIN_BYTES <= len(data) <= MAX_BYTES:
-            return data, cand
+    """Download an allowed source; return (bytes or None, source URL)."""
+    if blocked_source(url):
+        return None, url
+    try:
+        data = _req(url, timeout=timeout)
+    except Exception:  # noqa: BLE001
+        return None, url
+    if data and DEFAULT_MIN_BYTES <= len(data) <= MAX_BYTES:
+        return data, url
     return None, url
 
 
@@ -592,6 +536,10 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
         cu = canonical_url(u)
         c["canonical"] = cu
         rec = {"url": u, "backend": c.get("backend"), "fate": ""}
+        if blocked_record(c):
+            rec["fate"] = "blocked_source"
+            tried.append(rec)
+            continue
         if _is_watermark_domain(u):
             rec["fate"] = "watermark_domain"
             tried.append(rec)
@@ -657,7 +605,7 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
         s = float(min(c["w"] * c["h"], 8_000_000)) / 1_000_000  # 分辨率（封顶）
         if c.get("license"):
             s += 0.5  # 有明确授权信息加分
-        if c.get("backend") in ("openverse", "wikimedia"):
+        if c.get("backend") == "openverse":
             s += 0.3  # 授权干净源加分
         s += _aspect_match_bonus(c["w"], c["h"], ratio)  # 宽高比匹配（防截断）
         return s

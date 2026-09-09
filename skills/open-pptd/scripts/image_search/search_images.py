@@ -26,6 +26,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 import pool
+from image_source_policy import blocked_record, check_local_provenance
 import slots as slots_mod
 
 WORKER = _HERE / 'backend_worker.py'
@@ -197,7 +198,7 @@ def _matching_previous(report, current_slots):
 
 
 def _read_cached_image(rec, project):
-    if rec.get('status') not in ('resolved', 'degraded'):
+    if blocked_record(rec) or rec.get('status') not in ('resolved', 'degraded'):
         return None
     try:
         path = (project / rec['local']).resolve()
@@ -272,6 +273,7 @@ def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=Fa
         previous = {}
     if not isinstance(previous, dict) or not isinstance(previous.get('slots', []), list):
         previous = {}
+    check_local_provenance(pdir, [slot.raw_src for slot in source_slots])
     matched = _matching_previous(previous, source_slots)
     records = {}
     for slot in source_slots:

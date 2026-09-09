@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.6 — 2026-09-09 (360-intranet only)
+
+### open-pptd skill
+- Wikimedia and Wikipedia image sources are disabled on this branch: the `wikimedia` search backend is removed from the registry and the `auto` cascade, `image_source_policy.py` refuses those hosts at request and redirect time in both the search pool and `export_online.py`, and a cached local asset whose retained report names such an origin is no longer reused. Unattributed local bytes cannot declare an origin, so supplied material still needs a human provenance check.
+- `reference/image-search.md` and `SKILL.md` drop the Wikimedia backend and its thumbnail-whitelist note; `pool._fetch_with_url` loses the Wikimedia alternate-URL chain it existed for, and its tests are rewritten source-agnostically plus one asserting a blocked host is never requested.
+- Context: the 2026-09-08 twenty-deck run still resolved 39 image slots through the Wikimedia backend across 14 decks, so this ban only takes effect from the next run.
+
 ## 2.1.5 — 2026-09-09
 
 ### open-pptd skill

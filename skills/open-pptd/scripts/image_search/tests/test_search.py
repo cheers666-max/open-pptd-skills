@@ -3,12 +3,11 @@
 """单元测试：image_search 模块
 
 测试覆盖：
-1. wikimedia_alt_urls：白名单改写规则、超限处理、原图兜底、非 Wikimedia URL 行为。
-2. _fetch_with_url：候选链遍历、异常 continue、字节守卫（DEFAULT_MIN_BYTES ~ MAX_BYTES）。
-3. sniff_size：PNG / GIF / BMP / WebP (VP8/VP8L/VP8X) / JPEG 二进制尺寸探测。
-4. canonical_url：参数过滤、bcebos 水印剥离、去重逻辑。
-5. slots 行级提取与 patch_src 改写：保留 YAML 格式与注释、bounds 比例判断。
-6. judge_image / VLM 解析：JSON 提取、复合分计算、硬拒逻辑。
+1. _fetch_with_url：成功路径、异常吞掉、字节守卫（DEFAULT_MIN_BYTES ~ MAX_BYTES）、禁用图源直接拒绝。
+2. sniff_size：PNG / GIF / BMP / WebP (VP8/VP8L/VP8X) / JPEG 二进制尺寸探测。
+3. canonical_url：参数过滤、bcebos 水印剥离、去重逻辑。
+4. slots 行级提取与 patch_src 改写：保留 YAML 格式与注释、bounds 比例判断。
+5. judge_image / VLM 解析：JSON 提取、复合分计算、硬拒逻辑。
 """
 
 import hashlib
@@ -28,48 +27,6 @@ import pool
 import slots
 
 
-class TestWikimediaAltUrls(unittest.TestCase):
-    def test_non_wikimedia(self):
-        self.assertEqual(pool.wikimedia_alt_urls("https://example.com/img.jpg"), [])
-        self.assertEqual(pool.wikimedia_alt_urls(""), [])
-        self.assertEqual(pool.wikimedia_alt_urls(None), [])
-
-    def test_white_listed_size(self):
-        # 960 在白名单中，因此只需原图兜底，无需额外插入改写 thumb
-        url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/960px-Test.jpg"
-        alts = pool.wikimedia_alt_urls(url)
-        self.assertEqual(len(alts), 1)
-        self.assertEqual(alts[0], "https://upload.wikimedia.org/wikipedia/commons/a/ab/Test.jpg")
-
-    def test_non_whitelisted_size_rounded_up(self):
-        # 800 不在白名单 (250, 500, 960, 1280, 1920)，应上取到 960，最后附原图
-        url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/800px-Test.jpg"
-        alts = pool.wikimedia_alt_urls(url)
-        self.assertEqual(len(alts), 2)
-        self.assertEqual(
-            alts[0],
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/960px-Test.jpg",
-        )
-        self.assertEqual(
-            alts[1],
-            "https://upload.wikimedia.org/wikipedia/commons/a/ab/Test.jpg",
-        )
-
-    def test_non_whitelisted_size_above_max(self):
-        # 2560 大于最大白名单 1920，应取最大白名单 1920，并附原图
-        url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/2560px-Test.jpg"
-        alts = pool.wikimedia_alt_urls(url)
-        self.assertEqual(len(alts), 2)
-        self.assertEqual(
-            alts[0],
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/1920px-Test.jpg",
-        )
-        self.assertEqual(
-            alts[1],
-            "https://upload.wikimedia.org/wikipedia/commons/a/ab/Test.jpg",
-        )
-
-
 class TestFetchWithUrl(unittest.TestCase):
     @patch("pool._req")
     def test_primary_url_success(self, mock_req):
@@ -82,40 +39,22 @@ class TestFetchWithUrl(unittest.TestCase):
         mock_req.assert_called_once_with(url, timeout=20.0)
 
     @patch("pool._req")
-    def test_fallback_chain_on_error(self, mock_req):
-        # 模拟第一次 800px 失败 (如 400)，第二次 960px 成功
-        data = b"x" * (pool.DEFAULT_MIN_BYTES + 100)
-        orig_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/800px-Test.jpg"
-        target_960 = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/960px-Test.jpg"
-
-        def side_effect(url, timeout=20.0):
-            if "800px" in url:
-                raise Exception("HTTP 400 Bad Request")
-            return data
-
-        mock_req.side_effect = side_effect
-        b, final_url = pool._fetch_with_url(orig_url)
-        self.assertEqual(b, data)
-        self.assertEqual(final_url, target_960)
+    def test_request_error_gives_up(self, mock_req):
+        mock_req.side_effect = Exception("HTTP 400 Bad Request")
+        url = "https://example.com/photo.jpg"
+        self.assertEqual(pool._fetch_with_url(url), (None, url))
 
     @patch("pool._req")
-    def test_byte_guard_too_small_skipped(self, mock_req):
-        # 尺寸太小被守卫忽略，继续尝试直到合格或全部失败
-        small_data = b"tiny"
-        ok_data = b"x" * (pool.DEFAULT_MIN_BYTES + 10)
-        orig_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/800px-Test.jpg"
+    def test_byte_guard_rejects_small_payload(self, mock_req):
+        mock_req.return_value = b"tiny"
+        url = "https://example.com/photo.jpg"
+        self.assertEqual(pool._fetch_with_url(url), (None, url))
 
-        def side_effect(url, timeout=20.0):
-            if "800px" in url:
-                return small_data
-            if "960px" in url:
-                return ok_data
-            return None
-
-        mock_req.side_effect = side_effect
-        b, final_url = pool._fetch_with_url(orig_url)
-        self.assertEqual(b, ok_data)
-        self.assertIn("960px", final_url)
+    @patch("pool._req")
+    def test_blocked_source_is_never_requested(self, mock_req):
+        url = "https://upload.wikimedia.org/wikipedia/commons/a/ab/Test.jpg"
+        self.assertEqual(pool._fetch_with_url(url), (None, url))
+        mock_req.assert_not_called()
 
 
 class TestSniffSize(unittest.TestCase):

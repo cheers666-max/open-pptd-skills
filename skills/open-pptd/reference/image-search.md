@@ -22,10 +22,9 @@ For this branch's **360 online export**, see [360-online.md](360-online.md). Aft
   - `baidu`: Broad public web image search.
   - `vertical`: Curated vertical photographic and wallpaper collections.
   - `openverse`: CC-licensed creative commons image index.
-  - `wikimedia`: Wikimedia Commons open-license image repository.
-  - `auto`: Cascade order: `baidu` -> `openverse` -> `wikimedia` -> `vertical`.
+  - `auto`: Cascade order: `baidu` -> `openverse` -> `vertical`.
 - **VLM Quality Gate**: Uses multimodal LLM (via Moonshot / 360 API gateway) to score relevance, aesthetics, and layout suitability, rejecting low-quality candidates.
-- **Wikimedia Thumbnail Whitelist Rewrite**: Wikimedia Commons rejects non-whitelisted thumbnail widths with HTTP 400. The engine automatically adapts widths to standard whitelist tiers (`250`, `500`, `960`, `1280`, `1920`) and falls back to original image sources.
+- **Blocked sources**: this branch disables Wikimedia/Wikipedia image sources. The `wikimedia` backend is gone, requests and redirects to `wikimedia.org`, `wikipedia.org` and `w.wiki` are refused, and a cached local asset whose retained report names such an origin is not reused. Unattributed local bytes cannot declare their origin — check the provenance of supplied material yourself.
 - **Remote Asset Localization**: Optional `--localize-remote` flag downloads remote HTTP/HTTPS images into `media/` and patches `.page` references to ensure the project is fully self-contained.
 
 ---
@@ -57,7 +56,7 @@ python3 scripts/image_search/search_images.py <project_dir|deck.pptd> [options]
 | Flag | Default | Description |
 |---|---|---|
 | `<target>` | Required | Path to the PPTD project directory or `.pptd` file. |
-| `--backend` | `auto` | Search backend: `auto`, `baidu`, `vertical`, `openverse`, `wikimedia`. |
+| `--backend` | `auto` | Search backend: `auto`, `baidu`, `vertical`, `openverse`. |
 | `--workers` | `4` | Maximum concurrent disposable backend processes. |
 | `--timeout` | `30` | Seconds for one complete backend attempt: search, download and optional VLM. |
 | `--budget` | `120` | Overall command budget in seconds; remaining work is terminated at the deadline. |
@@ -134,7 +133,7 @@ The engine automatically parses `bounds: [x, y, w, h]` on image elements to dedu
 3. **Audit Report (`images_report.json`)**:
    Emitted at project root, recording per-slot provenance:
    - `query` / `source_url`
-   - `backend` used (`baidu`, `wikimedia`, `remote`, etc.)
+   - `backend` used (`baidu`, `openverse`, `remote`, etc.)
    - `license` metadata
    - Image dimensions and sniffed format
    - VLM evaluation score and verdict

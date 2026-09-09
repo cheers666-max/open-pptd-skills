@@ -31,6 +31,7 @@ import zipfile
 
 from export_html import VIEWER_DEFAULT, find_chrome, find_deck, run_viewer_export
 from obs_upload import OBSClient, ObsError
+from image_source_policy import open_source, check_source, check_local_provenance
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 UA = 'Mozilla/5.0 (compatible; open-pptd-online/1.0)'
@@ -116,7 +117,7 @@ def download(url, timeout, limit=MAX_IMAGE_BYTES):
     """Fetch source or returned URLs without the upload credential."""
     request = urllib.request.Request(web_url(url), headers={'User-Agent': UA})
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with open_source(request, timeout=timeout) as response:
             data = response.read(limit + 1)
     except Exception as exc:
         if isinstance(exc, urllib.error.HTTPError):
@@ -284,6 +285,12 @@ def prepare_snapshot(deck, target, timeout, output=None):
             if not src.startswith(('http://', 'https://', 'data:')):
                 project_path(root, src, output)
             references.append((node, src))
+    try:
+        for _, src in references:
+            check_source(src)
+        check_local_provenance(root, [src for _, src in references])
+    except ValueError as exc:
+        raise OnlineError(str(exc)) from None
     by_source, assets = {}, {}
     (target / 'media').mkdir(parents=True)
     (target / 'pages').mkdir()
