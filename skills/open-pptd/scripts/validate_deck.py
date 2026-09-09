@@ -1103,6 +1103,64 @@ def gradient_issues(page: dict, page_number: int, page_ref: str) -> List[dict[st
     visit(page, "")
     return issues
 
+# Heuristics an author may consciously accept: geometry and typography advice that a rendered page
+# can disprove. Structural findings (a missing body, an unresolved source, a leaked internal token)
+# are never acknowledgeable — those are defects whatever the design intent.
+ACKNOWLEDGEABLE_CODES = {
+    "anti-slop-card-layout", "anti-slop-rainbow-scheme", "orphan-last-line",
+    "forbidden-line-start-punctuation", "text-capacity-overflow", "unexpected-wrap",
+    "low-effective-image-resolution",
+}
+EXCEPTIONS_FILE = "validate-exceptions.json"
+
+
+def load_exceptions(project: Path) -> List[dict[str, Any]]:
+    """Author-recorded exceptions: `{"exceptions": [{code, reason, pageNumber?, elementId?}]}`.
+
+    The skill tells authors to confirm a heuristic against the rendered page and record a justified
+    exception instead of reshaping a sound design. This is where that record lives, so an accepted
+    finding stays visible in the report rather than being silently tolerated.
+    """
+    path = project / EXCEPTIONS_FILE
+    if not path.is_file():
+        return []
+    entries = load_structured(path).get("exceptions")
+    if not isinstance(entries, list):
+        raise RuntimeError(f'{EXCEPTIONS_FILE} must hold {{"exceptions": [...]}}')
+    checked: List[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict) or not entry.get("code") or not str(entry.get("reason", "")).strip():
+            raise RuntimeError(f"every exception needs a code and a written reason: {entry!r}")
+        if entry["code"] not in ACKNOWLEDGEABLE_CODES:
+            raise RuntimeError(f"{entry['code']} cannot be acknowledged; it is a defect, not advice")
+        checked.append(entry)
+    return checked
+
+
+def _matches(issue: dict[str, Any], entry: dict[str, Any]) -> bool:
+    if issue["code"] != entry["code"]:
+        return False
+    for key in ("pageNumber", "elementId"):
+        if entry.get(key) is not None and issue.get(key) != entry[key]:
+            return False
+    return True
+
+
+def apply_exceptions(issues: List[dict[str, Any]], entries: List[dict[str, Any]]):
+    """Split issues into what still blocks and what the author accepted, plus unused exceptions."""
+    blocking, accepted = [], []
+    used = set()
+    for issue in issues:
+        match = next((i for i, entry in enumerate(entries) if _matches(issue, entry)), None)
+        if match is None:
+            blocking.append(issue)
+        else:
+            used.add(match)
+            accepted.append(dict(issue, acknowledged=entries[match]["reason"]))
+    stale = [entry for index, entry in enumerate(entries) if index not in used]
+    return blocking, accepted, stale
+
+
 def audit_project(
     project: Path,
     manifest_path: Optional[Path] = None,
@@ -1188,6 +1246,17 @@ def audit_project(
     for dup in duplicate_image_issues(loaded_pages):
         (advisories if dup["repairability"] == "style" else issues).append(dup)
 
+    exceptions = load_exceptions(project)
+    issues, accepted, stale = apply_exceptions(issues, exceptions)
+    advisories.extend(accepted)
+    for entry in stale:
+        issues.append({
+            "code": "stale-exception",
+            "detail": f"no {entry['code']} finding matches this recorded exception any more; remove it",
+            "exception": entry,
+            "repairability": "text",
+        })
+
     advisory_counts: Dict[str, int] = {}
     for advisory in advisories:
         advisory_counts[advisory["code"]] = advisory_counts.get(advisory["code"], 0) + 1
@@ -1212,6 +1281,7 @@ def audit_project(
         "advisoryCount": len(advisories),
         "advisoryCounts": advisory_counts,
         "advisories": advisories,
+        "acknowledged": [issue["code"] for issue in accepted],
     }
 
 

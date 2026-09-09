@@ -221,6 +221,14 @@ When generating a PPT, adopt different production approaches for different user 
    ```
 
    This runs the existing deterministic validator, renders changed pages, rebuilds a **complete current overview**, and runs the existing auxiliary contrast/overlap audit across every page. It makes no model or scoring calls. Read the concise result and `.qa-images/prepare-report.json` for page/field errors, advisories, image paths, rendered/reused page numbers and export results. `ok` means machine checks passed; `visualReview: required` is not a visual pass. Preserve the exit code; when piping logs, use `set -o pipefail` or capture the original status.
+
+   When a heuristic finding (card layout, orphan line, capacity, wrapping, rainbow scheme, image
+   resolution) turns out to be wrong on the rendered page, record it instead of reshaping a sound
+   design: `validate-exceptions.json` in the project holds `{"exceptions": [{"code": ...,
+   "pageNumber": ..., "reason": "what the render showed"}]}`. Accepted findings move to
+   advisories carrying that reason, so they stay in the report; an exception that no longer matches
+   anything is reported as `stale-exception`; and structural defects (a missing body, an unresolved
+   source, a leaked internal token) can never be acknowledged this way.
    Blocking codes include orphan-last-line （孤字）, forbidden-line-start-punctuation, text-capacity-overflow, unexpected-wrap, element-overflow-viewport, low-effective-image-resolution, invalid-gradient, missing-required-background (cover/final/chapter), unresolved search/remote image placeholders, invalid-align (align must be a flat [h, v] pair), line-points-outside-viewbox (line points are viewBox units), empty-body-band (a full-width gap between elements wider than a quarter of the slide — usually a body block that was never written), internal-token-leak and duplicate-image; text-density stays a non-blocking advisory.
 
    Then hold the deck to its plan: `python3 ~/.agents/skills/open-pptd/scripts/outline_contract.py --project /abs/path/project`

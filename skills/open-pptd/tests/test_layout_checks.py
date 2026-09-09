@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import sys
+import pathlib
 import tempfile
 import unittest
 
@@ -259,3 +260,59 @@ class ElementSchemaTests(unittest.TestCase):
             report = validate.audit_project(root)
             self.assertTrue(report['valid'])
             self.assertEqual(report['advisoryCounts'].get('non-canonical-align'), 1)
+
+
+class ExceptionTests(unittest.TestCase):
+    def project(self, folder, page_body, exceptions=None):
+        import json as _json
+        root = pathlib.Path(folder)
+        (root / 'pages').mkdir()
+        (root / 'deck.pptd').write_text('version: v2\ntitle: T\nsize: [960, 540]\npages:\n  - pages/01.page\n')
+        (root / 'pages/01.page').write_text(page_body)
+        if exceptions is not None:
+            (root / 'validate-exceptions.json').write_text(
+                _json.dumps({'exceptions': exceptions}, ensure_ascii=False))
+        return root
+
+    CARD_WALL = ('pageType: content\nelements:\n' + ''.join(
+        f'- elementId: c{i}\n  elementType: shape\n  shapeName: roundRect\n'
+        f'  bounds: [{48 + i * 220}, 140, 200, 150]\n  fill: {{type: solid, color: "#EEEEEE"}}\n'
+        for i in range(4)))
+
+    def test_recorded_exception_moves_the_finding_to_advice(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, self.CARD_WALL, [
+                {'code': 'anti-slop-card-layout', 'pageNumber': 1,
+                 'reason': '2x2 feature grid confirmed on the render; not a card wall'}])
+            report = validate.audit_project(root)
+            self.assertTrue(report['valid'])
+            self.assertEqual(report['acknowledged'], ['anti-slop-card-layout'])
+            accepted = [a for a in report['advisories'] if a['code'] == 'anti-slop-card-layout']
+            self.assertIn('confirmed on the render', accepted[0]['acknowledged'])
+
+    def test_without_the_record_it_still_blocks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            report = validate.audit_project(self.project(folder, self.CARD_WALL))
+            self.assertFalse(report['valid'])
+            self.assertEqual(report['issueCounts'].get('anti-slop-card-layout'), 1)
+
+    def test_an_exception_that_no_longer_matches_is_reported(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, 'pageType: content\nelements: []\n', [
+                {'code': 'orphan-last-line', 'reason': 'fixed upstream long ago'}])
+            report = validate.audit_project(root)
+            self.assertFalse(report['valid'])
+            self.assertEqual(report['issueCounts'].get('stale-exception'), 1)
+
+    def test_a_defect_cannot_be_acknowledged(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, 'pageType: content\nelements: []\n', [
+                {'code': 'empty-body-band', 'reason': 'we like holes'}])
+            with self.assertRaises(RuntimeError):
+                validate.audit_project(root)
+
+    def test_an_exception_without_a_reason_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, self.CARD_WALL, [{'code': 'anti-slop-card-layout'}])
+            with self.assertRaises(RuntimeError):
+                validate.audit_project(root)

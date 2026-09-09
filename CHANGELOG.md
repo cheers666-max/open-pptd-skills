@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.0 — 2026-09-09
+
+### open-pptd skill
+- `validate_deck.py` reads `validate-exceptions.json` (`{"exceptions": [{code, reason, pageNumber?, elementId?}]}`). The skill already told authors to confirm a heuristic against the rendered page and record a justified exception rather than reshape a sound design; there was nowhere to record it, so the only way past the export gate was to change a page that was right. Accepted findings move to advisories carrying the written reason, `acknowledged` lists them in the report, an exception matching nothing becomes `stale-exception`, and structural defects are refused outright — a reason is mandatory.
+
 ## 2.3.1 — 2026-09-09
 
 ### open-pptd skill
