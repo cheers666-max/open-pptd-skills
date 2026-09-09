@@ -28,6 +28,8 @@ from validate_deck import (  # noqa: E402  (local module, after sys.path setup)
 
 SCHEMA_VERSION = "open-pptd-outline/1.0"
 MIN_CONTENT_SLOTS = 2
+# 本分支的图片密度目标：内容页中至少这个比例要规划配图。
+MIN_ILLUSTRATED_CONTENT = 0.6
 
 
 def outline_pages(outline: dict) -> List[dict]:
@@ -37,20 +39,34 @@ def outline_pages(outline: dict) -> List[dict]:
     return [page for page in pages if isinstance(page, dict)]
 
 
-def page_has_image(page: dict) -> bool:
-    """True when the built page actually carries a picture (element or page background)."""
+def page_image_count(page: dict) -> int:
+    """How many pictures the built page carries (image elements, image fills, page background)."""
+    count = 0
     background = page.get("background")
     if isinstance(background, dict) and str(background.get("type", "")).lower() in {"image", "picture"}:
-        return True
+        count += 1
     for element in page.get("elements", []) or []:
         if not isinstance(element, dict):
             continue
         if element.get("elementType") == "image":
-            return True
+            count += 1
+            continue
         fill = element.get("fill")
         if isinstance(fill, dict) and str(fill.get("type", "")).lower() in {"image", "picture"}:
-            return True
-    return False
+            count += 1
+    return count
+
+
+def page_has_image(page: dict) -> bool:
+    return page_image_count(page) > 0
+
+
+def planned_image_count(page: dict) -> int:
+    """How many pictures the outline asked this page for."""
+    plan = page.get("images")
+    if isinstance(plan, list):
+        return len([item for item in plan if item])
+    return 1 if page.get("image") else 0
 
 
 def plan_issues(outline: dict) -> List[dict]:
@@ -62,6 +78,16 @@ def plan_issues(outline: dict) -> List[dict]:
         issues.append({
             "code": "outline-page-count",
             "detail": f"the outline plans {len(pages)} pages but {requested} were agreed with the user",
+        })
+    content = [p for p in pages if str(p.get("pageType", "")).lower() == "content"]
+    with_images = [p for p in content if planned_image_count(p)]
+    if content and len(with_images) / len(content) < MIN_ILLUSTRATED_CONTENT:
+        issues.append({
+            "code": "outline-thin-illustration",
+            "contentPages": len(content), "illustrated": len(with_images),
+            "detail": f"only {len(with_images)} of {len(content)} content pages plan a picture "
+                      f"(target {MIN_ILLUSTRATED_CONTENT:.0%}); a deck that carries one photo every "
+                      "four pages reads as a wall of text",
         })
     for position, page in enumerate(pages, start=1):
         index = page.get("pageIndex", position)
@@ -109,9 +135,17 @@ def deck_issues(project: Path, outline: dict, manifest_path: Optional[Path] = No
             issues.append({"code": "outline-page-type", "pageIndex": index, "pageRef": str(ref),
                            "planned": want_type, "built": got_type,
                            "detail": "the built page is not the kind of page the outline promised"})
-        if planned.get("image") and not page_has_image(page):
+        wanted = planned_image_count(planned)
+        placed = page_image_count(page)
+        if wanted and not placed:
             issues.append({"code": "outline-missing-image", "pageIndex": index, "pageRef": str(ref),
+                           "planned": wanted,
                            "detail": "the outline promised a picture on this page and none was placed"})
+        elif wanted > placed:
+            issues.append({"code": "outline-fewer-images", "pageIndex": index, "pageRef": str(ref),
+                           "planned": wanted, "placed": placed,
+                           "detail": f"the outline planned {wanted} pictures for this page and {placed} "
+                                     "were placed; drop the extra from the plan or place it"})
     return issues
 
 
@@ -126,7 +160,7 @@ def to_markdown(outline: dict) -> str:
             page.get("pageType", ""),
             str(page.get("actionTitle", "")).replace("|", "\\|"),
             slots.replace("|", "\\|"),
-            "有" if page.get("image") else "—",
+            (str(planned_image_count(page)) + " 张") if planned_image_count(page) else "—",
         ))
     header = [f"# {outline.get('title', '(untitled)')}"]
     for label, key in (("受众", "audience"), ("目的", "purpose"), ("约定页数", "requestedPages")):

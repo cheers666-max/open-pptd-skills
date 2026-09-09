@@ -1,3 +1,11 @@
+## 2.6.0-imagerich — 2026-09-09 (branch 002-image-rich)
+
+### open-pptd skill
+- An outline page can now plan **several pictures**: `"images": [{"query": ..., "orientation": ..., "ratio": ..., "role": ..., "note": ...}]` (a bare string is shorthand for its query). `"image": true` with `imageQuery` stays as the one-picture short form. Intent ids become `p6a`, `p6b`, … so a page's pictures stay addressable.
+- Density targets: `outline_contract.py` reports `outline-thin-illustration` when fewer than 60% of content pages plan a picture, and `outline-fewer-images` when a page ends up with fewer pictures than it planned. The confirmation table shows the per-page count.
+- `image_pool.py` searches wider (12 candidates per attempt instead of 8), retries an intent that came back empty once with the head of its query, and reports `pagesPlanned` / `pagesCovered` / `imagesPerPlannedPage`.
+- Why: the 2026-09-09 twenty-deck run averaged 0.63 pictures per page — 129 of 224 pages carried one at all, and almost no page carried two. The outline schema could not express more than one picture per page, so the plan capped the deck before the search ever ran.
+
 # Changelog
 
 ## 2.5.0 — 2026-09-09

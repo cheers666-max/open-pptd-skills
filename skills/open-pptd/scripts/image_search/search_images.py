@@ -68,7 +68,7 @@ def _stop(processes):
         proc.wait(timeout=1)
 
 
-def _attempts(slots, texts, brief, backend, workers, timeout, deadline, use_vlm, min_dim):
+def _attempts(slots, texts, brief, backend, workers, timeout, deadline, use_vlm, min_dim, limit=8):
     pending = deque((s, deque(['remote'] if s.is_remote else
                      [backend] if backend != 'auto' else pool.AUTO_ORDER)) for s in slots)
     active = []
@@ -89,7 +89,7 @@ def _attempts(slots, texts, brief, backend, workers, timeout, deadline, use_vlm,
                     result_path = Path(temp) / f'{attempt_id}.result.json'
                     request = dict(backend=name, query=slot.query, url=slot.raw_src, want=slot.want,
                                    ratio=slot.ratio, min_dim=min_dim, use_vlm=use_vlm, brief=brief,
-                                   allow_product=getattr(slot, 'allow_product', False),
+                                   allow_product=getattr(slot, 'allow_product', False), limit=limit,
                                    page_text=re.sub(r'\s+', ' ', texts[slot.page])[:400],
                                    seen_hashes=list(seen_hashes), seen_urls=list(seen_urls))
                     request_path.write_text(json.dumps(request, ensure_ascii=False), encoding='utf-8')

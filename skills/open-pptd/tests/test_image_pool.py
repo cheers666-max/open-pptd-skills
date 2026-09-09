@@ -63,6 +63,28 @@ class QueryLanguageTests(unittest.TestCase):
         self.assertIsNone(image_pool.check_queries([{'id': 'p1', 'query': '草原 风力发电 航拍'}]))
 
 
+class ImagePlanTests(unittest.TestCase):
+    def test_a_page_can_ask_for_several_pictures(self):
+        outline = {'pages': [{'pageIndex': 6, 'images': [
+            {'query': '云手 动作 分解', 'orientation': 'portrait'},
+            {'query': '身韵课堂 教学 示范'},
+            '折扇 舞蹈 道具 特写']}]}
+        intents = image_pool.intents_from_outline(outline)
+        self.assertEqual([i['id'] for i in intents], ['p6a', 'p6b', 'p6c'])
+        self.assertEqual(intents[0]['want'], 'portrait')
+        self.assertEqual(intents[2]['query'], '折扇 舞蹈 道具 特写')
+        self.assertEqual({i['pageIndex'] for i in intents}, {6})
+
+    def test_the_single_picture_form_still_works(self):
+        outline = {'pages': [{'pageIndex': 3, 'image': True, 'imageQuery': '风电场 航拍'}]}
+        intents = image_pool.intents_from_outline(outline)
+        self.assertEqual([(i['id'], i['query']) for i in intents], [('p3', '风电场 航拍')])
+
+    def test_a_short_query_is_left_alone_by_the_retry_trim(self):
+        self.assertEqual(image_pool._trimmed('风电场 航拍'), '')
+        self.assertEqual(image_pool._trimmed('电影院 观众席 背影 夜晚'), '电影院 观众席')
+
+
 class ResolveTests(unittest.TestCase):
     def test_reference_is_rewritten_to_the_pooled_file(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -88,7 +110,8 @@ class BuildTests(unittest.TestCase):
             outline = {'pages': [{'pageIndex': 2, 'image': True, 'actionTitle': '龙门吊', 'summary': 'x'}]}
             root = make_project(folder, [POOL_PAGE], outline)
 
-            def fake_attempts(slots, texts, brief, backend, workers, timeout, deadline, use_vlm, min_dim):
+            def fake_attempts(slots, texts, brief, backend, workers, timeout, deadline, use_vlm,
+                              min_dim, limit=8):
                 for slot in slots:
                     slot.winner = {'bytes': b'\xff\xd8jpeg-bytes', 'sha256': 'a' * 64, 'fmt': 'jpeg',
                                    'w': 1600, 'h': 900, 'backend': 'baidu',

@@ -35,7 +35,9 @@ import slots as slots_mod  # noqa: E402
 
 POOL_PREFIX = 'pool:'
 POOL_FILE = 'images_pool.json'
-DEFAULT_BUDGET = 240.0
+DEFAULT_BUDGET = 360.0
+DEFAULT_LIMIT = 12        # 本分支追求多图：每次检索多看候选
+RETRY_TRIM_WORDS = 2      # 首轮空手时把长查询裁短再搜一次
 
 
 def _find_project(target: Path):
@@ -50,25 +52,57 @@ def _deck_title(pptd: Optional[Path], fallback: str) -> str:
     return match.group(1).strip() if match else fallback
 
 
+SUFFIXES = 'abcdefghijklmnopqrstuvwxyz'
+
+
+def page_image_plan(page: dict) -> List[Dict[str, Any]]:
+    """The pictures one outline page asks for.
+
+    Rich form (preferred) — a page may want several, each with its own subject:
+
+        "images": [{"query": "云手 动作 分解", "orientation": "portrait"},
+                   {"query": "身韵课堂 教学 示范"}]
+
+    Short form, one picture: `"image": true` with `imageQuery`/`imageOrientation`/`imageRatio`.
+    """
+    plan = page.get('images')
+    if isinstance(plan, list) and plan:
+        entries = []
+        for item in plan:
+            if isinstance(item, str):
+                entries.append({'query': item})
+            elif isinstance(item, dict):
+                entries.append(dict(item))
+        return entries
+    if page.get('image'):
+        return [{'query': page.get('imageQuery'), 'orientation': page.get('imageOrientation'),
+                 'ratio': page.get('imageRatio'), 'role': page.get('imageRole')}]
+    return []
+
+
 def intents_from_outline(outline: dict) -> List[Dict[str, Any]]:
-    """One search intent per outline page that asked for a picture."""
+    """One search intent per picture the outline asked for; a page may ask for several."""
     intents = []
     for position, page in enumerate(outline.get('pages') or [], start=1):
-        if not isinstance(page, dict) or not page.get('image'):
+        if not isinstance(page, dict):
             continue
         index = page.get('pageIndex', position)
-        query = str(page.get('imageQuery') or page.get('actionTitle') or page.get('summary') or '').strip()
-        if not query:
-            continue
-        intents.append({
-            'id': f'p{index}',
-            'pageIndex': index,
-            'query': query,
-            'want': str(page.get('imageOrientation') or 'landscape'),
-            'ratio': page.get('imageRatio'),
-            'role': str(page.get('imageRole') or '').strip().lower(),
-            'context': ' '.join(str(page.get(key, '')) for key in ('actionTitle', 'summary')).strip(),
-        })
+        wanted = page_image_plan(page)
+        for order, entry in enumerate(wanted):
+            query = str(entry.get('query') or page.get('actionTitle') or page.get('summary') or '').strip()
+            if not query:
+                continue
+            suffix = SUFFIXES[order] if len(wanted) > 1 and order < len(SUFFIXES) else ''
+            intents.append({
+                'id': f'p{index}{suffix}',
+                'pageIndex': index,
+                'query': query,
+                'want': str(entry.get('orientation') or 'landscape'),
+                'ratio': entry.get('ratio'),
+                'role': str(entry.get('role') or '').strip().lower(),
+                'note': str(entry.get('note') or '').strip(),
+                'context': ' '.join(str(page.get(key, '')) for key in ('actionTitle', 'summary')).strip(),
+            })
     return intents
 
 
@@ -86,9 +120,17 @@ def check_queries(intents: List[Dict[str, Any]]) -> None:
                          f'(imageQuery): {detail}')
 
 
+def _trimmed(query: str) -> str:
+    """A shorter query for the retry: keep the leading terms, drop trailing modifiers."""
+    parts = query.split()
+    if len(parts) > RETRY_TRIM_WORDS:
+        return ' '.join(parts[:RETRY_TRIM_WORDS])
+    return ''
+
+
 def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=False,
           min_dim=backend_pool.DEFAULT_MIN_DIM, timeout=30.0, budget=DEFAULT_BUDGET,
-          json_output=False, allow_latin_query=False) -> int:
+          json_output=False, allow_latin_query=False, limit=DEFAULT_LIMIT, retry=True) -> int:
     started = time.monotonic()
     if not all(math.isfinite(x) and x > 0 for x in (timeout, budget)) or workers < 1:
         raise ValueError('timeout, budget and workers must be positive')
@@ -118,7 +160,23 @@ def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=Fals
     search_images.progress(f'[pool] {len(slots)} intents from {outline_path.name}; '
                            f'backend={backend} vlm={use_vlm} budget={budget}s')
     search_images._attempts(slots, texts, brief, backend, workers, timeout,
-                            started + budget, use_vlm, min_dim)
+                            started + budget, use_vlm, min_dim, limit=limit)
+
+    if retry:
+        # A query that came back empty usually over-specified the shot; try the head of it once.
+        second = []
+        for slot in slots:
+            if slot.winner:
+                continue
+            shorter = _trimmed(slot.query)
+            if shorter and shorter != slot.query:
+                slot.raw_src = f'search:{shorter}'
+                slot.query = shorter
+                second.append(slot)
+        if second and time.monotonic() < started + budget:
+            search_images.progress(f'[pool] retrying {len(second)} empty intent(s) with a shorter query')
+            search_images._attempts(second, texts, brief, backend, workers, timeout,
+                                    started + budget, use_vlm, min_dim, limit=limit)
 
     (pdir / 'media').mkdir(exist_ok=True)
     candidates, failed = [], []
@@ -139,15 +197,20 @@ def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=Fals
             'score': round(float(winner.get('score', 0)), 2),
         })
 
+    planned_pages = {i['pageIndex'] for i in intents}
+    covered_pages = {c['pageIndex'] for c in candidates}
     report = {
         'deck': pdir.name, 'deckBrief': brief, 'outline': outline_path.name,
-        'backend': backend, 'vlm': use_vlm,
+        'backend': backend, 'vlm': use_vlm, 'searchLimit': limit,
         'elapsedSeconds': round(time.monotonic() - started, 3),
         'requested': len(intents), 'collected': len(candidates), 'failedIntents': failed,
+        'pagesPlanned': len(planned_pages), 'pagesCovered': len(covered_pages),
+        'imagesPerPlannedPage': round(len(candidates) / max(len(planned_pages), 1), 2),
         'candidates': candidates,
     }
     (pdir / POOL_FILE).write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    search_images.progress(f'[pool] collected={len(candidates)}/{len(intents)} → {POOL_FILE}')
+    search_images.progress(f"[pool] collected={len(candidates)}/{len(intents)} across "
+                           f"{len(covered_pages)}/{len(planned_pages)} pages → {POOL_FILE}")
     if json_output:
         print(json.dumps(report, ensure_ascii=False))
     else:
@@ -209,6 +272,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--min-dim', type=int, default=backend_pool.DEFAULT_MIN_DIM)
     parser.add_argument('--timeout', type=float, default=30.0, help='seconds per attempt')
     parser.add_argument('--budget', type=float, default=DEFAULT_BUDGET, help='seconds for the whole pass')
+    parser.add_argument('--limit', type=int, default=DEFAULT_LIMIT, help='candidates examined per attempt')
+    parser.add_argument('--no-retry', action='store_true', help='do not retry an empty intent with a shorter query')
     parser.add_argument('--allow-latin-query', action='store_true',
                         help='only for a deck actually written in that language')
     parser.add_argument('--json', action='store_true')
@@ -227,7 +292,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return build(args.project, args.outline, backend=args.backend, workers=args.workers,
                      use_vlm=args.vlm, min_dim=args.min_dim, timeout=args.timeout,
                      budget=args.budget, json_output=args.json,
-                     allow_latin_query=args.allow_latin_query)
+                     allow_latin_query=args.allow_latin_query,
+                     limit=args.limit, retry=not args.no_retry)
     except (ValueError, OSError) as exc:
         print(f'image_pool: {exc}', file=sys.stderr)
         return 1

@@ -75,14 +75,28 @@ dropped a promised figure — a page-by-page renderer cannot know any of that.
   "requestedPages": 14,
   "pages": [
     {"pageIndex": 1, "pageType": "cover", "actionTitle": "the sentence this page lands",
-     "summary": "what it carries", "slots": ["kicker", "title", "affiliation"], "image": true}
+     "summary": "what it carries", "slots": ["kicker", "title", "affiliation"],
+     "images": [{"query": "常州 淹城 遗址 航拍", "orientation": "landscape"}]}
   ]
 }
 ```
 
 `actionTitle` is the point the page makes, not a label ("身韵八元素与三种圆：风格的最小零件", not "八元素").
 `slots` are the content blocks you intend to place; a content page planned with fewer than two of them
-is a title over whitespace. `image` records that this page is meant to carry a picture.
+is a title over whitespace.
+
+`images` is the list of pictures this page will carry — **plan the pictures page by page, and plan
+more than one wherever the page argues with more than one thing**: a before/after pair, three steps
+of a movement, a wide shot plus a detail, a scene plus the artefact it produced. Each entry is
+`{"query": ..., "orientation": "landscape|portrait", "ratio": 1.78, "role": "product", "note": ...}`;
+a bare string is shorthand for its query. `"image": true` with `imageQuery` remains the one-picture
+short form. `outline_contract.py` reports `outline-thin-illustration` when fewer than 60% of content
+pages plan a picture, and `outline-fewer-images` when a page ends up with fewer than it planned.
+
+A deck that carries one photo every four pages reads as a wall of text no matter how good the words
+are. Aim for a picture on most content pages and two or three on the pages that carry comparison,
+sequence or evidence — then let the layout use them: a two-up comparison, a three-step strip, a wide
+shot with an inset detail, a small gallery under a claim.
 
 1. Show the table and wait. `python3 scripts/outline_contract.py --outline <project>/outline.json --markdown`
    prints the confirmation table. Show it, stop, and only continue once the user accepts it. This is the
@@ -111,9 +125,12 @@ confirmed and before pages are written:
 python3 ~/.agents/skills/open-pptd/scripts/image_pool.py --project /abs/path/project --budget 240
 ```
 
-It reads every outline page marked `"image": true` — using `imageQuery` when the plan names the shot,
+It reads every picture the outline planned (`images` entries, or the `"image": true` short form) — using `imageQuery` when the plan names the shot,
 otherwise the page's `actionTitle` — runs the existing search backends once for the whole deck, and
-writes `images_pool.json` plus the files in `media/`.
+writes `images_pool.json` plus the files in `media/`. It examines 12 candidates per attempt on this
+branch and retries an empty intent once with the head of its query, and the report carries
+`pagesPlanned` / `pagesCovered` / `imagesPerPlannedPage` so a thin result is visible before the pages
+are written.
 
 Source gates before a picture is ever downloaded: stock-library and platform image hosts (they
 carry site or account watermarks) and shopping-catalogue hosts are refused by URL. A page that

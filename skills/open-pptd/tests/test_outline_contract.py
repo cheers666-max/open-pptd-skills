@@ -31,7 +31,7 @@ def outline(pages, **top):
 
 def page(index, **fields):
     base = {'pageIndex': index, 'pageType': 'content', 'actionTitle': f'第 {index} 页结论',
-            'summary': '一句话', 'slots': ['a', 'b'], 'image': False}
+            'summary': '一句话', 'slots': ['a', 'b'], 'image': True, 'imageQuery': '示例 配图'}
     base.update(fields)
     return base
 
@@ -50,6 +50,22 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(contract.plan_issues(outline([page(1), page(2)], requestedPages=2)), [])
 
 
+class IllustrationTests(unittest.TestCase):
+    def test_a_text_only_deck_is_reported(self):
+        pages = [page(i, image=False) for i in range(1, 6)]
+        codes = [i['code'] for i in contract.plan_issues(outline(pages, requestedPages=5))]
+        self.assertIn('outline-thin-illustration', codes)
+
+    def test_meeting_the_target_passes(self):
+        pages = [page(i) for i in range(1, 5)] + [page(5, image=False)]
+        self.assertEqual(contract.plan_issues(outline(pages, requestedPages=5)), [])
+
+    def test_a_page_may_plan_several_pictures(self):
+        rich = page(1, image=None, images=[{'query': '云手 分解'}, {'query': '课堂 示范'}])
+        self.assertEqual(contract.planned_image_count(rich), 2)
+        self.assertEqual(contract.planned_image_count(page(2, image=False)), 0)
+
+
 class DeckTests(unittest.TestCase):
     def test_promised_picture_missing_from_the_built_page(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -63,6 +79,14 @@ class DeckTests(unittest.TestCase):
             root = write_project(folder, [BACKGROUND_PAGE])
             plan = outline([page(1, pageType='cover', image=True)], requestedPages=1)
             self.assertEqual(contract.deck_issues(root, plan), [])
+
+    def test_a_page_that_placed_fewer_pictures_than_planned(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = write_project(folder, [IMAGE_PAGE])
+            plan = outline([page(1, image=None, images=[{'query': 'a'}, {'query': 'b'}])], requestedPages=1)
+            issues = contract.deck_issues(root, plan)
+            self.assertEqual([(i['code'], i['planned'], i['placed']) for i in issues],
+                             [('outline-fewer-images', 2, 1)])
 
     def test_short_deck_and_drifted_page_type_are_reported(self):
         with tempfile.TemporaryDirectory() as folder:
