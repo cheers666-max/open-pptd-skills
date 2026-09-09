@@ -622,7 +622,18 @@ def unresolved_src_issues(page: dict[str, Any], page_number: int, page_ref: str)
         return issues
 
     def check_src(src: str, element_id: str):
-        if SEARCH_RE.match(src):
+        if src.startswith("pool:"):
+            issues.append({
+                "code": "unresolved-pool-reference",
+                "pageNumber": page_number,
+                "pageRef": page_ref,
+                "elementId": element_id,
+                "src": src[:80],
+                "detail": "a pool: reference was never resolved; run image_pool.py --resolve "
+                          "(an id missing from the pool is reported there, never guessed)",
+                "repairability": "run-image-search",
+            })
+        elif SEARCH_RE.match(src):
             issues.append({
                 "code": "unresolved-search-placeholder",
                 "pageNumber": page_number,

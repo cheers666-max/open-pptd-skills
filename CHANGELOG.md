@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0 — 2026-09-09
+
+### open-pptd skill
+- New `scripts/image_pool.py`: the deck's pictures are collected in one pass from the confirmed outline (step2.6), before any page is written. Every outline page marked `"image": true` becomes one search intent (`imageQuery`, else the page's `actionTitle`), the pass runs through the existing backends with a single deck-wide hash/URL dedupe set, and the result is `images_pool.json` plus files in `media/`.
+- Pages reference `src: "pool:<id>"`; `--resolve` rewrites those to their `media/` paths and reports an id that is not in the pool instead of guessing one. `validate_deck.py` reports a leftover reference as `unresolved-pool-reference`.
+- Why: per-slot search during authoring gave each page its own narrow query — the same photo landed twice, pages ended up with nothing, and no picture was ever compared against the rest of the deck. Image fit was the lowest-scoring dimension of the 2026-09 evaluations (3.2/5), and the twenty-deck run shipped a page whose figure was an unrelated street scene next to one that had no figure at all.
+- Per-slot `search:` placeholders stay for pictures the plan did not foresee, single-page edits and replication.
+
 ## 2.2.0 — 2026-09-09
 
 ### open-pptd skill
