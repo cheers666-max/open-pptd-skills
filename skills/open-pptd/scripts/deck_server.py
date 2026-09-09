@@ -100,7 +100,9 @@ def start_deck_server(viewer: Path, deck_dir: Path) -> Tuple[http.server.HTTPSer
         (_DeckHTTPHandler,),
         {"viewer_path": viewer, "deck_dir": deck_dir, "scripts_dir": scripts_dir},
     )
-    server = http.server.HTTPServer(("127.0.0.1", 0), handler_cls)
+    # Chromium may open an idle speculative socket before its navigation request.
+    # A single-threaded server waits on that socket and never serves the viewer.
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler_cls)
     port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

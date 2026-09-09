@@ -107,8 +107,8 @@ function parseFont(bytes, faceIndex = 0) {
 
 /**
  * Load and validate font files for a PowerPoint presentation. Note:
- * ECMA-376 requires the emitted .fntdata parts to be GUID-obfuscated
- * (see obfuscateFontBytes in ooxml-basic.mjs); this function only
+ * PowerPoint stores .fntdata parts in EOT format
+ * (see encodeEotFont in eot-font.mjs); this function only
  * prepares the raw font bytes.
  */
 export async function prepareEmbeddedFonts(fontAssets = [], {

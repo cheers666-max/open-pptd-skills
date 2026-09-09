@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.0 — 2026-09-09
+
+### open-pptd skill
+- Image source gates: stock-library hosts (`zcool`/`hellorfimg`/`588ku`/`ibaotu`/`51yuansu`/`tu.chinaz`/`huaban` alongside the existing list), platform image hosts that stamp account watermarks (`bdstatic`, `hdslb`, `zhimg`, `sinaimg`, `itc.cn`, `sohucs`, `pstatp`/`byteimg`/`toutiao`) and any URL whose path contains `watermark` are refused before download. Shopping-catalogue hosts are refused unless the outline page asks for a product shot with `"imageRole": "product"`.
+- Every rejected host shipped a defective picture in the 2026-09-09 twenty-deck run: a Shutterstock-watermarked photo (`hellorfimg.zcool.cn`), a B-station image whose URL literally contains `/watermark/`, self-media watermarks from `itc.cn`/`sohucs`, a 1688 catalogue shot.
+- New blocking rule `source-caption-noise`: retrieval dates, "许可未知/授权待核" and captions reading "资料图" must not be rendered on a slide — 93 text elements across 15 of the 20 decks carried them. The record belongs in speaker notes or the image report; the slide gets institution · year · licence, or no caption.
+- Note: 2.4.0 (recorded validate exceptions) is currently 360-intranet only.
+
 ## 2.3.1 — 2026-09-09
 
 ### open-pptd skill

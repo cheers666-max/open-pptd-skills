@@ -28,6 +28,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 import zipfile
 from pathlib import Path
 from urllib.parse import quote, urlencode
@@ -90,11 +91,22 @@ def ensure_websocket():
         return websocket
 
 
+def chrome_environment():
+    environment = os.environ.copy()
+    if sys.platform == "darwin" and environment.get("OPENPPT_MANAGED_PROCESS_GROUP") == "1":
+        # macOS Chrome navigation needs the account home for native services.
+        # Its browser profile remains a separate temporary directory.
+        import pwd
+        environment["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
+    return environment
+
+
 def run_viewer_export(viewer: Path, deck: Path, chrome: str, timeout: int) -> bytes:
     """Drive the viewer's export-test hook via CDP and return the ZIP bytes."""
     websocket = ensure_websocket()
     server, port = start_deck_server(viewer, deck.parent)
     chrome_proc = None
+    profile = tempfile.TemporaryDirectory(prefix="pptd-html-chrome-")
     try:
         deck_url = f"http://127.0.0.1:{port}/deck/{quote(deck.name, safe='')}"
         url = f"http://127.0.0.1:{port}/viewer?{urlencode({'deck': deck_url, 'export-test': 1})}"
@@ -103,8 +115,8 @@ def run_viewer_export(viewer: Path, deck: Path, chrome: str, timeout: int) -> by
         ws_url = None
         for attempt in range(3):
             chrome_proc = subprocess.Popen(
-                [chrome, "--headless=new", "--disable-gpu", "--remote-debugging-port=0", "about:blank"],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                [chrome, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", f"--user-data-dir={profile.name}", "--remote-debugging-port=0", "about:blank"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=chrome_environment(),
             )
             # Parse the DevTools WS URL from stderr
             deadline = time.monotonic() + 15
@@ -202,8 +214,10 @@ def run_viewer_export(viewer: Path, deck: Path, chrome: str, timeout: int) -> by
                 chrome_proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 chrome_proc.kill()
+                chrome_proc.wait()
         server.shutdown()
         server.server_close()
+        profile.cleanup()
 
 
 # ---------------------------------------------------------------------------

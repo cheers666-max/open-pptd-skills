@@ -18,7 +18,8 @@ def resolve(request):
     return pool.acquire(request['query'], backend=request['backend'], want=request['want'],
                         min_dim=request['min_dim'], use_vlm=request['use_vlm'],
                         ratio=request['ratio'], deck_brief=request['brief'], page_text=request['page_text'],
-                        seen_hashes=set(request['seen_hashes']), seen_urls=set(request['seen_urls']))
+                        seen_hashes=set(request['seen_hashes']), seen_urls=set(request['seen_urls']),
+                        allow_product=bool(request.get('allow_product')))
 
 
 def main():

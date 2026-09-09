@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import quote, urlencode
 
 from deck_server import start_deck_server
-from export_html import ensure_websocket, find_chrome, find_deck
+from export_html import chrome_environment, ensure_websocket, find_chrome, find_deck
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 VIEWER_DEFAULT = SKILL_DIR / "scripts" / "viewer.html"
@@ -147,6 +147,9 @@ def screenshot_page(
     deadline = time.monotonic() + timeout
     proc = None
     ws = None
+    operation = "Chrome startup"
+    # A host with process-group containment must own Chrome's group as well.
+    managed_group = os.environ.get("OPENPPT_MANAGED_PROCESS_GROUP") == "1"
 
     def remaining() -> float:
         value = deadline - time.monotonic()
@@ -173,7 +176,7 @@ def screenshot_page(
         ]
         with tempfile.TemporaryFile() as chrome_errors:
             try:
-                proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=chrome_errors, start_new_session=True)
+                proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=chrome_errors, start_new_session=not managed_group, env=chrome_environment())
                 port_file = profile / "DevToolsActivePort"
                 while True:
                     remaining()
@@ -192,7 +195,8 @@ def screenshot_page(
                 message_id = 0
 
                 def cdp(method, params=None, session_id=None):
-                    nonlocal message_id
+                    nonlocal message_id, operation
+                    operation = method
                     message_id += 1
                     request = {"id": message_id, "method": method, "params": params or {}}
                     if session_id:
@@ -259,13 +263,16 @@ def screenshot_page(
             except ExportError:
                 raise
             except Exception as exc:
-                raise ExportError(f"page {page_number}: Chrome readiness/capture failed: {exc}") from exc
+                raise ExportError(f"page {page_number}: Chrome {operation} failed: {exc}") from exc
             finally:
                 if ws is not None:
                     ws.close()
                 if proc is not None:
                     try:
-                        os.killpg(proc.pid, signal.SIGTERM)
+                        if managed_group:
+                            proc.terminate()
+                        else:
+                            os.killpg(proc.pid, signal.SIGTERM)
                     except ProcessLookupError:
                         pass
                     try:
@@ -273,7 +280,10 @@ def screenshot_page(
                     except subprocess.TimeoutExpired:
                         pass
                     try:
-                        os.killpg(proc.pid, signal.SIGKILL)
+                        if managed_group:
+                            proc.kill()
+                        else:
+                            os.killpg(proc.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
                     proc.wait()  # Reap the browser even when graceful termination timed out.
