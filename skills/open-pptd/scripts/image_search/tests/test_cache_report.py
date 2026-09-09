@@ -47,7 +47,8 @@ class CacheReportTests(unittest.TestCase):
         output = io.StringIO()
         with patch.object(search_images, '_attempts', side_effect=resolver or self.resolve), \
                 contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
-            code = search_images.run(self.root, offline=offline, json_output=True)
+            code = search_images.run(self.root, offline=offline, json_output=True,
+                                     allow_latin_query=True)
         report = json.loads((self.root / 'images_report.json').read_text())
         self.assertEqual(json.loads(output.getvalue()), report)
         self.assertEqual(report['total_slots'], len(report['slots']))

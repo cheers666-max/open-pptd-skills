@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.1 — 2026-09-09
+
+### open-pptd skill
+- Image queries must be written in Chinese. `image_pool.py` refuses a Latin-only intent before the search pass starts and names the outline pages to rewrite; `search_images.py` refuses a Latin-only `search:` placeholder the same way. `--allow-latin-query` exists only for a deck actually written in that language, and the pipeline fixtures pass it explicitly because their queries are ASCII sentinels.
+- Evidence from the 2026-09-09 run: Latin scene phrases ("movie projector light beam dark room", "open notebook with pen writing hands") came back empty on both backends, while the Chinese phrasing on the same deck resolved.
+
 ## 2.3.0 — 2026-09-09
 
 ### open-pptd skill

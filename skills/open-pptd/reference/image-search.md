@@ -18,6 +18,7 @@ For this branch's **360 online export**, see [360-online.md](360-online.md). Aft
 
 - **Standard Library Only**: Built using `urllib`, `hashlib`, `struct`, `concurrent.futures`, `json`, and `re`. No external pip dependencies.
 - **Header Sniffing**: Fast binary dimension sniffing for PNG, JPEG, WebP, GIF, and BMP to avoid full decoding when evaluating candidate dimensions.
+- **Query language**: image queries are written in Chinese and name a concrete subject. The backends are Chinese-first; a Latin-only query is refused before any request goes out (`--allow-latin-query` only for a deck written in that language).
 - **Search Backends**:
   - `baidu`: Broad public web image search.
   - `vertical`: Curated vertical photographic and wallpaper collections.

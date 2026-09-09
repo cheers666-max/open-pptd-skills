@@ -57,6 +57,14 @@ class TestFetchWithUrl(unittest.TestCase):
         mock_req.assert_not_called()
 
 
+class TestQueryLanguage(unittest.TestCase):
+    def test_cjk_detection(self):
+        self.assertTrue(slots.is_cjk_query("电影院 观众席 背影"))
+        self.assertTrue(slots.is_cjk_query("2026 年 风电场"))
+        self.assertFalse(slots.is_cjk_query("dark cinema auditorium"))
+        self.assertFalse(slots.is_cjk_query(""))
+
+
 class TestSniffSize(unittest.TestCase):
     def test_png(self):
         # PNG header: 8 bytes magic + 4 len + 4 type (IHDR) + 4 width + 4 height
