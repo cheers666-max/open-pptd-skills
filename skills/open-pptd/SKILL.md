@@ -85,7 +85,9 @@ is a title over whitespace. `image` records that this page is meant to carry a p
 1. Show the table and wait. `python3 scripts/outline_contract.py --outline <project>/outline.json --markdown`
    prints the confirmation table. Show it, stop, and only continue once the user accepts it. This is the
    single mandatory pause; page counts, page types and figure decisions are cheap to change here and
-   expensive later.
+   expensive later. When the run is non-interactive and nobody can answer (a batch or eval harness),
+   print the table, write `"confirmed": "non-interactive"` into the outline and keep going — never end
+   a task holding only a plan.
 2. Check the plan on its own: run `outline_contract.py --outline <project>/outline.json` (no `--project`)
    to catch a plan that already disagrees with the agreed page count or leaves pages without a point.
 3. Author pages against the confirmed outline. Keep `pageIndex` stable: edits change a page in place,
