@@ -63,6 +63,41 @@ Understand the user's requirements based on the context:
   - Page-by-page outline/script provided: match the number of pages in the outline/script
   - When a complete and relatively structured document is provided / when only a topic is provided: decide the page count yourself based on the document content / search results
 
+### step2.5. Write the outline, confirm it, then author pages
+
+Before writing any page, put the plan on disk as `outline.json` in the project directory and get the
+user's confirmation. The plan is what later tells you the deck came out short, lost a body block or
+dropped a promised figure — a page-by-page renderer cannot know any of that.
+
+```json
+{
+  "title": "deck title", "audience": "who is in the room", "purpose": "what it must achieve",
+  "requestedPages": 14,
+  "pages": [
+    {"pageIndex": 1, "pageType": "cover", "actionTitle": "the sentence this page lands",
+     "summary": "what it carries", "slots": ["kicker", "title", "affiliation"], "image": true}
+  ]
+}
+```
+
+`actionTitle` is the point the page makes, not a label ("身韵八元素与三种圆：风格的最小零件", not "八元素").
+`slots` are the content blocks you intend to place; a content page planned with fewer than two of them
+is a title over whitespace. `image` records that this page is meant to carry a picture.
+
+1. Show the table and wait. `python3 scripts/outline_contract.py --outline <project>/outline.json --markdown`
+   prints the confirmation table. Show it, stop, and only continue once the user accepts it. This is the
+   single mandatory pause; page counts, page types and figure decisions are cheap to change here and
+   expensive later.
+2. Check the plan on its own: run `outline_contract.py --outline <project>/outline.json` (no `--project`)
+   to catch a plan that already disagrees with the agreed page count or leaves pages without a point.
+3. Author pages against the confirmed outline. Keep `pageIndex` stable: edits change a page in place,
+   inserts take the next free index, deletions leave a gap. Never renumber.
+4. When the user changes the plan mid-flight, update `outline.json` first, re-show the table, and only
+   then touch pages. An outline that no longer matches the deck is worse than no outline.
+
+For a single-page edit or a small explicit task, this step is a few lines in the outline, not a ceremony.
+Replication and template tasks still record the page plan they are reproducing.
+
 ### step3. Generate the presentation based on the user's requirements
 
 Follow the quickstart's modular writing strategy: reuse `scripts/authoring_helpers.py`, write shared setup, then complete 2–3-page modules with explicit `path` and `content`; retry only a failed module. `write_project` rejects malformed page/element structures before writing any pages. After the **first completed module**, run its assembler, resolve that draft's images (step3.5), then run `prepare_deck.py` (step4) and inspect the current render before expanding the pattern. Preserve planned content, page-specific layouts and the final whole-deck review. Look up and test one instance of an unfamiliar element; keep plans brief rather than duplicating slide prose.
@@ -151,6 +186,12 @@ When generating a PPT, adopt different production approaches for different user 
 
    This runs the existing deterministic validator, renders changed pages, rebuilds a **complete current overview**, and runs the existing auxiliary contrast/overlap audit across every page. It makes no model or scoring calls. Read the concise result and `.qa-images/prepare-report.json` for page/field errors, advisories, image paths, rendered/reused page numbers and export results. `ok` means machine checks passed; `visualReview: required` is not a visual pass. Preserve the exit code; when piping logs, use `set -o pipefail` or capture the original status.
    Blocking codes include orphan-last-line （孤字）, forbidden-line-start-punctuation, text-capacity-overflow, unexpected-wrap, element-overflow-viewport, low-effective-image-resolution, invalid-gradient, missing-required-background (cover/final/chapter), unresolved search/remote image placeholders, invalid-align (align must be a flat [h, v] pair), line-points-outside-viewbox (line points are viewBox units), empty-body-band (a full-width gap between elements wider than a quarter of the slide — usually a body block that was never written), internal-token-leak and duplicate-image; text-density stays a non-blocking advisory.
+
+   Then hold the deck to its plan: `python3 ~/.agents/skills/open-pptd/scripts/outline_contract.py --project /abs/path/project`
+   reports `outline-deck-count` (the deck is shorter or longer than the confirmed outline),
+   `outline-page-type` (a page became a different kind of page) and `outline-missing-image` (a page that
+   promised a picture has none). Exit code 1 means the deck and the confirmed plan disagree: fix the deck,
+   or update the outline with the user and say what changed. Skip it only when no outline was agreed.
 
    Invalid page/element structures and unresolved image sources stop before rendering. Fix YAML/types, required fields, theme tokens, resources and confirmed geometry issues; consult exact feature specifications when needed. Capacity, orphan-line, wrapping, density and card-layout estimates are candidates for visual inspection: inspect rendered pages before batch-editing them, and record justified exceptions in DESIGN_CONTEXT.md. Do not iterate to zero heuristic counts or change thresholds to satisfy a design. The auxiliary audit measures limited pure-color contrast/overlap, not actual text overflow, complex backgrounds or image relevance.
 
