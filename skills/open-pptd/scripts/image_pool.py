@@ -66,6 +66,7 @@ def intents_from_outline(outline: dict) -> List[Dict[str, Any]]:
             'query': query,
             'want': str(page.get('imageOrientation') or 'landscape'),
             'ratio': page.get('imageRatio'),
+            'role': str(page.get('imageRole') or '').strip().lower(),
             'context': ' '.join(str(page.get(key, '')) for key in ('actionTitle', 'summary')).strip(),
         })
     return intents
@@ -109,6 +110,7 @@ def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=Fals
         slot = slots_mod.Slot(page=key, line_no=order, kind='image', element_id=intent['id'],
                               raw_src=f"search:{intent['query']}", want=intent['want'],
                               ratio=intent['ratio'], fit='cover', bounds=None)
+        slot.allow_product = intent.get('role') == 'product'
         slots.append(slot)
         texts[key] = intent['context'] or intent['query']
 

@@ -741,6 +741,17 @@ INTERNAL_TOKEN_PATTERNS = [
 ]
 
 
+# Provenance bookkeeping that belongs in the notes or the image report, never on the slide: a
+# retrieval date, an unknown licence, or a caption that only says the picture is stock footage.
+# The audience gets institution · year · licence, or nothing.
+CAPTION_NOISE_PATTERNS = [
+    r"\d{4}[-/年]\d{1,2}[-/月]\d{1,2}\s*日?\s*(?:检索|访问)",
+    r"(?:检索|访问)日期",
+    r"(?:许可|授权|版权|来源)\s*(?:未知|不明|待核|待确认)",
+    r"资料图",
+]
+
+
 DEFAULT_MAX_PAGE_CHARS = 360
 DENSITY_EXEMPT_PAGE_TYPES = {"cover", "final", "chapter", "toc", "section", "closing", "ending"}
 
@@ -945,6 +956,44 @@ def internal_token_leak_issues(page: dict[str, Any], page_number: int, page_ref:
                     "elementId": el.get("elementId", ""),
                     "matched": m.group(0),
                     "detail": f"Internal artifact/workflow token in audience-facing text: '{m.group(0)}'",
+                    "repairability": "rewrite-text",
+                })
+                break
+    return issues
+
+
+def caption_noise_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
+    """Provenance bookkeeping rendered onto the slide.
+
+    "（2026-09-09 检索，许可未知）" and a caption reading "资料图" tell the audience nothing and
+    advertise that the deck did not settle its sources. Keep the record in speaker notes or the
+    image report; on the page write institution · year · licence, or drop the caption.
+    """
+    issues: List[dict[str, Any]] = []
+    elements = page.get("elements", [])
+    if not isinstance(elements, list):
+        return issues
+    patterns = [re.compile(pat) for pat in CAPTION_NOISE_PATTERNS]
+    for el in elements:
+        if not isinstance(el, dict) or el.get("elementType") != "text":
+            continue
+        content = el.get("content", {})
+        text = content.get("text", "") if isinstance(content, dict) else ""
+        plain = plain_text(text) if isinstance(text, str) else ""
+        if not plain:
+            continue
+        for pat in patterns:
+            match = pat.search(plain)
+            if match:
+                issues.append({
+                    "code": "source-caption-noise",
+                    "pageNumber": page_number,
+                    "pageRef": page_ref,
+                    "elementId": el.get("elementId", ""),
+                    "matched": match.group(0),
+                    "detail": f"provenance bookkeeping on the slide: '{match.group(0)}' — move the "
+                              "retrieval date and licence status to notes; caption the picture with "
+                              "institution · year · licence or leave it uncaptioned",
                     "repairability": "rewrite-text",
                 })
                 break
@@ -1216,6 +1265,7 @@ def audit_project(
         issues.extend(unresolved_src_issues(page, page_number, str(page_ref)))
         issues.extend(anti_slop_text_issues(page, page_number, str(page_ref)))
         issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
+        issues.extend(caption_noise_issues(page, page_number, str(page_ref)))
         for schema_issue in element_schema_issues(page, page_number, str(page_ref)):
             (advisories if schema_issue["code"] == "non-canonical-align" else issues).append(schema_issue)
         density = text_density_advisory(page, page_number, str(page_ref), max_page_chars)

@@ -262,6 +262,26 @@ class ElementSchemaTests(unittest.TestCase):
             self.assertEqual(report['advisoryCounts'].get('non-canonical-align'), 1)
 
 
+class CaptionNoiseTests(unittest.TestCase):
+    def page(self, caption):
+        return {'elements': [{'elementId': 'cap', 'elementType': 'text', 'bounds': [0, 0, 300, 20],
+                              'content': {'text': caption}}]}
+
+    def test_retrieval_date_licence_and_stock_captions_block(self):
+        for caption in ('图：常州文旅（2026-09-09 检索）',
+                        '摄影：某人（许可未知）',
+                        'CQC 2024 年报道配图（资料图，不代表本单位参与）',
+                        '检索日期：2026-09-09'):
+            issues = validate.caption_noise_issues(self.page(caption), 1, 'pages/01.page')
+            self.assertEqual([i['code'] for i in issues], ['source-caption-noise'], caption)
+
+    def test_a_real_credit_line_passes(self):
+        for caption in ('图：国家大剧院官网 · 2020 · CC BY-SA 4.0',
+                        '数据来源：国家统计局 2025 年年鉴',
+                        '摄影：李明 / 常州市档案馆'):
+            self.assertEqual(validate.caption_noise_issues(self.page(caption), 1, 'pages/01.page'), [], caption)
+
+
 class ExceptionTests(unittest.TestCase):
     def project(self, folder, page_body, exceptions=None):
         import json as _json

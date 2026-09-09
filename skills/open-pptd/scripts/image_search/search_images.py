@@ -89,6 +89,7 @@ def _attempts(slots, texts, brief, backend, workers, timeout, deadline, use_vlm,
                     result_path = Path(temp) / f'{attempt_id}.result.json'
                     request = dict(backend=name, query=slot.query, url=slot.raw_src, want=slot.want,
                                    ratio=slot.ratio, min_dim=min_dim, use_vlm=use_vlm, brief=brief,
+                                   allow_product=getattr(slot, 'allow_product', False),
                                    page_text=re.sub(r'\s+', ' ', texts[slot.page])[:400],
                                    seen_hashes=list(seen_hashes), seen_urls=list(seen_urls))
                     request_path.write_text(json.dumps(request, ensure_ascii=False), encoding='utf-8')

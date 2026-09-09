@@ -57,6 +57,29 @@ class TestFetchWithUrl(unittest.TestCase):
         mock_req.assert_not_called()
 
 
+class TestSourceGates(unittest.TestCase):
+    """Real URLs from the 2026-09-09 run that shipped watermarked or catalogue pictures."""
+
+    def test_stock_and_platform_image_hosts_are_refused(self):
+        for url in ("http://hellorfimg.zcool.cn/large/507942781.jpg",
+                    "http://i0.hdslb.com/bfs/new_dyn/watermark/e87681c4.jpg",
+                    "http://pic.rmb.bdstatic.com/bjh/news/f5194f9a.jpeg",
+                    "https://p9.itc.cn/q_70/images03/20210207/f6e1f236.jpeg",
+                    "https://5b0988e595225.cdn.sohucs.com/images/20180918/d51186f9.jpeg"):
+            self.assertTrue(pool._is_watermark_domain(url), url)
+
+    def test_ordinary_photo_hosts_still_pass(self):
+        for url in ("https://live.staticflickr.com/2927/14277759456_7d4818d4d2_b.jpg",
+                    "https://upload.example.org/photo.jpg"):
+            self.assertFalse(pool._is_watermark_domain(url), url)
+            self.assertFalse(pool._is_ecommerce_domain(url), url)
+
+    def test_shopping_hosts_are_product_only(self):
+        url = "https://img.alicdn.com/bao/uploaded/i4/2395182655/O1CN01.jpg"
+        self.assertTrue(pool._is_ecommerce_domain(url))
+        self.assertFalse(pool._is_watermark_domain(url))
+
+
 class TestQueryLanguage(unittest.TestCase):
     def test_cjk_detection(self):
         self.assertTrue(slots.is_cjk_query("电影院 观众席 背影"))

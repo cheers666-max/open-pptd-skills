@@ -74,7 +74,8 @@ def parse_bounds_aspect(bounds: Optional[List[float]]) -> Optional[float]:
 
 class Slot:
     __slots__ = ("page", "line_no", "kind", "element_id", "raw_src", "query",
-                 "want", "ratio", "fit", "bounds", "status", "local_path", "winner", "tried", "allow_fallback")
+                 "want", "ratio", "fit", "bounds", "status", "local_path", "winner", "tried",
+                 "allow_fallback", "allow_product")
 
     def __init__(self, page: str, line_no: int, kind: str, element_id: str,
                  raw_src: str, want: str, ratio: float | None, fit: str, bounds: Optional[List[float]]):
@@ -93,6 +94,7 @@ class Slot:
         self.winner: Optional[Dict] = None
         self.tried: List[Dict] = []
         self.allow_fallback = False
+        self.allow_product = False   # 该槽要的就是产品图时才收电商图床
 
     @property
     def is_search(self) -> bool:

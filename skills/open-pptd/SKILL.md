@@ -115,6 +115,11 @@ It reads every outline page marked `"image": true` — using `imageQuery` when t
 otherwise the page's `actionTitle` — runs the existing search backends once for the whole deck, and
 writes `images_pool.json` plus the files in `media/`.
 
+Source gates before a picture is ever downloaded: stock-library and platform image hosts (they
+carry site or account watermarks) and shopping-catalogue hosts are refused by URL. A page that
+genuinely needs a product shot says so in the outline with `"imageRole": "product"`, which lifts the
+shopping-host gate for that intent only.
+
 **Write every image query in Chinese.** The backends are Chinese-first: a Latin scene phrase
 ("movie projector light beam dark room") comes back empty where the Chinese phrasing resolves, and
 the pass refuses to start with one. Name concrete subjects rather than abstractions — "电影院 观众席

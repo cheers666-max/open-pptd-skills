@@ -68,12 +68,28 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
 # 常见图库/素材站水印域名（VLM 之外的前置过滤，宁缺毋滥：只列稳定出戳的）
+# 素材站/图库域：图片普遍压着站点水印或版权戳，直接拒，省下载与判图成本。
+# 名单对齐 360 线上 master 的 _WATERMARK_HEAVY_DOMAINS，并补上本轮实拍到的漏网域。
 _WATERMARK_DOMAINS = (
     "vcg.com", "visualchina", "quanjing.com", "dfic.cn", "ppbaike",
     "nipic.com", "699pic.com", "16pic.com", "photophoto.cn", "58pic.com",
-    "699pic", "tuchong.com", "hellorf.com", "zsxq.com", "bigbigwork",
+    "699pic", "tuchong.com", "hellorf.com", "hellorfimg", "zcool", "zsxq.com",
+    "bigbigwork", "588ku", "ibaotu", "51yuansu", "tu.chinaz", "huaban",
     "shutterstock.com", "alamy.com", "dreamstime.com", "123rf.com",
     "istockphoto.com", "gettyimages.", "stock.adobe.com",
+)
+
+# 内容平台图床：常压半透明台标/账号水印。线上 master 命中后调去水印 API 修图；本分支没有那条
+# 服务，直接拒——候选够多，不值得为一张带水印的图冒险。
+_PLATFORM_WATERMARK_DOMAINS = (
+    "bdstatic.com", "hdslb.com", "zhimg.com", "sinaimg.cn",
+    "itc.cn", "sohucs.com", "pstatp.com", "byteimg.com", "toutiao",
+)
+
+# 电商/商品图床：白底商品图、促销角标，除非这一槽要的就是产品图。
+_ECOMMERCE_DOMAINS = (
+    "alicdn", "taobao", "tmall", "jd.com", "360buy", "1688", "pinduoduo",
+    "yangkeduo", "amazon", "ebay", "shopify", "dhgate", "aliexpress",
 )
 
 _IMG_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
@@ -141,8 +157,21 @@ def canonical_url(url: str) -> str:
 
 
 def _is_watermark_domain(url: str) -> bool:
+    """素材站、平台图床，或路径里直接写着 watermark 的 URL。"""
     u = (url or "").lower()
-    return any(d in u for d in _WATERMARK_DOMAINS)
+    if any(d in u for d in _WATERMARK_DOMAINS + _PLATFORM_WATERMARK_DOMAINS):
+        return True
+    try:
+        path = urllib.parse.urlsplit(u).path
+    except ValueError:
+        path = u
+    return "watermark" in path
+
+
+def _is_ecommerce_domain(url: str) -> bool:
+    """商品图床（alicdn/1688 等）。只有明确要产品图的槽位才该收。"""
+    u = (url or "").lower()
+    return any(d in u for d in _ECOMMERCE_DOMAINS)
 
 
 # ---------------------------------------------------------------------------
@@ -507,7 +536,7 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
              min_dim: int = DEFAULT_MIN_DIM, use_vlm: bool = True,
              deck_brief: str = "", page_text: str = "",
              seen_hashes: Optional[set] = None, seen_urls: Optional[set] = None,
-             ratio: Optional[float] = None,
+             ratio: Optional[float] = None, allow_product: bool = False,
              limit: int = 8) -> Tuple[Optional[Dict], List[Dict]]:
     """检索→过滤→下载→(VLM)选优。
 
@@ -519,7 +548,8 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
         for name in AUTO_ORDER:
             winner, tried = acquire(query, backend=name, want=want, min_dim=min_dim,
                                     use_vlm=use_vlm, deck_brief=deck_brief, page_text=page_text,
-                                    seen_hashes=seen_hashes, seen_urls=seen_urls, ratio=ratio, limit=limit)
+                                    seen_hashes=seen_hashes, seen_urls=seen_urls, ratio=ratio,
+                                    allow_product=allow_product, limit=limit)
             attempts.extend(tried)
             if winner:
                 return winner, attempts
@@ -542,6 +572,10 @@ def acquire(query: str, *, backend: str = "auto", want: str = "any",
             continue
         if _is_watermark_domain(u):
             rec["fate"] = "watermark_domain"
+            tried.append(rec)
+            continue
+        if not allow_product and _is_ecommerce_domain(u):
+            rec["fate"] = "ecommerce_domain"
             tried.append(rec)
             continue
         if seen_urls is not None and cu in seen_urls:
