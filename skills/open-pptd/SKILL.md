@@ -251,8 +251,10 @@ When generating a PPT, adopt different production approaches for different user 
    design: `validate-exceptions.json` in the project holds `{"exceptions": [{"code": ...,
    "pageNumber": ..., "reason": "what the render showed"}]}`. Accepted findings move to
    advisories carrying that reason, so they stay in the report; an exception that no longer matches
-   anything is reported as `stale-exception`; and structural defects (a missing body, an unresolved
-   source, a leaked internal token) can never be acknowledged this way.
+   anything is reported as `stale-exception`; an entry naming a structural defect (a missing body, an
+   unresolved source, a leaked internal token) or lacking a reason is reported as `invalid-exception`
+   and the underlying finding still blocks. Keyword findings — a banned phrase, a card wall — are
+   acknowledgeable: 「护城河」on a page about a moated city is the rule being wrong, not the deck.
    Blocking codes include orphan-last-line （孤字）, forbidden-line-start-punctuation, text-capacity-overflow, unexpected-wrap, element-overflow-viewport, low-effective-image-resolution, invalid-gradient, missing-required-background (cover/final/chapter), unresolved search/remote image placeholders, invalid-align (align must be a flat [h, v] pair), line-points-outside-viewbox (line points are viewBox units), empty-body-band (a full-width gap between elements wider than a quarter of the slide — usually a body block that was never written), internal-token-leak and duplicate-image; text-density stays a non-blocking advisory.
 
    Then hold the deck to its plan: `python3 ~/.agents/skills/open-pptd/scripts/outline_contract.py --project /abs/path/project`

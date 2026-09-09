@@ -328,11 +328,25 @@ class ExceptionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = self.project(folder, 'pageType: content\nelements: []\n', [
                 {'code': 'empty-body-band', 'reason': 'we like holes'}])
-            with self.assertRaises(RuntimeError):
-                validate.audit_project(root)
+            report = validate.audit_project(root)
+            self.assertFalse(report['valid'])
+            self.assertEqual(report['issueCounts'].get('invalid-exception'), 1)
 
     def test_an_exception_without_a_reason_is_refused(self):
         with tempfile.TemporaryDirectory() as folder:
             root = self.project(folder, self.CARD_WALL, [{'code': 'anti-slop-card-layout'}])
-            with self.assertRaises(RuntimeError):
-                validate.audit_project(root)
+            report = validate.audit_project(root)
+            self.assertFalse(report['valid'])
+            self.assertEqual(report['issueCounts'].get('invalid-exception'), 1)
+            self.assertEqual(report['issueCounts'].get('anti-slop-card-layout'), 1)
+
+    def test_a_keyword_phrase_flag_can_be_acknowledged(self):
+        page = ('pageType: content\nelements:\n- elementId: t\n  elementType: text\n'
+                '  bounds: [48, 48, 400, 40]\n  content:\n    text: 商丘古城四面环护城河\n')
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, page, [
+                {'code': 'anti-slop-phrase', 'pageNumber': 1,
+                 'reason': '护城河是这座古城的真实地理要素，不是商业套话'}])
+            report = validate.audit_project(root)
+            self.assertTrue(report['valid'])
+            self.assertEqual(report['acknowledged'], ['anti-slop-phrase'])

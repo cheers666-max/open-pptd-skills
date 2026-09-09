@@ -1156,14 +1156,14 @@ def gradient_issues(page: dict, page_number: int, page_ref: str) -> List[dict[st
 # can disprove. Structural findings (a missing body, an unresolved source, a leaked internal token)
 # are never acknowledgeable — those are defects whatever the design intent.
 ACKNOWLEDGEABLE_CODES = {
-    "anti-slop-card-layout", "anti-slop-rainbow-scheme", "orphan-last-line",
-    "forbidden-line-start-punctuation", "text-capacity-overflow", "unexpected-wrap",
-    "low-effective-image-resolution",
+    "anti-slop-card-layout", "anti-slop-rainbow-scheme", "anti-slop-phrase",
+    "orphan-last-line", "forbidden-line-start-punctuation", "text-capacity-overflow",
+    "unexpected-wrap", "low-effective-image-resolution", "text-density",
 }
 EXCEPTIONS_FILE = "validate-exceptions.json"
 
 
-def load_exceptions(project: Path) -> List[dict[str, Any]]:
+def load_exceptions(project: Path) -> Tuple[List[dict[str, Any]], List[dict[str, Any]]]:
     """Author-recorded exceptions: `{"exceptions": [{code, reason, pageNumber?, elementId?}]}`.
 
     The skill tells authors to confirm a heuristic against the rendered page and record a justified
@@ -1172,18 +1172,21 @@ def load_exceptions(project: Path) -> List[dict[str, Any]]:
     """
     path = project / EXCEPTIONS_FILE
     if not path.is_file():
-        return []
+        return [], []
     entries = load_structured(path).get("exceptions")
     if not isinstance(entries, list):
         raise RuntimeError(f'{EXCEPTIONS_FILE} must hold {{"exceptions": [...]}}')
     checked: List[dict[str, Any]] = []
+    rejected: List[dict[str, Any]] = []
     for entry in entries:
         if not isinstance(entry, dict) or not entry.get("code") or not str(entry.get("reason", "")).strip():
-            raise RuntimeError(f"every exception needs a code and a written reason: {entry!r}")
-        if entry["code"] not in ACKNOWLEDGEABLE_CODES:
-            raise RuntimeError(f"{entry['code']} cannot be acknowledged; it is a defect, not advice")
-        checked.append(entry)
-    return checked
+            rejected.append({"entry": entry, "why": "an exception needs a code and a written reason"})
+        elif entry["code"] not in ACKNOWLEDGEABLE_CODES:
+            rejected.append({"entry": entry,
+                             "why": f"{entry['code']} is a defect, not advice; it cannot be acknowledged"})
+        else:
+            checked.append(entry)
+    return checked, rejected
 
 
 def _matches(issue: dict[str, Any], entry: dict[str, Any]) -> bool:
@@ -1296,8 +1299,15 @@ def audit_project(
     for dup in duplicate_image_issues(loaded_pages):
         (advisories if dup["repairability"] == "style" else issues).append(dup)
 
-    exceptions = load_exceptions(project)
+    exceptions, rejected_exceptions = load_exceptions(project)
     issues, accepted, stale = apply_exceptions(issues, exceptions)
+    for bad in rejected_exceptions:
+        issues.append({
+            "code": "invalid-exception",
+            "detail": bad["why"],
+            "exception": bad["entry"],
+            "repairability": "text",
+        })
     advisories.extend(accepted)
     for entry in stale:
         issues.append({
