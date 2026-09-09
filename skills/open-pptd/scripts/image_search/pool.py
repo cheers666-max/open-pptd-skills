@@ -531,7 +531,9 @@ def judge_image(query: str, image_bytes: bytes, *, deck_brief: str = "",
     itype = str(v.get("image_type", "other"))
     wm = bool(v.get("has_watermark"))
     chrome = bool(v.get("has_media_chrome"))
-    reject = rel == 0 or chrome or itype == "screenshot"
+    # 线上 master 容忍角标水印（命中后调去水印 API 修图）；本分支没有那条修复路径，
+    # 判到水印就直接淘汰，不靠 -8 分寄希望于它排不到第一。
+    reject = rel == 0 or chrome or itype == "screenshot" or wm
     composite = rel * 10 + qual * 3 - (8 if wm else 0) - (100 if reject else 0)
     return {"relevance": rel, "image_type": itype, "has_watermark": wm,
             "quality": qual, "reject": reject, "composite": composite,
