@@ -96,6 +96,32 @@ is a title over whitespace. `image` records that this page is meant to carry a p
 For a single-page edit or a small explicit task, this step is a few lines in the outline, not a ceremony.
 Replication and template tasks still record the page plan they are reproducing.
 
+### step2.6. Collect the deck's pictures once, from the confirmed outline
+
+Searching per page while authoring gives every page its own narrow query: the same photo lands on two
+pages, a page quietly ends up with none, and a picture that matches only its own caption is never
+compared against the rest of the deck. Collect them in one pass instead, right after the outline is
+confirmed and before pages are written:
+
+```bash
+python3 ~/.agents/skills/open-pptd/scripts/image_pool.py --project /abs/path/project --budget 240
+```
+
+It reads every outline page marked `"image": true` — using `imageQuery` when the plan names the shot,
+otherwise the page's `actionTitle` — runs the existing search backends once for the whole deck, and
+writes `images_pool.json` plus the files in `media/`. The pass shares one hash/URL dedupe set, so two
+pages cannot be handed the same photo. `imageOrientation` (`landscape`/`portrait`) and `imageRatio`
+steer the geometry gate.
+
+Pages then reference the pool instead of a query or a URL: `src: "pool:p6"`. After authoring, run
+`image_pool.py --project <dir> --resolve` to rewrite those references to their `media/` paths. An id
+that is not in the pool is reported, never guessed, and `validate_deck.py` reports any leftover
+reference as `unresolved-pool-reference`.
+
+Per-slot `search:` placeholders (step3.5) remain available for a picture the plan did not foresee, for
+a single-page edit, and for replication work. Use the pool for a new deck: it is what keeps the figures
+distinct, comparable and decided before the layout hardens around them.
+
 ### step3. Generate the presentation based on the user's requirements
 
 Use the format quickstart already read in step1. Look up the exact specification and example before using an unfamiliar element. For ordinary multi-page new decks, follow its modular writing strategy: reuse `scripts/authoring_helpers.py`, write shared setup first, then complete 2–3-page modules with explicit `path` and `content`; retry only a failed module. Preserve all planned content, page-specific layouts and generation/review rounds. Run the quickstart one-page example with your chosen fields before expanding an unfamiliar pattern. Produce an early renderable draft; avoid duplicating full slide content in planning notes.
