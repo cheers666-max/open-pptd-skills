@@ -187,7 +187,7 @@ def _cached(slot, report, project, min_dim):
 
 def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=False,
         min_dim=pool.DEFAULT_MIN_DIM, dry_run=False, timeout=30, budget=120, offline=False,
-        json_output=False):
+        json_output=False, allow_latin_query=False):
     started = time.monotonic()
     if not all(math.isfinite(x) and x > 0 for x in (timeout, budget)) or workers < 1 or min_dim < 1:
         raise ValueError('timeout, budget, workers and min-dim must be positive')
@@ -204,6 +204,13 @@ def run(project, *, backend='auto', workers=4, use_vlm=False, localize_remote=Fa
             brief = match.group(1).strip()
     all_slots = [s for page, text in texts.items() for s in slots_mod.extract_slots(text, page)
                  if s.is_search or ((localize_remote or offline) and s.is_remote)]
+    if not allow_latin_query:
+        # Image queries are written in Chinese; a Latin-only query searches the wrong index.
+        latin = [s for s in all_slots if s.is_search and not slots_mod.is_cjk_query(s.query)]
+        if latin:
+            detail = '; '.join(f'{s.page}:{s.line_no + 1} {s.query[:40]}' for s in latin)
+            raise ValueError('image queries must be written in Chinese — rewrite these '
+                             f'search: placeholders: {detail}')
     use_vlm = bool(use_vlm and not offline and pool.vlm_enabled())
     progress(f'[scan] {len(texts)} pages, {len(all_slots)} slots; backend={backend} offline={offline} vlm={use_vlm}')
     if dry_run:
@@ -281,12 +288,15 @@ def main(argv=None):
     ap.add_argument('--localize-remote', action='store_true')
     ap.add_argument('--min-dim', type=int, default=pool.DEFAULT_MIN_DIM)
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--allow-latin-query', action='store_true',
+                    help='only for a deck actually written in that language')
     ap.add_argument('--json', action='store_true', help='One JSON summary on stdout; progress on stderr')
     args = ap.parse_args(argv)
     try:
         return run(args.project, backend=args.backend, workers=args.workers, use_vlm=args.vlm,
                    localize_remote=args.localize_remote, min_dim=args.min_dim, dry_run=args.dry_run,
-                   timeout=args.timeout, budget=args.budget, offline=args.offline, json_output=args.json)
+                   timeout=args.timeout, budget=args.budget, offline=args.offline, json_output=args.json,
+                   allow_latin_query=args.allow_latin_query)
     except (OSError, ValueError) as exc:
         progress(f'[error] {exc}')
         if args.json:

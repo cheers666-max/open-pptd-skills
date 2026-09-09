@@ -50,6 +50,19 @@ class IntentTests(unittest.TestCase):
         self.assertEqual(image_pool.intents_from_outline({'pages': [{'pageIndex': 1, 'image': True}]}), [])
 
 
+class QueryLanguageTests(unittest.TestCase):
+    def test_latin_only_query_is_refused_before_searching(self):
+        intents = [{'id': 'p2', 'query': 'movie projector light beam dark room'},
+                   {'id': 'p3', 'query': '电影院 观众席'}]
+        with self.assertRaises(ValueError) as caught:
+            image_pool.check_queries(intents)
+        self.assertIn('p2', str(caught.exception))
+        self.assertNotIn('p3', str(caught.exception))
+
+    def test_chinese_queries_pass(self):
+        self.assertIsNone(image_pool.check_queries([{'id': 'p1', 'query': '草原 风力发电 航拍'}]))
+
+
 class ResolveTests(unittest.TestCase):
     def test_reference_is_rewritten_to_the_pooled_file(self):
         with tempfile.TemporaryDirectory() as folder:

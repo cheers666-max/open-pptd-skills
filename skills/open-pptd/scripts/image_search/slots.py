@@ -26,6 +26,13 @@ BOUNDS_RE = re.compile(r'^\s*bounds:\s*\[?\s*([-\d.,\s]+?)\s*\]?\s*$')
 FIT_RE = re.compile(r'^\s*fit:\s*\{?\s*mode:\s*([a-zA-Z]+)')
 
 SEARCH_PREFIX = "search:"
+CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]")
+
+
+def is_cjk_query(query: str) -> bool:
+    """Image queries are written in Chinese; a Latin-only query searches the wrong index."""
+    return bool(CJK_RE.search(query or ""))
+
 REMOTE_RE = re.compile(r"^https?://", re.IGNORECASE)
 
 

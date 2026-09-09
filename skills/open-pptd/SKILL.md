@@ -111,7 +111,13 @@ python3 ~/.agents/skills/open-pptd/scripts/image_pool.py --project /abs/path/pro
 
 It reads every outline page marked `"image": true` — using `imageQuery` when the plan names the shot,
 otherwise the page's `actionTitle` — runs the existing search backends once for the whole deck, and
-writes `images_pool.json` plus the files in `media/`. The pass shares one hash/URL dedupe set, so two
+writes `images_pool.json` plus the files in `media/`.
+
+**Write every image query in Chinese.** The backends are Chinese-first: a Latin scene phrase
+("movie projector light beam dark room") comes back empty where the Chinese phrasing resolves, and
+the pass refuses to start with one. Name concrete subjects rather than abstractions — "电影院 观众席
+背影" resolves, "心理观影氛围" does not. `--allow-latin-query` exists only for a deck actually written
+in that language. The pass shares one hash/URL dedupe set, so two
 pages cannot be handed the same photo. `imageOrientation` (`landscape`/`portrait`) and `imageRatio`
 steer the geometry gate.
 
@@ -194,7 +200,9 @@ When generating a PPT, adopt different production approaches for different user 
      --backend auto --workers 4 --timeout 30 --budget 120
    ```
 
-2. The script searches, downloads and filters candidates with a complete-attempt timeout and an overall budget, then saves local media and rewrites `src:`. Download/filter failure also tries the next backend. Progress and heartbeats go to stderr; inspect `images_report.json`. VLM judging requires explicit `--vlm` plus a configured key and task authorization; `--no-vlm` remains supported. `--offline` never calls image backends or VLM and permits only marked decorative substitutes.
+2. Write the query in Chinese and name a concrete subject; the script refuses a Latin-only
+   `search:` query (`--allow-latin-query` only for a deck written in that language).
+   The script searches, downloads and filters candidates with a complete-attempt timeout and an overall budget, then saves local media and rewrites `src:`. Download/filter failure also tries the next backend. Progress and heartbeats go to stderr; inspect `images_report.json`. VLM judging requires explicit `--vlm` plus a configured key and task authorization; `--no-vlm` remains supported. `--offline` never calls image backends or VLM and permits only marked decorative substitutes.
 3. Pass `--localize-remote` to also download existing `https?://` image `src:` references into `media/` (Wikimedia Commons thumbnail URLs with non-whitelisted widths are rewritten automatically; see `reference/image-search.md`).
 4. Exit codes: `0` = every slot resolved; `2` = unresolved slots remain — inspect `<project>/images_report.json`, adjust the `.page` element (query, bounds, or element choice) and re-run; `1` = usage/IO error.
    After an automatic attempt has exhausted all backends, do not rerun the same backends individually without a meaningful query/asset/access change. Use the designated decorative fallback where allowed, or report the missing required image and preserve the completed content.

@@ -71,9 +71,23 @@ def intents_from_outline(outline: dict) -> List[Dict[str, Any]]:
     return intents
 
 
+def check_queries(intents: List[Dict[str, Any]]) -> None:
+    """Image queries are written in Chinese; a Latin-only query searches the wrong index.
+
+    The backends this branch keeps are Chinese-first, and the September run showed Latin scene
+    phrases ("movie projector light beam dark room") coming back empty where the Chinese phrasing
+    resolved. Fail here rather than after a fruitless search pass.
+    """
+    latin = [i for i in intents if not slots_mod.is_cjk_query(i['query'])]
+    if latin:
+        detail = '; '.join(f"{i['id']}: {i['query'][:40]}" for i in latin)
+        raise ValueError('image queries must be written in Chinese — rewrite these outline pages '
+                         f'(imageQuery): {detail}')
+
+
 def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=False,
           min_dim=backend_pool.DEFAULT_MIN_DIM, timeout=30.0, budget=DEFAULT_BUDGET,
-          json_output=False) -> int:
+          json_output=False, allow_latin_query=False) -> int:
     started = time.monotonic()
     if not all(math.isfinite(x) and x > 0 for x in (timeout, budget)) or workers < 1:
         raise ValueError('timeout, budget and workers must be positive')
@@ -85,6 +99,8 @@ def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=Fals
     intents = intents_from_outline(outline)
     if not intents:
         raise ValueError('the outline asks for no pictures; nothing to collect')
+    if not allow_latin_query:
+        check_queries(intents)
 
     brief = _deck_title(pptd, pdir.name)
     slots, texts = [], {}
@@ -191,6 +207,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--min-dim', type=int, default=backend_pool.DEFAULT_MIN_DIM)
     parser.add_argument('--timeout', type=float, default=30.0, help='seconds per attempt')
     parser.add_argument('--budget', type=float, default=DEFAULT_BUDGET, help='seconds for the whole pass')
+    parser.add_argument('--allow-latin-query', action='store_true',
+                        help='only for a deck actually written in that language')
     parser.add_argument('--json', action='store_true')
     return parser
 
@@ -206,7 +224,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return resolve(args.project, json_output=args.json)
         return build(args.project, args.outline, backend=args.backend, workers=args.workers,
                      use_vlm=args.vlm, min_dim=args.min_dim, timeout=args.timeout,
-                     budget=args.budget, json_output=args.json)
+                     budget=args.budget, json_output=args.json,
+                     allow_latin_query=args.allow_latin_query)
     except (ValueError, OSError) as exc:
         print(f'image_pool: {exc}', file=sys.stderr)
         return 1

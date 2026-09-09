@@ -49,6 +49,8 @@ class PipelineTests(unittest.TestCase):
             f'    bounds: [0, 0, 960, 540]\n    src: "search:{query}" {annotation}\n')
 
     def run_pipeline(self, **kwargs):
+        # These fixtures exercise pipeline mechanics; queries are ASCII sentinels, not real ones.
+        kwargs.setdefault('allow_latin_query', True)
         stderr = io.StringIO()
         stdout = io.StringIO()
         with patch.object(search_images, 'WORKER', self.worker, create=True), \
@@ -112,7 +114,7 @@ class PipelineTests(unittest.TestCase):
         runner = self.root / 'runner.py'
         runner.write_text(f'import sys\nsys.path.insert(0, {str(Path(search_images.__file__).parent)!r})\n'
                           f'import search_images\nsearch_images.WORKER = {str(self.worker)!r}\n'
-                          f'raise SystemExit(search_images.run({str(self.root)!r}, timeout=8, budget=5.5))\n')
+                          f'raise SystemExit(search_images.run({str(self.root)!r}, timeout=8, budget=5.5, allow_latin_query=True))\n')
         start = time.monotonic()
         proc = subprocess.Popen([sys.executable, '-u', str(runner)], stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         try:
