@@ -97,6 +97,7 @@ else:
     for name in ["deck.pptd","deck.pptx","index.html"]:
         (out / name).write_text("fake artifact, intentionally not a valid slide format")
     (out / "timing.json").write_text(json.dumps({"start":began,"end":time.time()}))
+    (out / "scan-roots.txt").write_text(os.environ.get("PI_EVAL_SCAN_ROOTS",""))
     if mode == "bad-self-report":
         (out / "EVAL_RESULT.json").write_text("[]")
     key_ref = models["providers"]["fake"]["apiKey"]
@@ -232,7 +233,7 @@ class RunnerTests(unittest.TestCase):
         for model, expected in [("normal", "generated_unreviewed"), ("needs-input", "needs_input"),
                                 ("api-error", "execution_failed"), ("content-filter", "execution_failed"),
                                 ("author-failed", "author_reported_failure"), ("no-agent-end", "incomplete"),
-                                ("length-stop", "incomplete"), ("no-session-file", "incomplete")]:
+                                ("no-session-file", "incomplete")]:
             with self.subTest(model=model):
                 _, path, summary = self.invoke("--case", "20", "--model", model)
                 item = summary["results"][0]
@@ -240,6 +241,22 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(item["continuationCount"], 0)
                 calls = (path / "cases" / item["caseId"] / "work/output/invocations.jsonl").read_text().splitlines()
                 self.assertEqual(len(calls), 1)
+
+    def test_a_turn_cut_off_at_the_output_limit_gets_another_turn(self):
+        """A length stop is work in progress, not an abandoned case.
+
+        The model was mid-action when the budget ran out; ending the case there throws away the
+        pages it had already written. The continuation says so and asks for a smaller step.
+        """
+        _, path, summary = self.invoke("--case", "20", "--model", "length-stop", "--max-continuations", "1")
+        item = summary["results"][0]
+        self.assertEqual(item["status"], "incomplete")
+        self.assertEqual(item["continuationCount"], 1)
+        calls = (path / "cases" / item["caseId"] / "work/output/invocations.jsonl").read_text().splitlines()
+        self.assertEqual(len(calls), 2)
+        follow_up = (path / "cases" / item["caseId"] / "attempts/02/prompt.md").read_text()
+        self.assertIn("必须以一次真实的工具调用开始", follow_up)
+        self.assertIn("被截断", follow_up)
 
     def test_recovered_stream_error_is_history_not_terminal_failure(self):
         _, _, summary = self.invoke("--case", "20", "--model", "recovered-stop", "--max-continuations", "1")
@@ -384,6 +401,14 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(summary["effectiveThinking"], "low")
         command = summary["results"][0]["command"]
         self.assertEqual(command[command.index("--thinking") + 1], "low")
+
+    def test_generation_loads_the_scan_guard(self):
+        """Both halves must be wired: an unset root list makes the guard allow everything."""
+        _, path, summary = self.invoke("--case", "03")
+        command = summary["results"][0]["command"]
+        self.assertEqual(command[command.index("--extension") + 1], str(HERE / "scan_guard.js"))
+        work = path / "cases/03-elevator-basketball/work"
+        self.assertEqual((work / "output/scan-roots.txt").read_text(), str(work.resolve()))
 
     def test_snapshot_rejects_external_symlinks(self):
         (self.skill / "outside").symlink_to(self.config / "models.json")

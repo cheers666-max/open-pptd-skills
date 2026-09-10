@@ -503,10 +503,15 @@ def merge_execution(result, execution, offset, attempt):
     result.update(execution, **totals)
 
 
+# A turn cut off at the output limit is the case that most deserves another turn: the work was in
+# progress, not abandoned. Only a stop the runner cannot reason about ends the case here.
+CONTINUABLE_STOPS = ("stop", "length", "max_tokens")
+
+
 def continuation_reason(result, session, count, limit):
     if result["status"] != "incomplete":
         return "terminal_status"
-    if not result.get("agentEnded") or result.get("lastStopReason") != "stop":
+    if not result.get("agentEnded") or result.get("lastStopReason") not in CONTINUABLE_STOPS:
         return "not_normal_stop"
     if count >= limit:
         return "limit_reached"
@@ -515,10 +520,35 @@ def continuation_reason(result, session, count, limit):
     return None
 
 
-def continuation_prompt(result, remaining):
+def next_concrete_step(work):
+    """The one action this case is actually blocked on, so a continuation can name it.
+
+    A model that stopped after announcing a plan needs a next move, not a reminder of the goal.
+    """
+    deck = work / "output" / "deck"
+    pages = sorted(deck.glob("pages/*.page")) if deck.is_dir() else []
+    if not (deck / "outline.json").is_file():
+        return ("先写 output/deck/outline.json（页面计划：每页 actionTitle、slots、images），"
+                "再按计划写页——现在连大纲都还没落盘。")
+    if not pages:
+        return ("outline.json 已在，但 output/deck/pages/ 还是空的：用 authoring_helpers 写出前 2–3 页，"
+                "立刻跑一次 prepare_deck.py 看渲染结果，再继续其余页。")
+    if not any(deck.glob("*.pptx")):
+        return (f"已有 {len(pages)} 页，缺正式导出：跑 prepare_deck.py --export html,pptx，"
+                "失败就按报告修，不要重写已完成的页。")
+    return "三格式已在，核对 EVAL_RESULT.json 与检查报告是否如实反映当前状态。"
+
+
+def continuation_prompt(result, remaining, work=None):
     kinds = {x["kind"] for x in result["deliveryArtifacts"]}
     missing = ", ".join(sorted({"pptd", "pptx", "html"} - kinds)) or "完成事件/交付核对"
-    return f"""继续同一用户任务和已有工作。上次正常停止，但正式交付仍缺：{missing}。
+    step = next_concrete_step(work) if work is not None else ""
+    cut = result.get("lastStopReason") in ("length", "max_tokens")
+    lead = ("**你这一条回复必须以一次真实的工具调用开始，不要先输出计划、步骤清单或 `<tool_call>` 文本。**\n"
+            + ("上一条回复在输出上限处被截断，未完成的动作没有生效：把它拆成更小的一步重做，"
+               "单条消息不要写超过两三页的内容。\n" if cut else "")
+            + f"当前该做的下一步：{step}\n" if step else "")
+    return lead + f"""继续同一用户任务和已有工作。上次正常停止，但正式交付仍缺：{missing}。
 剩余整题时间约 {max(0, int(remaining))} 秒，原页数、内容深度、生成回合与检查要求保留。
 复用已有 DESIGN_CONTEXT、来源、模块和页面，从未完成步骤继续；不要从头研究或重写已有成果。
 通过 pi 的真实工具调用执行，普通文本中的工具调用标签没有执行效果；不要把上一条标签复制成 shell 命令。
@@ -539,9 +569,13 @@ def run_case(case, run_dir, snapshot, config_source, base_env, secrets, options)
     copy_tree(snapshot, work / "skill")
     prompt = build_prompt(case, work / "skill", options.allow_web, options.model_inputs)
     (case_dir / "prompt.md").write_text(prompt)
+    # The guard only stops filesystem *scans* that leave the case; reading an
+    # absolute path stays allowed, so it cannot narrow what a case may inspect.
+    guard = Path(__file__).with_name("scan_guard.js").resolve()
     command = [options.pi, "--print", "--mode", "json", "--offline",
                "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes",
                "--no-context-files", "--no-approve", "--skill", str(work / "skill"),
+               "--extension", str(guard),
                "--tools", "read,bash,edit,write,grep,find,ls", "--provider", options.provider,
                "--model", options.model]
     if options.thinking is not None:
@@ -560,7 +594,8 @@ def run_case(case, run_dir, snapshot, config_source, base_env, secrets, options)
             cfg = Path(private) / "agent"
             copy_tree(config_source, cfg)
             cfg.chmod(0o700)
-            env = dict(base_env, PI_CODING_AGENT_DIR=str(cfg))
+            env = dict(base_env, PI_CODING_AGENT_DIR=str(cfg),
+                       PI_EVAL_SCAN_ROOTS=str(work.resolve()))
             # Native pi session holds context only for this case. Raw session data
             # stays in the private temporary directory and is deleted with auth.
             session = Path(private) / "session.jsonl"
@@ -600,7 +635,7 @@ def run_case(case, run_dir, snapshot, config_source, base_env, secrets, options)
                 attempt_dir = case_dir / "attempts" / f"{index + 2:02d}"
                 attempt_dir.mkdir(parents=True)
                 prompt_path = attempt_dir / "prompt.md"
-                prompt_path.write_text(continuation_prompt(result, deadline - time.monotonic()))
+                prompt_path.write_text(continuation_prompt(result, deadline - time.monotonic(), work))
                 progress(f"[{case['id']}] normal stop with missing delivery; continuation {index + 1}/{options.max_continuations}, remaining={max(0, deadline - time.monotonic()):.0f}s")
             result["elapsedSeconds"] = round(time.monotonic() - started, 3)
         # A model editing skill code invalidates comparison, even if outputs exist.
