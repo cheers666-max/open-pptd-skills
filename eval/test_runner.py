@@ -265,6 +265,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         follow_up = (path / "cases" / item["caseId"] / "attempts/02/prompt.md").read_text()
         self.assertIn("必须以一次真实的工具调用开始", follow_up)
+        self.assertNotIn("<tool_call>", follow_up, "Naming the marker teaches a weak model to print it")
         self.assertIn("被截断", follow_up)
 
     def test_a_stream_that_dies_over_landed_work_gets_another_turn(self):

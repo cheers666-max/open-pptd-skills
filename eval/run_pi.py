@@ -563,7 +563,10 @@ def continuation_prompt(result, remaining, work=None):
     step = next_concrete_step(work) if work is not None else ""
     cut = result.get("lastStopReason") in ("length", "max_tokens")
     broke = bool(result.get("terminalStreamError"))
-    lead = ("**你这一条回复必须以一次真实的工具调用开始，不要先输出计划、步骤清单或 `<tool_call>` 文本。**\n"
+    # Never print the literal call marker here: a weak model reads the negation as an example and
+    # copies it back as prose. Say what to do, and name the failure by its effect instead.
+    lead = ("**你这一条回复必须以一次真实的工具调用开始，不要先输出计划或步骤清单。**\n"
+            "把动作写成正文里的 JSON 或代码块不会被执行，磁盘上不会有任何变化。\n"
             + ("上一条回复在输出上限处被截断，未完成的动作没有生效：把它拆成更小的一步重做，"
                "单条消息不要写超过两三页的内容。\n" if cut else "")
             + ("上一轮中途断流，工具调用可能只执行了一半：先用一条命令核对磁盘上已有什么，"
@@ -573,7 +576,7 @@ def continuation_prompt(result, remaining, work=None):
     return lead + f"""继续同一用户任务和已有工作。{ended}，但正式交付仍缺：{missing}。
 剩余整题时间约 {max(0, int(remaining))} 秒，原页数、内容深度、生成回合与检查要求保留。
 复用已有 DESIGN_CONTEXT、来源、模块和页面，从未完成步骤继续；不要从头研究或重写已有成果。
-通过 pi 的真实工具调用执行，普通文本中的工具调用标签没有执行效果；不要把上一条标签复制成 shell 命令。
+一切改动都通过 pi 的工具接口发起；不要把上一条回复里的文字复制成 shell 命令。
 正式三格式放 output/deck/，复用 skill 现有校验/渲染/导出命令；大内容按 quickstart 分模块写，每次带完整路径与内容。
 缺少必要材料则明确记录 NEEDS_INPUT；明确无法完成则记录原因，不伪造或绕过接口拒绝。更新 output/EVAL_RESULT.json，并如实保留未完成检查。
 """
