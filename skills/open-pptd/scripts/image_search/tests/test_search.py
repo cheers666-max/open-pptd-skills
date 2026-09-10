@@ -61,7 +61,10 @@ class TestSourceGates(unittest.TestCase):
     """Real URLs from the 2026-09-09 run that shipped watermarked or catalogue pictures."""
 
     def test_stock_and_platform_image_hosts_are_refused(self):
-        for url in ("http://hellorfimg.zcool.cn/large/507942781.jpg",
+        for url in ("http://veer01.cfp.cn/creative/vcg/veer/1600water/veer-479569093.jpg",
+                    "http://vcg05.cfp.cn/creative/vcg/nowater800/new/VCG41N2187154002.jpg",
+                    "http://d00.paixin.com/thumbs/1007297/12635482/staff_1024.jpg",
+                    "http://hellorfimg.zcool.cn/large/507942781.jpg",
                     "http://i0.hdslb.com/bfs/new_dyn/watermark/e87681c4.jpg",
                     "http://pic.rmb.bdstatic.com/bjh/news/f5194f9a.jpeg",
                     "https://p9.itc.cn/q_70/images03/20210207/f6e1f236.jpeg",

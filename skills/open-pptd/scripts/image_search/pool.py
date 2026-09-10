@@ -71,7 +71,8 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 # 素材站/图库域：图片普遍压着站点水印或版权戳，直接拒，省下载与判图成本。
 # 名单对齐 360 线上 master 的 _WATERMARK_HEAVY_DOMAINS，并补上本轮实拍到的漏网域。
 _WATERMARK_DOMAINS = (
-    "vcg.com", "visualchina", "quanjing.com", "dfic.cn", "ppbaike",
+    "vcg.com", "visualchina", "cfp.cn", "veer.com", "paixin.com", "3d66.com",
+    "quanjing.com", "dfic.cn", "ppbaike",
     "nipic.com", "699pic.com", "16pic.com", "photophoto.cn", "58pic.com",
     "699pic", "tuchong.com", "hellorf.com", "hellorfimg", "zcool", "zsxq.com",
     "bigbigwork", "588ku", "ibaotu", "51yuansu", "tu.chinaz", "huaban",
@@ -165,7 +166,7 @@ def _is_watermark_domain(url: str) -> bool:
         path = urllib.parse.urlsplit(u).path
     except ValueError:
         path = u
-    return "watermark" in path
+    return "watermark" in path or re.search(r"/\d*water(?:mark)?\d*/", path) is not None
 
 
 def _is_ecommerce_domain(url: str) -> bool:
