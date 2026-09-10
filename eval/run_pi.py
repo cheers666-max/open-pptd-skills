@@ -505,7 +505,8 @@ def merge_execution(result, execution, offset, attempt):
 
 # A turn cut off at the output limit is the case that most deserves another turn: the work was in
 # progress, not abandoned. Only a stop the runner cannot reason about ends the case here.
-CONTINUABLE_STOPS = ("stop", "length", "max_tokens")
+# A turn that ended while asking for a tool is mid-action too: the dispatch never happened.
+CONTINUABLE_STOPS = ("stop", "length", "max_tokens", "toolUse")
 # A stream that dies mid-case is the same situation one step later: the plan and pages it already
 # wrote are on disk, and the next turn reuses them. What the work directory holds — not the shape
 # of the error — decides this, so a provider refusal or a case with nothing to resume still ends.

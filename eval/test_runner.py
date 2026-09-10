@@ -36,7 +36,7 @@ print(json.dumps({"type":"message_update", "assistantMessageEvent":{"type":"text
 cfg = pathlib.Path(os.environ["PI_CODING_AGENT_DIR"])
 models = json.loads((cfg / "models.json").read_text())
 (out / "isolation.json").write_text(json.dumps({"config":str(cfg),"providerNames":list(models["providers"]),"unrelatedKeyPresent":"UNRELATED_API_KEY" in os.environ}))
-if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop", "content-filter", "author-failed", "no-agent-end", "length-stop", "no-session-file", "retry-no-final-end", "broken-stream-with-progress"):
+if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop", "content-filter", "author-failed", "no-agent-end", "length-stop", "no-session-file", "retry-no-final-end", "broken-stream-with-progress", "tool-use-stop"):
     def event(value):
         print(json.dumps(value),flush=True)
     if mode == "slow-stop":
@@ -73,7 +73,7 @@ if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop",
             sys.exit(1)
         for name in ["deck.pptd","deck.pptx","index.html"]:
             (out / name).write_text("fake artifact, intentionally not a valid slide format")
-    event({"type":"message_end","message":{"role":"assistant","stopReason":"length" if mode == "length-stop" else "stop","rawStopReason":"length" if mode == "length-stop" else "stop","content":[{"type":"text","text":"<tool_call>write is plain text, not a dispatched tool</tool_call>"}],"usage":{"input":10,"output":7,"totalTokens":17}}})
+    event({"type":"message_end","message":{"role":"assistant","stopReason":"toolUse" if mode == "tool-use-stop" else "length" if mode == "length-stop" else "stop","rawStopReason":"length" if mode == "length-stop" else "stop","content":[{"type":"text","text":"<tool_call>write is plain text, not a dispatched tool</tool_call>"}],"usage":{"input":10,"output":7,"totalTokens":17}}})
     if mode not in ("no-agent-end", "retry-no-final-end"):
         event({"type":"agent_end","messages":[]})
 elif mode == "timeout":
@@ -128,7 +128,7 @@ class RunnerTests(unittest.TestCase):
         self.config.mkdir()
         runner.write_json(self.config / "settings.json", {"defaultProvider":"fake", "defaultModel":"normal", "extensions":["do-not-load.ts"]})
         runner.write_json(self.config / "models.json", {"providers": {
-            "fake": {"baseUrl":"https://example.invalid", "api":"openai-completions", "apiKey":"PI_EVAL_TEST_KEY", "models":[{"id":m} for m in ["normal","timeout","api-error","needs-input","background","bad-self-report","tool-timing","resume","always-stop","slow-stop","prototype","recovered-stop","content-filter","author-failed","no-agent-end","length-stop","no-session-file","broken-stream-with-progress"]]},
+            "fake": {"baseUrl":"https://example.invalid", "api":"openai-completions", "apiKey":"PI_EVAL_TEST_KEY", "models":[{"id":m} for m in ["normal","timeout","api-error","needs-input","background","bad-self-report","tool-timing","resume","always-stop","slow-stop","prototype","recovered-stop","content-filter","author-failed","no-agent-end","length-stop","no-session-file","broken-stream-with-progress","tool-use-stop"]]},
             "unrelated": {"apiKey":"DO-NOT-COPY-THIS-SECRET", "models":[]}}})
         self.fake = self.root / "fake-pi"
         self.fake.write_text(FAKE_PI)
@@ -289,6 +289,12 @@ class RunnerTests(unittest.TestCase):
         item = summary["results"][0]
         self.assertEqual(item["status"], "execution_failed")
         self.assertEqual(item["continuationCount"], 0)
+
+    def test_a_turn_that_ended_asking_for_a_tool_gets_another_turn(self):
+        """The dispatch never happened, so the work is mid-action, not abandoned."""
+        _, _, summary = self.invoke("--case", "20", "--model", "tool-use-stop", "--max-continuations", "1")
+        item = summary["results"][0]
+        self.assertEqual(item["continuationCount"], 1)
 
     def test_recovered_stream_error_is_history_not_terminal_failure(self):
         _, _, summary = self.invoke("--case", "20", "--model", "recovered-stop", "--max-continuations", "1")
