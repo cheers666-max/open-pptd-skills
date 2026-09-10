@@ -36,7 +36,7 @@ print(json.dumps({"type":"message_update", "assistantMessageEvent":{"type":"text
 cfg = pathlib.Path(os.environ["PI_CODING_AGENT_DIR"])
 models = json.loads((cfg / "models.json").read_text())
 (out / "isolation.json").write_text(json.dumps({"config":str(cfg),"providerNames":list(models["providers"]),"unrelatedKeyPresent":"UNRELATED_API_KEY" in os.environ}))
-if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop", "content-filter", "author-failed", "no-agent-end", "length-stop", "no-session-file", "retry-no-final-end"):
+if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop", "content-filter", "author-failed", "no-agent-end", "length-stop", "no-session-file", "retry-no-final-end", "broken-stream-with-progress"):
     def event(value):
         print(json.dumps(value),flush=True)
     if mode == "slow-stop":
@@ -64,6 +64,15 @@ if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop",
             (out / name).write_text("fake artifact, intentionally not a valid slide format")
     if mode == "no-session-file" and session:
         session.unlink()
+    if mode == "broken-stream-with-progress":
+        if attempt == 1:
+            (out / "deck").mkdir(exist_ok=True)
+            (out / "deck" / "outline.json").write_text(json.dumps({"pages":[{"actionTitle":"planned"}]}))
+            event({"type":"message_end","message":{"role":"assistant","stopReason":"error","rawStopReason":"error","errorMessage":"Stream ended without finish_reason"}})
+            event({"type":"agent_end","messages":[]})
+            sys.exit(1)
+        for name in ["deck.pptd","deck.pptx","index.html"]:
+            (out / name).write_text("fake artifact, intentionally not a valid slide format")
     event({"type":"message_end","message":{"role":"assistant","stopReason":"length" if mode == "length-stop" else "stop","rawStopReason":"length" if mode == "length-stop" else "stop","content":[{"type":"text","text":"<tool_call>write is plain text, not a dispatched tool</tool_call>"}],"usage":{"input":10,"output":7,"totalTokens":17}}})
     if mode not in ("no-agent-end", "retry-no-final-end"):
         event({"type":"agent_end","messages":[]})
@@ -119,7 +128,7 @@ class RunnerTests(unittest.TestCase):
         self.config.mkdir()
         runner.write_json(self.config / "settings.json", {"defaultProvider":"fake", "defaultModel":"normal", "extensions":["do-not-load.ts"]})
         runner.write_json(self.config / "models.json", {"providers": {
-            "fake": {"baseUrl":"https://example.invalid", "api":"openai-completions", "apiKey":"PI_EVAL_TEST_KEY", "models":[{"id":m} for m in ["normal","timeout","api-error","needs-input","background","bad-self-report","tool-timing","resume","always-stop","slow-stop","prototype","recovered-stop","content-filter","author-failed","no-agent-end","length-stop","no-session-file"]]},
+            "fake": {"baseUrl":"https://example.invalid", "api":"openai-completions", "apiKey":"PI_EVAL_TEST_KEY", "models":[{"id":m} for m in ["normal","timeout","api-error","needs-input","background","bad-self-report","tool-timing","resume","always-stop","slow-stop","prototype","recovered-stop","content-filter","author-failed","no-agent-end","length-stop","no-session-file","broken-stream-with-progress"]]},
             "unrelated": {"apiKey":"DO-NOT-COPY-THIS-SECRET", "models":[]}}})
         self.fake = self.root / "fake-pi"
         self.fake.write_text(FAKE_PI)
@@ -257,6 +266,29 @@ class RunnerTests(unittest.TestCase):
         follow_up = (path / "cases" / item["caseId"] / "attempts/02/prompt.md").read_text()
         self.assertIn("必须以一次真实的工具调用开始", follow_up)
         self.assertIn("被截断", follow_up)
+
+    def test_a_stream_that_dies_over_landed_work_gets_another_turn(self):
+        """A broken stream is not an empty case when a plan is already on disk.
+
+        Case 20 of the ds4.1 batch died this way after 30 turns: outline and image pool were
+        written, the gateway cut the stream, and the runner threw all of it away. The work on
+        disk is what makes the next turn cheap, so it decides whether the case is continuable.
+        """
+        _, path, summary = self.invoke("--case", "20", "--model", "broken-stream-with-progress",
+                                       "--max-continuations", "1")
+        item = summary["results"][0]
+        self.assertEqual(item["continuationCount"], 1)
+        calls = (path / "cases" / item["caseId"] / "work/output/invocations.jsonl").read_text().splitlines()
+        self.assertEqual(len(calls), 2)
+        follow_up = (path / "cases" / item["caseId"] / "attempts/02/prompt.md").read_text()
+        self.assertIn("断流", follow_up)
+        self.assertNotIn("上次正常停止", follow_up)
+
+    def test_a_broken_stream_with_nothing_on_disk_stays_a_failure(self):
+        _, _, summary = self.invoke("--case", "20", "--model", "api-error", "--max-continuations", "1")
+        item = summary["results"][0]
+        self.assertEqual(item["status"], "execution_failed")
+        self.assertEqual(item["continuationCount"], 0)
 
     def test_recovered_stream_error_is_history_not_terminal_failure(self):
         _, _, summary = self.invoke("--case", "20", "--model", "recovered-stop", "--max-continuations", "1")
