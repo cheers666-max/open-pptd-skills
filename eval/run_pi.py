@@ -628,6 +628,7 @@ def run_case(case, run_dir, snapshot, config_source, base_env, secrets, options)
             deadline = started + options.timeout
             prompt_path = case_dir / "prompt.md"
             attempt_dir = case_dir
+            fresh_session = False
             for index in range(options.max_continuations + 1):
                 remaining = deadline - time.monotonic()
                 if STOP.is_set() or remaining <= 0:
@@ -649,7 +650,9 @@ def run_case(case, run_dir, snapshot, config_source, base_env, secrets, options)
                 result["continuationCount"] = index
                 result["attempts"].append({"number": index + 1, "command": command,
                     "logDirectory": str(attempt_dir.relative_to(case_dir)), "startSeconds": round(offset, 6),
-                    "timeoutSeconds": round(remaining, 6), "status": result["status"], **execution})
+                    "timeoutSeconds": round(remaining, 6), "status": result["status"],
+                    "freshSession": fresh_session, **execution})
+                fresh_session = False
                 reason = continuation_reason(result, session, index, options.max_continuations, work)
                 if reason:
                     result["continuationStopReason"] = reason
@@ -657,6 +660,13 @@ def run_case(case, run_dir, snapshot, config_source, base_env, secrets, options)
                 if inventory(work / "skill") != inventory(snapshot):
                     result.update(status="skill_mutated", continuationStopReason="skill_mutated")
                     break
+                # A turn that dispatched nothing while real work sits on disk means the model has
+                # stopped acting in this conversation, not that it ran out of things to do. Handing
+                # the same context back gets the same non-answer; the work is on disk, so the next
+                # turn starts clean and reads it.
+                if execution.get("toolCalls", 0) == 0 and landed_work(work):
+                    session = Path(private) / f"session-{index + 2}.jsonl"
+                    fresh_session = True
                 attempt_dir = case_dir / "attempts" / f"{index + 2:02d}"
                 attempt_dir.mkdir(parents=True)
                 prompt_path = attempt_dir / "prompt.md"

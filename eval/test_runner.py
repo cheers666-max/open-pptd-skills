@@ -36,7 +36,7 @@ print(json.dumps({"type":"message_update", "assistantMessageEvent":{"type":"text
 cfg = pathlib.Path(os.environ["PI_CODING_AGENT_DIR"])
 models = json.loads((cfg / "models.json").read_text())
 (out / "isolation.json").write_text(json.dumps({"config":str(cfg),"providerNames":list(models["providers"]),"unrelatedKeyPresent":"UNRELATED_API_KEY" in os.environ}))
-if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop", "content-filter", "author-failed", "no-agent-end", "length-stop", "no-session-file", "retry-no-final-end", "broken-stream-with-progress", "tool-use-stop"):
+if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop", "content-filter", "author-failed", "no-agent-end", "length-stop", "no-session-file", "retry-no-final-end", "broken-stream-with-progress", "tool-use-stop", "prose-after-progress"):
     def event(value):
         print(json.dumps(value),flush=True)
     if mode == "slow-stop":
@@ -64,6 +64,9 @@ if mode in ("resume", "always-stop", "slow-stop", "prototype", "recovered-stop",
             (out / name).write_text("fake artifact, intentionally not a valid slide format")
     if mode == "no-session-file" and session:
         session.unlink()
+    if mode == "prose-after-progress":
+        (out / "deck").mkdir(exist_ok=True)
+        (out / "deck" / "outline.json").write_text(json.dumps({"pages":[{"actionTitle":"planned"}]}))
     if mode == "broken-stream-with-progress":
         if attempt == 1:
             (out / "deck").mkdir(exist_ok=True)
@@ -128,7 +131,7 @@ class RunnerTests(unittest.TestCase):
         self.config.mkdir()
         runner.write_json(self.config / "settings.json", {"defaultProvider":"fake", "defaultModel":"normal", "extensions":["do-not-load.ts"]})
         runner.write_json(self.config / "models.json", {"providers": {
-            "fake": {"baseUrl":"https://example.invalid", "api":"openai-completions", "apiKey":"PI_EVAL_TEST_KEY", "models":[{"id":m} for m in ["normal","timeout","api-error","needs-input","background","bad-self-report","tool-timing","resume","always-stop","slow-stop","prototype","recovered-stop","content-filter","author-failed","no-agent-end","length-stop","no-session-file","broken-stream-with-progress","tool-use-stop"]]},
+            "fake": {"baseUrl":"https://example.invalid", "api":"openai-completions", "apiKey":"PI_EVAL_TEST_KEY", "models":[{"id":m} for m in ["normal","timeout","api-error","needs-input","background","bad-self-report","tool-timing","resume","always-stop","slow-stop","prototype","recovered-stop","content-filter","author-failed","no-agent-end","length-stop","no-session-file","broken-stream-with-progress","tool-use-stop","prose-after-progress"]]},
             "unrelated": {"apiKey":"DO-NOT-COPY-THIS-SECRET", "models":[]}}})
         self.fake = self.root / "fake-pi"
         self.fake.write_text(FAKE_PI)
@@ -296,6 +299,23 @@ class RunnerTests(unittest.TestCase):
         _, _, summary = self.invoke("--case", "20", "--model", "tool-use-stop", "--max-continuations", "1")
         item = summary["results"][0]
         self.assertEqual(item["continuationCount"], 1)
+
+    def test_a_turn_that_stopped_acting_over_landed_work_gets_a_clean_session(self):
+        """A context the model stopped acting in is not worth handing back to it.
+
+        ds4.1-flash stops dispatching tools once its conversation bloats, and every continuation
+        inherited that same conversation, so all twelve of them failed the same way. The work is
+        on disk; a fresh session plus the continuation prompt is what recovers it.
+        """
+        _, path, summary = self.invoke("--case", "20", "--model", "prose-after-progress",
+                                       "--max-continuations", "1")
+        item = summary["results"][0]
+        self.assertEqual(item["continuationCount"], 1)
+        folder = path / "cases" / item["caseId"]
+        calls = [json.loads(l) for l in (folder / "work/output/invocations.jsonl").read_text().splitlines()]
+        self.assertNotEqual(calls[0]["session"], calls[1]["session"])
+        self.assertTrue(item["attempts"][1]["freshSession"])
+        self.assertIsNone(calls[1]["previousContext"], "清过的会话不该还带着旧上下文")
 
     def test_recovered_stream_error_is_history_not_terminal_failure(self):
         _, _, summary = self.invoke("--case", "20", "--model", "recovered-stop", "--max-continuations", "1")
