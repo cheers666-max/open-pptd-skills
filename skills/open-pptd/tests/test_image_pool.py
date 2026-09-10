@@ -146,3 +146,20 @@ class ValidateTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class VerificationDefaultTests(unittest.TestCase):
+    """A screenshot filter that is off by default is not a filter.
+
+    The 20-page batch shipped a PPT-template advertisement and a scanned notice from a real
+    society as slide art, because the pool ran with use_vlm=False — the CLI default. Verification
+    belongs on whenever a key is configured; opting out has to be deliberate.
+    """
+
+    def test_verification_is_on_by_default_when_a_key_is_configured(self):
+        args = image_pool.build_parser().parse_args(['--project', '.'])
+        self.assertTrue(args.vlm)
+
+    def test_no_vlm_turns_verification_off(self):
+        args = image_pool.build_parser().parse_args(['--project', '.', '--no-vlm'])
+        self.assertFalse(args.vlm)

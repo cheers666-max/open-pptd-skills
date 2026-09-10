@@ -128,7 +128,7 @@ def _trimmed(query: str) -> str:
     return ''
 
 
-def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=False,
+def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=True,
           min_dim=backend_pool.DEFAULT_MIN_DIM, timeout=30.0, budget=DEFAULT_BUDGET,
           json_output=False, allow_latin_query=False, limit=DEFAULT_LIMIT, retry=True) -> int:
     started = time.monotonic()
@@ -268,7 +268,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--list', action='store_true', help='print the current pool')
     parser.add_argument('--backend', default='auto', choices=['auto', *backend_pool.BACKENDS])
     parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--vlm', action='store_true')
+    # On by default: a screenshot/watermark filter that must be asked for is a filter that
+    # does not run. build() still skips it when no key is configured.
+    parser.add_argument('--vlm', action=argparse.BooleanOptionalAction, default=True,
+                        help='verify candidates with the VLM judge (needs a configured key)')
     parser.add_argument('--min-dim', type=int, default=backend_pool.DEFAULT_MIN_DIM)
     parser.add_argument('--timeout', type=float, default=30.0, help='seconds per attempt')
     parser.add_argument('--budget', type=float, default=DEFAULT_BUDGET, help='seconds for the whole pass')
