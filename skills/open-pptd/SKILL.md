@@ -265,7 +265,14 @@ When generating a PPT, adopt different production approaches for different user 
 
    Invalid page/element structures and unresolved image sources stop before rendering. Fix YAML/types, required fields, theme tokens, resources and confirmed geometry issues; consult exact feature specifications when needed. Capacity, orphan-line, wrapping, density and card-layout estimates are candidates for visual inspection: inspect rendered pages before batch-editing them, and record justified exceptions in DESIGN_CONTEXT.md. Do not iterate to zero heuristic counts or change thresholds to satisfy a design. The auxiliary audit measures limited pure-color contrast/overlap, not actual text overflow, complex backgrounds or image relevance.
 
-2. **Read the rendered result.** With image input, inspect `.qa-images/overview.jpg` for every page, then each suspicious `.qa-images/pages/page_NN.png` at full resolution. Check:
+2. **Read the rendered result.** With image input, inspect `.qa-images/overview.jpg` first, then the
+   **compressed copy** of each suspicious page — `.qa-images/review/page_NN.jpg` (1280 px, ~57 KB),
+   not the full-resolution PNG. A 1920×1080 page render reaches a model as roughly 840 KB of base64;
+   a dozen pages reviewed twice is tens of megabytes of context, and that is where long vision-driven
+   runs break — in the 2026-09-10 gateway run, the cases that looked at the most pages were the ones
+   whose streams died. The compressed copy shows every layout defect a reviewer looks for. Open
+   `pages/page_NN.png` only when a specific detail (a glyph, a hairline, a small caption) really needs
+   full resolution, and only for that page. Check:
    - 图片清晰、比例与裁剪合适，关键主体未被文字遮住。
    - 元素不越界，文字不溢出、不被遮挡，字号与对比度可读。
    - 对齐、间距、层级、页边距及整篇节奏符合选定风格。

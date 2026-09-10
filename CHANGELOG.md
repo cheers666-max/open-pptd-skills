@@ -1,3 +1,9 @@
+## 2.6.1-imagerich — 2026-09-10 (branch 002-image-rich)
+
+### open-pptd skill
+- `export_images.py` writes a compressed JPEG beside every page render (`.qa-images/review/page_NN.jpg`, 1280 px, q80) and `prepare_deck.py` reports its path. The visual-review step now reads those instead of the full-resolution PNGs; the PNG stays on disk for the rare detail that needs it.
+- Why: a 1920×1080 page render is ~630 KB of PNG, which reaches a multimodal model as ~840 KB of base64. A twelve-page deck reviewed twice is tens of megabytes of context. In the 2026-09-10 run on the gateway vision model, 16 of 20 cases died with `Stream ended without finish_reason`, and the cases that had looked at the most pages (101, 72, 50 image blocks) were exactly the ones that died mid-review. The compressed copy is 9% of the bytes and still shows every layout defect a reviewer looks for.
+
 ## 2.6.0-imagerich — 2026-09-09 (branch 002-image-rich)
 
 ### open-pptd skill

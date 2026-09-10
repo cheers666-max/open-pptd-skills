@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, renameSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, renameSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -26,6 +26,21 @@ test('authoring: numeric-looking string labels survive Python to JS YAML parsing
   assert.equal(r.status,0,r.stderr);
   const project=await readPptdProject(dir);
   assert.deepEqual(project.pages[0].content.elements.map(el=>el.content.text),labels);
+});
+
+test('render: every page render gets a compressed review copy a model can afford to look at',t=>{
+  const dir=fixture(t,'',2);
+  const out=join(dir,'qa');
+  const r=spawnSync('python3',[join(scripts,'export_images.py'),dir,'--output',out,'--json'],{encoding:'utf8',timeout:180000});
+  assert.equal(r.status,0,r.stdout+r.stderr);
+  const report=JSON.parse(r.stdout.trim().split('\n').pop());
+  assert.ok(report.images.length>0,'expected rendered pages');
+  for(const entry of report.images){
+    const png=join(out,entry.image), jpg=join(out,entry.review);
+    assert.ok(existsSync(jpg),`missing review copy for page ${entry.index}`);
+    assert.ok(statSync(jpg).size < statSync(png).size*0.6,
+      `review copy must be far smaller than the render (${statSync(jpg).size} vs ${statSync(png).size})`);
+  }
 });
 
 test('render: numeric text and zero table cells render without dropping zero',t=>{

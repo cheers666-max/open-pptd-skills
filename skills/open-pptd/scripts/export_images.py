@@ -294,6 +294,32 @@ def label_font(image_font: Any) -> Any:
         return image_font.load_default()
 
 
+REVIEW_WIDTH = 1280
+REVIEW_QUALITY = 80
+
+
+def write_review_copies(images, output, image_cls):
+    """A compressed JPEG beside every page PNG, for the model to look at.
+
+    A 1920×1080 page render is ~630 KB of PNG, which reaches a multimodal model as ~840 KB of
+    base64 — a dozen pages reviewed twice is tens of megabytes of context, and that is where long
+    vision-driven runs fall over. At 1280 px / q80 the same page is ~57 KB (9%) and still shows
+    every layout defect a reviewer looks for. The full-resolution PNG stays on disk for the times a
+    detail really needs it.
+    """
+    review_dir = output / "review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for path in images:
+        target = review_dir / (path.stem + ".jpg")
+        with image_cls.open(path) as raw:
+            shrunk = raw.convert("RGB")
+            shrunk.thumbnail((REVIEW_WIDTH, REVIEW_WIDTH))
+            shrunk.save(target, "JPEG", quality=REVIEW_QUALITY, optimize=True)
+        written.append(target)
+    return written
+
+
 def stitch_overview(
     images: Sequence[Path],
     output: Path,
@@ -430,6 +456,7 @@ def export_images(
         server.server_close()
 
     overview = stitch_overview(images, output / "overview.jpg", image_cls, draw_cls, image_font)
+    write_review_copies(images, output, image_cls)
     return {
         "pages": len(images),
         "overview": str(overview),
@@ -439,6 +466,7 @@ def export_images(
             {
                 "index": index,
                 "image": f"pages/{path.name}",
+                "review": f"review/{path.stem}.jpg",
                 "page": page_files[index - 1] if index - 1 < len(page_files) else None,
             }
             for index, path in zip(page_indices, images)

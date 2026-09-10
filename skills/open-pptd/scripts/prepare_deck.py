@@ -169,7 +169,8 @@ def run(project, *, output=None, workers=4, scale=2.0, timeout=90, force=False, 
         write_json(output / 'render-state.json', new_state)
     result.update(ok=validation['valid'] and not any(i.get('severity') == 'error' for i in issues),
                   renderedPages=changed, reusedPages=reused, overview=str(output / 'overview.jpg'),
-                  images=[dict(index=i, page=ref, image=str(output / f'pages/page_{i:02d}.png'))
+                  images=[dict(index=i, page=ref, image=str(output / f'pages/page_{i:02d}.png'),
+                               review=str(output / f'review/page_{i:02d}.jpg'))
                           for i, ref in enumerate(manifest['pages'], 1)],
                   audit=dict(issues=issues, errors=sum(i.get('severity') == 'error' for i in issues),
                              scope='Auxiliary contrast/overlap only; does not certify visual quality.'))
