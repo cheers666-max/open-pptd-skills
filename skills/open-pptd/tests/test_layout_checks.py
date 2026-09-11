@@ -282,6 +282,59 @@ class CaptionNoiseTests(unittest.TestCase):
             self.assertEqual(validate.caption_noise_issues(self.page(caption), 1, 'pages/01.page'), [], caption)
 
 
+class ImageCaptionTests(unittest.TestCase):
+    """Measured on the 20-page batch: 173 content images, 131 captioned, 37 edge-bleed decoration,
+    19 inset pictures with nothing telling the audience what they are looking at. Captions sit
+    0-44px under the picture (p50 8, p90 20), so a 48px band with 40% horizontal overlap finds them.
+    """
+
+    def page(self, image_bounds, caption_bounds=None):
+        elements = [{'elementId': 'pic', 'elementType': 'image', 'bounds': list(image_bounds),
+                     'src': 'media/a.jpg'}]
+        if caption_bounds:
+            elements.append({'elementId': 'cap', 'elementType': 'text', 'bounds': list(caption_bounds),
+                             'content': {'text': '图：常州市档案馆 · 2015'}})
+        return {'elements': elements}
+
+    def test_an_inset_picture_without_a_caption_is_reported(self):
+        issues = validate.image_caption_issues(self.page([620, 150, 284, 200]), 1, 'pages/01.page')
+        self.assertEqual([i['code'] for i in issues], ['image-missing-caption'])
+
+    def test_a_caption_under_the_picture_satisfies_it(self):
+        issues = validate.image_caption_issues(
+            self.page([620, 150, 284, 200], [620, 358, 284, 18]), 1, 'pages/01.page')
+        self.assertEqual(issues, [])
+
+    def test_a_far_away_text_is_not_the_caption(self):
+        issues = validate.image_caption_issues(
+            self.page([620, 150, 284, 200], [620, 430, 284, 18]), 1, 'pages/01.page')
+        self.assertEqual([i['code'] for i in issues], ['image-missing-caption'])
+
+    def test_full_height_edge_bleed_art_needs_no_caption(self):
+        for bounds in ([540, 0, 420, 540], [0, 0, 470, 540]):
+            self.assertEqual(validate.image_caption_issues(self.page(bounds), 1, 'pages/01.page'), [],
+                             bounds)
+
+
+class SourceLinkTests(unittest.TestCase):
+    """56 source lines in the batch name a source and none of them is clickable."""
+
+    def page(self, text):
+        return {'elements': [{'elementId': 's', 'elementType': 'text', 'bounds': [0, 500, 900, 20],
+                              'content': {'text': text}}]}
+
+    def test_a_named_source_without_a_link_is_advised(self):
+        issues = validate.unlinked_source_issues(self.page('来源：常州市档案馆《常州三杰》，2015'), 1, 'p')
+        self.assertEqual([i['code'] for i in issues], ['unlinked-source'])
+
+    def test_a_linked_source_passes(self):
+        text = '来源：<a href="https://www.mfa.gov.cn/x.shtml">外交部答问</a>，2026'
+        self.assertEqual(validate.unlinked_source_issues(self.page(text), 1, 'p'), [])
+
+    def test_ordinary_body_text_is_not_a_source_line(self):
+        self.assertEqual(validate.unlinked_source_issues(self.page('古典舞的来源可以追到戏曲'), 1, 'p'), [])
+
+
 class ExceptionTests(unittest.TestCase):
     def project(self, folder, page_body, exceptions=None):
         import json as _json

@@ -145,7 +145,7 @@ in that language. The pass shares one hash/URL dedupe set, so two
 pages cannot be handed the same photo. `imageOrientation` (`landscape`/`portrait`) and `imageRatio`
 steer the geometry gate.
 
-Caption from what the pool actually recorded: `images_pool.json` carries the backend, source URL and licence for every picture. A slide caption is 机构／作者 · 年份 · 许可 or nothing — never a retrieval date, never "许可未知", never a bare "资料图". If the pool entry cannot support a real credit line, that is a reason to drop the picture, not to caption it vaguely.
+Caption from what the pool actually recorded: `images_pool.json` carries the backend, source URL and licence for every picture. **Every inset picture gets a caption** directly under it saying what the picture shows and where it came from — 内容 · 机构／作者 · 年份. When the pool recorded a `landing` page, make the source the link: `<a href="https://...">机构名</a>`, which the HTML viewer renders as a real anchor and the PPTX writer exports as hlinkClick. Never a retrieval date, never "许可未知", never a bare "资料图". If the pool entry cannot support a real credit line, that is a reason to drop the picture — not to leave it unexplained. Full-height art that runs off a page edge is decoration and needs no caption.
 
 Pages then reference the pool instead of a query or a URL: `src: "pool:p6"`. After authoring, run
 `image_pool.py --project <dir> --resolve` to rewrite those references to their `media/` paths. An id
@@ -277,7 +277,9 @@ When generating a PPT, adopt different production approaches for different user 
    - 元素不越界，文字不溢出、不被遮挡，字号与对比度可读。
    - 对齐、间距、层级、页边距及整篇节奏符合选定风格。
    - 图片实际内容支持本页论点；核对主体、场景、图注和来源。别家实绩不能当作本公司证据；不能用无关图填满版面。
-   - 图注只写观众读得懂的署名：机构／作者 · 年份 · 许可。**页面上不写检索日期、"许可未知／授权待核"、"资料图"这类台账**——查不清出处就换一张图或不写图注，台账留在 notes 与 `images_report.json`／`images_pool.json`。`validate_deck.py` 的 `source-caption-noise` 会拦。
+   - **每张嵌入式配图都要有图注**，紧贴图片下方，写清"这是什么 · 机构／作者 · 年份"；整幅出血的装饰图除外。缺图注由 `image-missing-caption` 拦。
+   - **有公开页面的来源写成可点链接**：`来源：<a href="https://...">外交部答问</a>，2026`。HTML 渲染成真锚点、PPTX 导出成 hlinkClick，观众能直接点开核对；档案、书籍、内部数据没有链接就保持纯文本。`unlinked-source` 是提醒级，不阻断。
+   - **页面上不写检索日期、"许可未知／授权待核"、"资料图"这类台账**——查不清出处就换一张图，台账留在 notes 与 `images_report.json`／`images_pool.json`。`source-caption-noise` 会拦。
 
    Batch confirmed fixes in the affected modules/pages, resolve any changed sources, then **rerun the same `prepare_deck.py` command** and review the updated full overview. Unchanged pages reuse their verified PNGs; page text, local image/font bytes, theme, order, scale or rendering-code changes invalidate the affected cache. Use `--force` after system font/browser changes or when cache freshness is uncertain. Do not add `--force` to every single-page repair. `--json` prints the full report; existing individual scripts remain available for diagnosis or custom options.
 

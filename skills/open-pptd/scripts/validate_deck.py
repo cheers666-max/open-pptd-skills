@@ -992,11 +992,109 @@ def caption_noise_issues(page: dict[str, Any], page_number: int, page_ref: str) 
                     "elementId": el.get("elementId", ""),
                     "matched": match.group(0),
                     "detail": f"provenance bookkeeping on the slide: '{match.group(0)}' — move the "
-                              "retrieval date and licence status to notes; caption the picture with "
-                              "institution · year · licence or leave it uncaptioned",
+                              "retrieval date and licence status to notes; caption the picture "
+                              "with what it shows · institution · year instead",
                     "repairability": "rewrite-text",
                 })
                 break
+    return issues
+
+
+CAPTION_BAND_PX = 48
+CAPTION_OVERLAP_RATIO = 0.4
+BLEED_TOLERANCE_PX = 2
+BLEED_HEIGHT_RATIO = 0.8
+
+
+def image_caption_issues(page: dict[str, Any], page_number: int, page_ref: str,
+                         size: Optional[Tuple[float, float]] = None) -> List[dict[str, Any]]:
+    """A picture nobody explains is a picture the audience has to guess at.
+
+    Measured over 173 content images: captions sit 0-44px under the picture (p50 8, p90 20) and
+    share its column, so a 48px band with 40% horizontal overlap finds them. Full-height art that
+    runs off a page edge is decoration carrying the page, not evidence, and is exempt.
+    """
+    issues: List[dict[str, Any]] = []
+    elements = page.get("elements", [])
+    if not isinstance(elements, list):
+        return issues
+    width, height = size or (960.0, 540.0)
+    texts = [el for el in elements
+             if isinstance(el, dict) and el.get("elementType") == "text"
+             and isinstance(el.get("bounds"), list) and len(el["bounds"]) == 4]
+    for el in elements:
+        if not isinstance(el, dict) or el.get("elementType") != "image":
+            continue
+        bounds = el.get("bounds")
+        if not isinstance(bounds, list) or len(bounds) != 4:
+            continue
+        try:
+            x, y, w, h = (float(v) for v in bounds)
+        except (TypeError, ValueError):
+            continue
+        if w <= 0 or h <= 0:
+            continue
+        touches_edge = (x <= BLEED_TOLERANCE_PX or y <= BLEED_TOLERANCE_PX
+                        or x + w >= width - BLEED_TOLERANCE_PX
+                        or y + h >= height - BLEED_TOLERANCE_PX)
+        if touches_edge and h >= height * BLEED_HEIGHT_RATIO:
+            continue
+        captioned = False
+        for text in texts:
+            tx, ty, tw, _th = (float(v) for v in text["bounds"])
+            if min(x + w, tx + tw) - max(x, tx) < w * CAPTION_OVERLAP_RATIO:
+                continue
+            if -4 <= ty - (y + h) <= CAPTION_BAND_PX:
+                captioned = True
+                break
+        if not captioned:
+            issues.append({
+                "code": "image-missing-caption",
+                "pageNumber": page_number,
+                "pageRef": page_ref,
+                "elementId": el.get("elementId", ""),
+                "detail": "picture has no caption: add a text line directly under it saying what "
+                          "the picture shows and where it came from; link the source with "
+                          '<a href="...">名称</a> when it has a page',
+                "repairability": "add-caption",
+            })
+    return issues
+
+
+SOURCE_LINE = re.compile(r"(来源|資料來源|资料来源|出处|出處|参考(资料|文献)?|引自|图片来源)\s*[:：]")
+
+
+def unlinked_source_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
+    """A citation the audience cannot follow.
+
+    Every one of the 56 source lines in the 20-page batch named a source and none of them was
+    clickable, though both exporters already carry links: the HTML viewer injects the markup as a
+    real anchor and the PPTX writer emits hlinkClick. Advisory, because archives, books and
+    internal data legitimately have no URL.
+    """
+    issues: List[dict[str, Any]] = []
+    elements = page.get("elements", [])
+    if not isinstance(elements, list):
+        return issues
+    for el in elements:
+        if not isinstance(el, dict) or el.get("elementType") != "text":
+            continue
+        content = el.get("content", {})
+        text = content.get("text", "") if isinstance(content, dict) else ""
+        if not isinstance(text, str) or "<a " in text:
+            continue
+        if not SOURCE_LINE.search(text):
+            continue
+        issues.append({
+            "code": "unlinked-source",
+            "pageNumber": page_number,
+            "pageRef": page_ref,
+            "elementId": el.get("elementId", ""),
+            "detail": 'source is named but not clickable: wrap it as <a href="URL">名称</a> when the '
+                      "source has a public page, so the audience can follow it from the HTML and "
+                      "the PPTX; leave it plain only for archives, books and internal data",
+            "repairability": "rewrite-text",
+        })
     return issues
 
 
@@ -1159,6 +1257,7 @@ ACKNOWLEDGEABLE_CODES = {
     "anti-slop-card-layout", "anti-slop-rainbow-scheme", "anti-slop-phrase",
     "orphan-last-line", "forbidden-line-start-punctuation", "text-capacity-overflow",
     "unexpected-wrap", "low-effective-image-resolution", "text-density",
+    "image-missing-caption", "unlinked-source",
 }
 EXCEPTIONS_FILE = "validate-exceptions.json"
 
@@ -1269,6 +1368,8 @@ def audit_project(
         issues.extend(anti_slop_text_issues(page, page_number, str(page_ref)))
         issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
         issues.extend(caption_noise_issues(page, page_number, str(page_ref)))
+        issues.extend(image_caption_issues(page, page_number, str(page_ref), slide_size))
+        issues.extend(unlinked_source_issues(page, page_number, str(page_ref)))
         for schema_issue in element_schema_issues(page, page_number, str(page_ref)):
             (advisories if schema_issue["code"] == "non-canonical-align" else issues).append(schema_issue)
         density = text_density_advisory(page, page_number, str(page_ref), max_page_chars)
