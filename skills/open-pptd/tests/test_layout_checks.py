@@ -335,6 +335,44 @@ class SourceLinkTests(unittest.TestCase):
         self.assertEqual(validate.unlinked_source_issues(self.page('古典舞的来源可以追到戏曲'), 1, 'p'), [])
 
 
+class ImageCropTests(unittest.TestCase):
+    """Measured over 187 pictures in the 20-page batch: crop factor p50 1.13, p75 1.35, p90 2.02,
+    max 3.38. 36 pictures (19%) lose more than half again their frame, and 29 of those are a
+    portrait photo in a landscape box — which is what cut the head off the statue on 16/P4. Decks
+    that used image_pool barely show it; the ones whose author fetched pictures directly do, since
+    the pool's orientation filter is the only thing that was enforcing the match.
+    """
+
+    def project(self, folder, source_size, bounds):
+        from PIL import Image
+        root = pathlib.Path(folder)
+        (root / 'pages').mkdir()
+        (root / 'media').mkdir()
+        Image.new('RGB', source_size, (128, 128, 128)).save(root / 'media' / 'a.jpg')
+        (root / 'deck.pptd').write_text(
+            'version: v2\ntitle: T\nsize: [960, 540]\npages:\n  - pages/01.page\n')
+        (root / 'pages' / '01.page').write_text(
+            'pageType: content\nelements:\n'
+            f'- elementId: pic\n  elementType: image\n  bounds: {list(bounds)}\n  src: "media/a.jpg"\n'
+            '- elementId: cap\n  elementType: text\n  bounds: '
+            f'[{bounds[0]}, {bounds[1] + bounds[3] + 8}, {bounds[2]}, 18]\n'
+            '  content:\n    text: 图：某某 · 2024\n')
+        return root
+
+    def codes(self, report):
+        return {i['code'] for i in report['issues']} | {a['code'] for a in report.get('advisories', [])}
+
+    def test_a_portrait_photo_in_a_landscape_box_is_reported(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, (1164, 1490), (620, 150, 308, 232))
+            self.assertIn('over-cropped-image', self.codes(validate.audit_project(root)))
+
+    def test_a_picture_that_matches_its_frame_passes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, (1600, 1200), (620, 150, 308, 232))
+            self.assertNotIn('over-cropped-image', self.codes(validate.audit_project(root)))
+
+
 class ExceptionTests(unittest.TestCase):
     def project(self, folder, page_body, exceptions=None):
         import json as _json

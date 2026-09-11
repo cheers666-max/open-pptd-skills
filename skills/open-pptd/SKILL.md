@@ -277,6 +277,7 @@ When generating a PPT, adopt different production approaches for different user 
    - 元素不越界，文字不溢出、不被遮挡，字号与对比度可读。
    - 对齐、间距、层级、页边距及整篇节奏符合选定风格。
    - 图片实际内容支持本页论点；核对主体、场景、图注和来源。别家实绩不能当作本公司证据；不能用无关图填满版面。
+   - **图片方向要和版位匹配**：`cover` 填充会把多余部分裁掉，竖图放进横版位等于只保留中间一条横带，主体（人像的头、建筑的顶）就没了。在 outline 的 `images` 里写明 `orientation`（`landscape`／`portrait`），让 `image_pool.py` 按方向筛选；**自己下载图片时同样要对齐方向**，因为绕过图池就没有这道过滤。裁切超过 1.5 倍由 `over-cropped-image` 拦。
    - **每张嵌入式配图都要有图注**，紧贴图片下方，写清"这是什么 · 机构／作者 · 年份"；整幅出血的装饰图除外。缺图注由 `image-missing-caption` 拦。
    - **有公开页面的来源写成可点链接**：`来源：<a href="https://...">外交部答问</a>，2026`。HTML 渲染成真锚点、PPTX 导出成 hlinkClick，观众能直接点开核对；档案、书籍、内部数据没有链接就保持纯文本。`unlinked-source` 是提醒级，不阻断。
    - **页面上不写检索日期、"许可未知／授权待核"、"资料图"这类台账**——查不清出处就换一张图，台账留在 notes 与 `images_report.json`／`images_pool.json`。`source-caption-noise` 会拦。

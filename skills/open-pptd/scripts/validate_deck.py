@@ -549,6 +549,67 @@ def image_resolution_issue(
     }
 
 
+# Crop factor p75 is 1.35 across 187 pictures, so a frame that throws away half again its own
+# width or height is the tail, not the norm — and past it the subject starts leaving the frame.
+MAX_CROP_FACTOR = 1.5
+
+
+def image_crop_issue(
+    project: Path,
+    element: dict[str, Any],
+    page_number: int,
+    page_ref: str,
+) -> Optional[dict[str, Any]]:
+    """A picture whose shape fights its frame loses whatever mattered in it.
+
+    A "cover" fit fills the box and cuts the rest, so a portrait photo in a landscape frame keeps
+    only a horizontal band through the middle: on 16/P4 that band was the statue's torso, without
+    its head. image_pool already refuses a candidate whose orientation does not match the slot,
+    which is why decks that used it barely show this; the check belongs here too, where it holds
+    no matter how the picture arrived.
+    """
+    if element.get("elementType") != "image":
+        return None
+    bounds = valid_bounds(element)
+    source = safe_project_path(project, element.get("src"))
+    if bounds is None or source is None or not source.is_file() or not HAS_PIL:
+        return None
+    fit = element.get("fit") if isinstance(element.get("fit"), dict) else {}
+    if fit.get("mode", "cover") == "contain":
+        return None
+    try:
+        with Image.open(source) as img:
+            source_width, source_height = img.size
+    except (OSError, UnidentifiedImageError):
+        return None
+    if not source_width or not source_height or bounds[2] <= 0 or bounds[3] <= 0:
+        return None
+    source_aspect = source_width / source_height
+    box_aspect = bounds[2] / bounds[3]
+    crop = max(box_aspect / source_aspect, source_aspect / box_aspect)
+    if crop <= MAX_CROP_FACTOR:
+        return None
+    flipped = (box_aspect > 1) != (source_aspect > 1)
+    detail = (f"cover fit throws away {crop:.1f}x of the picture"
+              + (" — a portrait source in a landscape frame (or the reverse), so the subject is "
+                 "almost certainly cut" if flipped else "")
+              + "; pick a picture whose orientation matches the slot (image_pool does this when "
+                "the outline declares it), or reshape the frame")
+    return {
+        "code": "over-cropped-image",
+        "pageNumber": page_number,
+        "pageRef": page_ref,
+        "elementId": element.get("elementId"),
+        "src": str(source.relative_to(project)),
+        "sourcePixels": [source_width, source_height],
+        "boxSize": [bounds[2], bounds[3]],
+        "cropFactor": round(crop, 2),
+        "orientationFlipped": flipped,
+        "detail": detail,
+        "repairability": "asset-replacement",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Page-level audit (background constraints, unresolved placeholders)
 # ---------------------------------------------------------------------------
@@ -1395,6 +1456,9 @@ def audit_project(
                 )
                 if issue is not None:
                     issues.append(issue)
+                crop = image_crop_issue(project, element, page_number, str(page_ref))
+                if crop is not None:
+                    issues.append(crop)
 
     # Deck-level checks: content-page image reuse blocks; a cover/closing pair is advice only.
     for dup in duplicate_image_issues(loaded_pages):
