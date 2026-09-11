@@ -1137,6 +1137,10 @@ def image_caption_issues(page: dict[str, Any], page_number: int, page_ref: str,
                         or y + h >= height - BLEED_TOLERANCE_PX)
         if touches_edge and h >= height * BLEED_HEIGHT_RATIO:
             continue
+        # A picture that ends at the bottom of the slide has no room under it; the caption band
+        # would fall off the page, so this is art carrying the page, not evidence to explain.
+        if y + h >= height - BLEED_TOLERANCE_PX:
+            continue
         captioned = False
         for text in texts:
             tx, ty, tw, _th = (float(v) for v in text["bounds"])

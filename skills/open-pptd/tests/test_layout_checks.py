@@ -327,6 +327,12 @@ class ImageCaptionTests(unittest.TestCase):
             self.page([620, 150, 284, 200], [620, 430, 284, 18]), 1, 'pages/01.page')
         self.assertEqual([i['code'] for i in issues], ['image-missing-caption'])
 
+    def test_a_picture_that_ends_at_the_page_edge_has_nowhere_to_put_one(self):
+        # A band photo running to the bottom of the slide leaves no room under it; asking for a
+        # caption there asks for one drawn off the page.
+        issues = validate.image_caption_issues(self.page([0, 240, 960, 300]), 1, 'pages/01.page')
+        self.assertEqual(issues, [])
+
     def test_full_height_edge_bleed_art_needs_no_caption(self):
         for bounds in ([540, 0, 420, 540], [0, 0, 470, 540]):
             self.assertEqual(validate.image_caption_issues(self.page(bounds), 1, 'pages/01.page'), [],
