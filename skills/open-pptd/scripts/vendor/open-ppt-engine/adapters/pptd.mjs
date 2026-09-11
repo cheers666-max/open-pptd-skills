@@ -421,6 +421,15 @@ function plainRichText(value) {
     .trim();
 }
 
+// A YAML 1.2 parser turns a bare 08 or 3 into a number, while the same deck renders fine in the
+// authoring tools. Text is text: coerce once, here, rather than letting a raw .includes throw.
+function textOf(value) {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return value;
+}
+
 function isFormulaText(value) {
   const text = plainRichText(value);
   return /^\\\([\s\S]+\\\)$/u.test(text) || /^\$\$[\s\S]+\$\$$/u.test(text) || /^\$[^$]+\$$/u.test(text);
@@ -545,7 +554,7 @@ function makeTableRows(element, manifest, theme, scale, warnings, context) {
     if (normalized.bold === undefined && rowIndex === 0 && tableStyle.headerBold !== undefined) normalized.bold = Boolean(tableStyle.headerBold);
     if (normalized.border === undefined && tableStyle.border !== undefined) normalized.border = tableStyle.border;
     const style = cellStyleFor(normalized, tableStyle, rowIndex, columnIndex, rows.length, columnCount, theme, scale, warnings, context);
-    const textValue = normalized.text ?? "";
+    const textValue = textOf(normalized.text);
     const parsed = richText(textValue, style, theme.colors, scale);
     return {
       text: plainRichText(textValue),
@@ -569,7 +578,7 @@ function addPptdElement(slide, element, context, state) {
   if (type === "text") {
     const content = record(source.content);
     const style = normalizeTextStyle(content, theme, state.scale, warnings, context);
-    const textValue = content.text ?? "";
+    const textValue = textOf(content.text);
     const parsed = richText(textValue, style, colors, state.scale);
     if (parsed.paragraphAlign && !content.align) style.align = parsed.paragraphAlign;
     if (isFormulaText(textValue)) {

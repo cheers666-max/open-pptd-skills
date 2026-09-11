@@ -225,3 +225,11 @@ test('PPTX: align variants (nested pair, numeric, bare string) map onto the cano
     assert.equal(style.valign,v,`v for ${JSON.stringify(align)}`);
   }
 });
+
+test('PPTX: a text value parsed as a number exports instead of crashing the writer', () => {
+  // The renderer parses YAML 1.2, where a bare 08 is the integer 8, while the authoring tools read
+  // it as the string "08". A deck that renders fine must not take the PPTX writer down.
+  const element = {elementId:'pageno', elementType:'text', bounds:[844,504,60,20], content:{text:8}};
+  const deck = pptdToDeck({manifest:{version:'v2',size:[960,540],pages:['pages/1.page']},pages:[{elements:[element]}]},{scale:1});
+  assert.equal(deck.slides[0].elements[0].text, '8');
+});
