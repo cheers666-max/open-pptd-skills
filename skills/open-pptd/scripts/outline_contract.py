@@ -69,6 +69,59 @@ def planned_image_count(page: dict) -> int:
     return 1 if page.get("image") else 0
 
 
+# A slot declares the frame it will live in, and what will be standing in it. The pool filters on
+# orientation and scores on ratio, and the page builder picks the fit mode from the subject: a
+# person or a single artifact is framed whole (contain), a scene or a diagram fills (cover).
+# Without the declaration every slot defaulted to landscape and portrait photos went in unchecked.
+IMAGE_SUBJECTS = {"person", "artifact", "scene", "diagram"}
+CONTAIN_SUBJECTS = {"person", "artifact"}
+MIN_SLOT_RATIO = 0.2
+MAX_SLOT_RATIO = 5.0
+
+
+def slot_orientation(ratio: float) -> str:
+    if ratio > 1.25:
+        return "landscape"
+    if ratio < 0.8:
+        return "portrait"
+    return "square"
+
+
+def slot_fit(subject: str) -> str:
+    """Whole subject beats a filled frame: letterboxing is recoverable, a cut head is not."""
+    return "contain" if str(subject).lower() in CONTAIN_SUBJECTS else "cover"
+
+
+def image_slot_issues(page: dict, index) -> List[dict]:
+    issues: List[dict] = []
+    for order, entry in enumerate(page.get("images") or [], start=1):
+        if not isinstance(entry, dict):
+            entry = {"query": entry}
+        where = {"pageIndex": index, "slot": order}
+        ratio = entry.get("ratio")
+        subject = entry.get("subject")
+        missing = [name for name, value in (("ratio", ratio), ("subject", subject)) if value in (None, "")]
+        if missing:
+            issues.append({**where, "code": "outline-image-slot-undeclared", "missing": missing,
+                           "detail": "every picture slot declares ratio (width/height of the frame "
+                                     "it will sit in) and subject (person/artifact/scene/diagram); "
+                                     "the pool searches and scores on the ratio and the page "
+                                     "builder picks the fit mode from the subject"})
+        if subject not in (None, "") and str(subject).lower() not in IMAGE_SUBJECTS:
+            issues.append({**where, "code": "outline-image-slot-subject", "subject": subject,
+                           "detail": "subject is one of " + ", ".join(sorted(IMAGE_SUBJECTS))})
+        if ratio not in (None, ""):
+            try:
+                value = float(ratio)
+            except (TypeError, ValueError):
+                value = 0.0
+            if not MIN_SLOT_RATIO <= value <= MAX_SLOT_RATIO:
+                issues.append({**where, "code": "outline-image-slot-ratio", "ratio": ratio,
+                               "detail": f"ratio is width/height of the frame, between "
+                                         f"{MIN_SLOT_RATIO} and {MAX_SLOT_RATIO}"})
+    return issues
+
+
 def plan_issues(outline: dict) -> List[dict]:
     """Problems visible in the plan alone — checkable before a single page is authored."""
     issues: List[dict] = []
@@ -97,6 +150,7 @@ def plan_issues(outline: dict) -> List[dict]:
         if not str(page.get("summary", "")).strip():
             issues.append({"code": "outline-missing-summary", "pageIndex": index,
                            "detail": "every page needs one line saying what it carries"})
+        issues.extend(image_slot_issues(page, index))
         slots = page.get("slots")
         slots = slots if isinstance(slots, list) else []
         kind = str(page.get("pageType", "")).lower()

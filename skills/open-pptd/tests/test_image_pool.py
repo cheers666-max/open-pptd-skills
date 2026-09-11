@@ -163,3 +163,73 @@ class VerificationDefaultTests(unittest.TestCase):
     def test_no_vlm_turns_verification_off(self):
         args = image_pool.build_parser().parse_args(['--project', '.', '--no-vlm'])
         self.assertFalse(args.vlm)
+
+
+class SlotDeclarationTests(unittest.TestCase):
+    """The declared frame drives the search: orientation comes from the ratio, not from a default.
+
+    Defaulting to 'landscape' is what let portrait photos through into landscape frames, because
+    the filter was comparing every candidate against a guess rather than against the real slot.
+    """
+
+    def intents(self, entry):
+        outline = {'pages': [{'pageIndex': 4, 'images': [dict(entry, query='庄子像')]}]}
+        return image_pool.intents_from_outline(outline)
+
+    def test_orientation_comes_from_the_declared_ratio(self):
+        self.assertEqual(self.intents({'ratio': 0.75})[0]['want'], 'portrait')
+        self.assertEqual(self.intents({'ratio': 1.33})[0]['want'], 'landscape')
+        self.assertEqual(self.intents({'ratio': 1.0})[0]['want'], 'square')
+
+    def test_an_explicit_orientation_still_wins(self):
+        self.assertEqual(self.intents({'ratio': 1.33, 'orientation': 'portrait'})[0]['want'],
+                         'portrait')
+
+    def test_an_undeclared_slot_searches_any_orientation_rather_than_guessing_landscape(self):
+        self.assertEqual(self.intents({})[0]['want'], 'any')
+
+    def test_the_subject_travels_with_the_intent_and_picks_the_fit(self):
+        intent = self.intents({'ratio': 1.33, 'subject': 'person'})[0]
+        self.assertEqual(intent['subject'], 'person')
+        self.assertEqual(intent['fit'], 'contain')
+        self.assertEqual(self.intents({'ratio': 1.33, 'subject': 'scene'})[0]['fit'], 'cover')
+
+
+class ResolveFitTests(unittest.TestCase):
+    """A whole subject beats a filled frame.
+
+    Letterboxing a portrait of a person is recoverable; cropping his head off is not. The subject
+    is declared once in the outline, so resolve writes the fit alongside the src it is already
+    rewriting rather than leaving a second thing for the author to remember.
+    """
+
+    def project(self, folder, fit_line=''):
+        root = Path(folder)
+        (root / 'pages').mkdir()
+        (root / 'deck.pptd').write_text(
+            'version: v2\ntitle: T\nsize: [960, 540]\npages:\n  - pages/01.page\n')
+        (root / 'pages' / '01.page').write_text(
+            'pageType: content\nelements:\n'
+            '- elementId: pic\n  elementType: image\n  bounds: [620, 150, 308, 232]\n'
+            f'{fit_line}  src: "pool:p1"\n')
+        (root / 'images_pool.json').write_text(json.dumps({'candidates': [
+            {'id': 'p1', 'local': 'media/a.jpg', 'fit': 'contain'}]}))
+        (root / 'media').mkdir()
+        (root / 'media' / 'a.jpg').write_bytes(b'x')
+        return root
+
+    def page(self, root):
+        return (root / 'pages' / '01.page').read_text()
+
+    def test_a_contain_slot_gets_its_fit_written_next_to_the_src(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder)
+            image_pool.resolve(root)
+            self.assertIn('media/a.jpg', self.page(root))
+            self.assertRegex(self.page(root), r'fit:\s*\{\s*mode:\s*contain')
+
+    def test_an_author_declared_fit_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = self.project(folder, fit_line='  fit: {mode: cover}\n')
+            image_pool.resolve(root)
+            self.assertNotIn('contain', self.page(root))

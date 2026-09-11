@@ -113,3 +113,42 @@ class ReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ImageSlotDeclarationTests(unittest.TestCase):
+    """29 of 187 pictures in the 20-page batch were a portrait photo in a landscape frame.
+
+    The pool already filters by orientation and scores by ratio, but the outline never declared
+    either, so every slot defaulted to landscape and the filter silently passed anything. One
+    declaration per slot drives the search, the score and the fit mode.
+    """
+
+    def outline(self, image_entry):
+        return {"pages": [{"pageIndex": 1, "pageType": "content", "actionTitle": "T",
+                           "summary": "S", "slots": ["title"], "images": [image_entry]}]}
+
+    def codes(self, outline):
+        return {i["code"] for i in contract.plan_issues(outline)}
+
+    def test_a_slot_without_a_target_ratio_is_reported(self):
+        self.assertIn("outline-image-slot-undeclared",
+                      self.codes(self.outline({"query": "庄子像 商丘民权"})))
+
+    def test_a_slot_without_a_subject_is_reported(self):
+        self.assertIn("outline-image-slot-undeclared",
+                      self.codes(self.outline({"query": "庄子像", "ratio": 1.33})))
+
+    def test_a_fully_declared_slot_passes(self):
+        self.assertNotIn("outline-image-slot-undeclared",
+                         self.codes(self.outline({"query": "庄子像", "ratio": 1.33,
+                                                  "subject": "artifact"})))
+
+    def test_an_unknown_subject_is_reported(self):
+        self.assertIn("outline-image-slot-subject",
+                      self.codes(self.outline({"query": "庄子像", "ratio": 1.33,
+                                               "subject": "statue"})))
+
+    def test_a_nonsense_ratio_is_reported(self):
+        self.assertIn("outline-image-slot-ratio",
+                      self.codes(self.outline({"query": "庄子像", "ratio": 0,
+                                               "subject": "scene"})))

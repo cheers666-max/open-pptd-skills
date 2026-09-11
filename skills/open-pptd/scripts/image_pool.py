@@ -25,6 +25,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import outline_contract
+
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE / 'image_search'))
@@ -80,6 +82,29 @@ def page_image_plan(page: dict) -> List[Dict[str, Any]]:
     return []
 
 
+def _ratio(entry: Dict[str, Any]) -> Optional[float]:
+    try:
+        value = float(entry.get('ratio'))
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _want(entry: Dict[str, Any]) -> str:
+    """The slot's own shape decides what to search for.
+
+    Defaulting an undeclared slot to 'landscape' made the orientation filter compare candidates
+    against a guess, which is how 29 portrait photos ended up in landscape frames. Undeclared now
+    means 'any' — no filtering — so the miss is visible in the outline contract instead of being
+    silently papered over here.
+    """
+    declared = str(entry.get('orientation') or '').strip().lower()
+    if declared:
+        return declared
+    ratio = _ratio(entry)
+    return outline_contract.slot_orientation(ratio) if ratio else 'any'
+
+
 def intents_from_outline(outline: dict) -> List[Dict[str, Any]]:
     """One search intent per picture the outline asked for; a page may ask for several."""
     intents = []
@@ -97,8 +122,10 @@ def intents_from_outline(outline: dict) -> List[Dict[str, Any]]:
                 'id': f'p{index}{suffix}',
                 'pageIndex': index,
                 'query': query,
-                'want': str(entry.get('orientation') or 'landscape'),
-                'ratio': entry.get('ratio'),
+                'want': _want(entry),
+                'ratio': _ratio(entry),
+                'subject': str(entry.get('subject') or '').strip().lower(),
+                'fit': outline_contract.slot_fit(entry.get('subject')),
                 'role': str(entry.get('role') or '').strip().lower(),
                 'note': str(entry.get('note') or '').strip(),
                 'context': ' '.join(str(page.get(key, '')) for key in ('actionTitle', 'summary')).strip(),
@@ -195,6 +222,9 @@ def build(project, outline_path=None, *, backend='auto', workers=4, use_vlm=True
             'backend': winner['backend'], 'source_url': winner['url'],
             'landing': winner.get('landing', ''), 'license': winner.get('license', ''),
             'score': round(float(winner.get('score', 0)), 2),
+            'subject': intent.get('subject', ''),
+            'targetRatio': intent.get('ratio'),
+            'fit': intent.get('fit', 'cover'),
         })
 
     planned_pages = {i['pageIndex'] for i in intents}
@@ -226,6 +256,31 @@ def load_pool(pdir: Path) -> Dict[str, dict]:
     return {entry['id']: entry for entry in data.get('candidates', []) if isinstance(entry, dict)}
 
 
+def _element_declares_fit(lines, line_no: int) -> bool:
+    """Walk the element this src belongs to, looking for a fit the author already chose."""
+    start = line_no
+    while start > 0 and not lines[start].lstrip().startswith('- '):
+        start -= 1
+    index = start
+    while index < len(lines):
+        if index > start and lines[index].lstrip().startswith('- '):
+            break
+        if slots_mod.FIT_RE.match(lines[index]):
+            return True
+        index += 1
+    return False
+
+
+def _write_fit(text: str, line_no: int, mode: str) -> str:
+    """Put the fit on its own line above the src, at the same indent."""
+    lines = text.splitlines(keepends=True)
+    if line_no >= len(lines) or _element_declares_fit(lines, line_no):
+        return text
+    indent = lines[line_no][:len(lines[line_no]) - len(lines[line_no].lstrip())]
+    lines.insert(line_no, f'{indent}fit: {{mode: {mode}}}\n')
+    return ''.join(lines)
+
+
 def resolve(project, *, json_output=False) -> int:
     """Rewrite every `pool:<id>` reference to the pooled file; an unknown id is never guessed."""
     pdir, _ = _find_project(project)
@@ -246,7 +301,12 @@ def resolve(project, *, json_output=False) -> int:
                 unknown.append({'page': f'pages/{path.name}', 'src': src})
                 continue
             text = slots_mod.patch_src(text, line_no, src, entry['local'])
-            rewritten.append({'page': f'pages/{path.name}', 'src': src, 'local': entry['local']})
+            # A person or a single artifact is framed whole; writing it here means the author does
+            # not have to carry the subject from the outline to the page by hand.
+            if str(entry.get('fit') or '').lower() == 'contain':
+                text = _write_fit(text, line_no, 'contain')
+            rewritten.append({'page': f'pages/{path.name}', 'src': src, 'local': entry['local'],
+                              'fit': entry.get('fit')})
         if text != original:
             path.write_text(text, encoding='utf-8')
     result = {'resolved': rewritten, 'unknown': unknown,
