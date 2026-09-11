@@ -409,6 +409,16 @@ class ImageCropTests(unittest.TestCase):
             self.assertNotIn('over-cropped-image', self.codes(validate.audit_project(root)))
 
 
+class CropExceptionTests(unittest.TestCase):
+    def test_a_page_background_may_record_that_its_crop_is_intended(self):
+        """A picture filling the whole slide crops by definition; that is a judgement call.
+
+        Shrinking the frame to the source aspect — the remedy for an inset photo — would stop the
+        background covering the page, so this one is recorded and reviewed, not reshaped.
+        """
+        self.assertIn('over-cropped-image', validate.ACKNOWLEDGEABLE_CODES)
+
+
 class ExceptionTests(unittest.TestCase):
     def project(self, folder, page_body, exceptions=None):
         import json as _json

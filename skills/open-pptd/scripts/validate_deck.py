@@ -1360,6 +1360,9 @@ ACKNOWLEDGEABLE_CODES = {
     "orphan-last-line", "forbidden-line-start-punctuation", "text-capacity-overflow",
     "unexpected-wrap", "low-effective-image-resolution", "text-density",
     "image-missing-caption", "unlinked-source",
+    # A picture that fills the slide crops by definition; reshaping its frame would stop it
+    # covering the page, so an intended full-bleed crop is recorded rather than reshaped.
+    "over-cropped-image",
 }
 EXCEPTIONS_FILE = "validate-exceptions.json"
 
