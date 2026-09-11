@@ -804,13 +804,32 @@ INTERNAL_TOKEN_PATTERNS = [
 
 # Provenance bookkeeping that belongs in the notes or the image report, never on the slide: a
 # retrieval date, an unknown licence, or a caption that only says the picture is stock footage.
-# The audience gets institution · year · licence, or nothing.
+# The audience gets what the picture shows · institution · year, or nothing.
 CAPTION_NOISE_PATTERNS = [
     r"\d{4}[-/年]\d{1,2}[-/月]\d{1,2}\s*日?\s*(?:检索|访问)",
     r"(?:检索|访问)日期",
     r"(?:许可|授权|版权|来源)\s*(?:未知|不明|待核|待确认)",
     r"资料图",
 ]
+
+
+# A licence code is paperwork, not a credit line. "CC BY-SA 2.0" trailing every caption reads as
+# the reuse ledger showing through the deck; the audience wants to know who made the picture, not
+# which clause permits it. The licence stays in `images_pool.json`/`images_report.json` and in the
+# notes; a deck that must display reuse terms collects them on one credits page at the end.
+LICENCE_TOKEN_PATTERNS = [
+    r"\bCC[\s-]?BY(?:[\s-]?(?:SA|ND|NC)){0,2}(?:[\s-]?\d(?:\.\d)?)?",
+    r"\bCC0(?:[\s-]?\d(?:\.\d)?)?",
+    r"\bPublic\s+Domain\b",
+    r"\bGFDL\b",
+    r"知识共享(?:署名)?",
+    r"公有领域",
+    r"许可\s*[:：]",
+]
+
+# The one page where reuse terms belong, so the credits page is not caught by its own rule.
+CREDITS_PAGE_TYPES = {"credits", "sources", "attribution"}
+CREDITS_TITLE_RE = re.compile(r"图片来源|图片版权|图片致谢|来源与许可|Image\s+credits|Photo\s+credits", re.I)
 
 
 DEFAULT_MAX_PAGE_CHARS = 360
@@ -1023,18 +1042,35 @@ def internal_token_leak_issues(page: dict[str, Any], page_number: int, page_ref:
     return issues
 
 
+def is_credits_page(page: dict[str, Any]) -> bool:
+    """The single end-of-deck page that may carry reuse terms in full."""
+    if str(page.get("pageType", "")).strip().lower() in CREDITS_PAGE_TYPES:
+        return True
+    for el in page.get("elements", []) or []:
+        if not isinstance(el, dict) or el.get("elementType") != "text":
+            continue
+        content = el.get("content", {})
+        text = content.get("text", "") if isinstance(content, dict) else ""
+        if CREDITS_TITLE_RE.search(plain_text(text) if isinstance(text, str) else ""):
+            return True
+    return False
+
+
 def caption_noise_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
     """Provenance bookkeeping rendered onto the slide.
 
     "（2026-09-09 检索，许可未知）" and a caption reading "资料图" tell the audience nothing and
-    advertise that the deck did not settle its sources. Keep the record in speaker notes or the
-    image report; on the page write institution · year · licence, or drop the caption.
+    advertise that the deck did not settle its sources; "CC BY-SA 2.0" under a photo is the reuse
+    ledger showing through. Keep the record in speaker notes, in the image report, or on one
+    credits page; on the page write what the picture shows · institution · year, or no caption.
     """
     issues: List[dict[str, Any]] = []
     elements = page.get("elements", [])
     if not isinstance(elements, list):
         return issues
     patterns = [re.compile(pat) for pat in CAPTION_NOISE_PATTERNS]
+    if not is_credits_page(page):
+        patterns += [re.compile(pat) for pat in LICENCE_TOKEN_PATTERNS]
     for el in elements:
         if not isinstance(el, dict) or el.get("elementType") != "text":
             continue
@@ -1053,8 +1089,9 @@ def caption_noise_issues(page: dict[str, Any], page_number: int, page_ref: str) 
                     "elementId": el.get("elementId", ""),
                     "matched": match.group(0),
                     "detail": f"provenance bookkeeping on the slide: '{match.group(0)}' — move the "
-                              "retrieval date and licence status to notes; caption the picture "
-                              "with what it shows · institution · year instead",
+                              "retrieval date and the licence to notes, to images_report.json, or "
+                              "to one credits page; caption the picture with what it shows · "
+                              "institution · year instead",
                     "repairability": "rewrite-text",
                 })
                 break
@@ -1430,7 +1467,7 @@ def audit_project(
         issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
         issues.extend(caption_noise_issues(page, page_number, str(page_ref)))
         issues.extend(image_caption_issues(page, page_number, str(page_ref), slide_size))
-        issues.extend(unlinked_source_issues(page, page_number, str(page_ref)))
+        advisories.extend(unlinked_source_issues(page, page_number, str(page_ref)))
         for schema_issue in element_schema_issues(page, page_number, str(page_ref)):
             (advisories if schema_issue["code"] == "non-canonical-align" else issues).append(schema_issue)
         density = text_density_advisory(page, page_number, str(page_ref), max_page_chars)

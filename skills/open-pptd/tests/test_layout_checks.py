@@ -276,10 +276,27 @@ class CaptionNoiseTests(unittest.TestCase):
             self.assertEqual([i['code'] for i in issues], ['source-caption-noise'], caption)
 
     def test_a_real_credit_line_passes(self):
-        for caption in ('图：国家大剧院官网 · 2020 · CC BY-SA 4.0',
+        for caption in ('图：国家大剧院官网 · 2020',
                         '数据来源：国家统计局 2025 年年鉴',
                         '摄影：李明 / 常州市档案馆'):
             self.assertEqual(validate.caption_noise_issues(self.page(caption), 1, 'pages/01.page'), [], caption)
+
+
+    def test_licence_codes_on_a_content_page_block(self):
+        for caption in ('图：国家大剧院官网 · 2020 · CC BY-SA 4.0',
+                        '摄影：李明（CC0）',
+                        'Wikimedia Commons, Public Domain',
+                        '图：商丘博物馆 · 公有领域'):
+            issues = validate.caption_noise_issues(self.page(caption), 1, 'pages/01.page')
+            self.assertEqual([i['code'] for i in issues], ['source-caption-noise'], caption)
+
+    def test_the_credits_page_may_carry_reuse_terms(self):
+        page = self.page('图：商丘博物馆 · 2021 · CC BY-SA 4.0')
+        page['elements'].insert(0, {'elementId': 'title', 'elementType': 'text', 'bounds': [0, 0, 600, 40],
+                                    'content': {'text': '图片来源'}})
+        self.assertEqual(validate.caption_noise_issues(page, 9, 'pages/09.page'), [])
+        typed = self.page('Wikimedia Commons · CC BY 4.0'); typed['pageType'] = 'credits'
+        self.assertEqual(validate.caption_noise_issues(typed, 9, 'pages/09.page'), [])
 
 
 class ImageCaptionTests(unittest.TestCase):
@@ -333,6 +350,19 @@ class SourceLinkTests(unittest.TestCase):
 
     def test_ordinary_body_text_is_not_a_source_line(self):
         self.assertEqual(validate.unlinked_source_issues(self.page('古典舞的来源可以追到戏曲'), 1, 'p'), [])
+
+    def test_an_unlinked_source_advises_and_does_not_block_the_deck(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            (root / 'pages').mkdir()
+            (root / 'deck.pptd').write_text('version: v2\ntitle: T\nsize: [960, 540]\npages:\n  - pages/01.page\n')
+            (root / 'pages/01.page').write_text(
+                'pageType: content\nelements:\n'
+                '- elementId: s\n  elementType: text\n  bounds: [48, 500, 860, 20]\n'
+                '  content:\n    text: 来源：常州市档案馆《常州三杰》，2015\n    fontSize: 12\n')
+            report = validate.audit_project(root)
+            self.assertTrue(report['valid'], report.get('issueCounts'))
+            self.assertEqual(report['advisoryCounts'].get('unlinked-source'), 1)
 
 
 class ImageCropTests(unittest.TestCase):
