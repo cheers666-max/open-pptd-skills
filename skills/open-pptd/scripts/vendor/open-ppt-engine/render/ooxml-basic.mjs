@@ -451,7 +451,10 @@ function runXml(run, baseStyle = {}, hyperlinkId = null) {
   const face = escapeXml(style.fontFamily ?? themeFontTypeface(style.fontRef, "lt", "Aptos"));
   const eastAsiaFace = escapeXml(style.eastAsiaFontFamily ?? style.fontFamily ?? themeFontTypeface(style.fontRef, "ea", "Aptos"));
   const complexScriptFace = escapeXml(style.complexScriptFontFamily ?? style.fontFamily ?? themeFontTypeface(style.fontRef, "cs", "Aptos"));
-  const underline = underlineValue(style.underline);
+  // PowerPoint paints a hyperlink run in the theme's hlink colour unless the run says otherwise;
+  // the run below carries its own solidFill, so the link keeps the page's text colour and the
+  // underline is what tells the audience it can be clicked.
+  const underline = underlineValue(style.underline) || (hyperlinkId ? "sng" : "");
   const strike = strikeValue(style.strike);
   const baseline = baselineValue(style);
   const runAttrs = [

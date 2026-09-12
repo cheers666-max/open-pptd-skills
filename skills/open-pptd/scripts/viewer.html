@@ -115,6 +115,10 @@
   .el { position: absolute; }
   .el-text p, .el-cell p { margin: 0; }
   .el-text ul, .el-text ol { margin: 0; padding-left: 1.4em; }
+  .el a { color: inherit; text-decoration: underline; text-underline-offset: 0.22em;
+    text-decoration-thickness: 0.05em; text-decoration-color: currentColor;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+  .el a:hover { text-decoration-color: currentColor; }
   .el img { -webkit-user-drag: none; }
   .el-placeholder {
     border: 1.5px dashed #c0392b; background: rgb(192 57 43 / 7%);
@@ -2138,6 +2142,11 @@
 .el { position: absolute; }
 .el-text p, .el-cell p { margin: 0; }
 .el-text ul, .el-text ol { margin: 0; padding-left: 1.4em; }
+/* A source link belongs to the text it cites: the audience needs to see that it is clickable,
+   not a patch of browser blue competing with the page's own palette. */
+.el a { color: inherit; text-decoration: underline; text-underline-offset: 0.22em;
+  text-decoration-thickness: 0.05em; text-decoration-color: currentColor;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
 .el-placeholder { border: 1.5px dashed #c0392b; background: rgb(192 57 43 / 7%); color: #c0392b;
   font-size: 12px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; overflow: hidden; }
 .el-bg { position: absolute; inset: 0; }`;

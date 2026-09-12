@@ -339,6 +339,41 @@ class ImageCaptionTests(unittest.TestCase):
                              bounds)
 
 
+class CaptionLinkTests(unittest.TestCase):
+    """The caption explains the picture; the page's 来源 line carries the clickable citation."""
+
+    def page(self, caption_text):
+        return {'elements': [
+            {'elementId': 'pic', 'elementType': 'image', 'bounds': [620, 150, 284, 200], 'src': 'media/a.jpg'},
+            {'elementId': 'cap', 'elementType': 'text', 'bounds': [620, 358, 284, 18],
+             'content': {'text': caption_text}},
+            {'elementId': 'src', 'elementType': 'text', 'bounds': [48, 500, 860, 20],
+             'content': {'text': '来源：<a href="https://example.org/a">河南日报</a>，2024'}},
+        ]}
+
+    def test_a_link_in_the_caption_blocks(self):
+        issues = validate.caption_link_issues(self.page('商丘古城城墙 · <a href="https://x.cn/a">网易新闻</a>'), 1, 'p')
+        self.assertEqual([i['code'] for i in issues], ['caption-hyperlink'])
+        self.assertEqual(issues[0]['elementId'], 'cap')
+
+    def test_a_plain_caption_passes_and_the_source_line_keeps_its_link(self):
+        page = self.page('商丘古城城墙 · 网易新闻，2024')
+        self.assertEqual(validate.caption_link_issues(page, 1, 'p'), [])
+        self.assertEqual(validate.unlinked_source_issues(page, 1, 'p'), [])
+
+    def test_a_source_line_under_a_picture_stays_a_source_line(self):
+        # The page footnote often lands inside a picture's caption band; it keeps its link and is
+        # still advised when it has none, rather than being read as that picture's caption.
+        page = self.page('来源：商丘市文旅局')
+        self.assertEqual(validate.caption_link_issues(page, 1, 'p'), [])
+        advised = validate.unlinked_source_issues(page, 1, 'p', (960.0, 540.0))
+        self.assertEqual([i['elementId'] for i in advised], ['cap'])
+
+    def test_a_linked_footnote_in_the_caption_band_is_not_a_caption_link(self):
+        page = self.page('来源：<a href="https://example.org/b">商丘日报</a>，2024')
+        self.assertEqual(validate.caption_link_issues(page, 1, 'p'), [])
+
+
 class SourceLinkTests(unittest.TestCase):
     """56 source lines in the batch name a source and none of them is clickable."""
 

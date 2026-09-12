@@ -1104,6 +1104,78 @@ BLEED_TOLERANCE_PX = 2
 BLEED_HEIGHT_RATIO = 0.8
 
 
+def caption_texts(page: dict[str, Any],
+                  size: Optional[Tuple[float, float]] = None) -> Dict[str, dict[str, Any]]:
+    """Text elements sitting in the caption band under a picture, keyed by elementId.
+
+    Same geometry the missing-caption check uses — 48px under the picture, 40% horizontal
+    overlap — so "what counts as a caption" is decided in one place.
+    """
+    found: Dict[str, dict[str, Any]] = {}
+    elements = page.get("elements", [])
+    if not isinstance(elements, list):
+        return found
+    width, height = size or (960.0, 540.0)
+    texts = [el for el in elements
+             if isinstance(el, dict) and el.get("elementType") == "text"
+             and isinstance(el.get("bounds"), list) and len(el["bounds"]) == 4]
+    for el in elements:
+        if not isinstance(el, dict) or el.get("elementType") != "image":
+            continue
+        bounds = el.get("bounds")
+        if not isinstance(bounds, list) or len(bounds) != 4:
+            continue
+        try:
+            x, y, w, h = (float(v) for v in bounds)
+        except (TypeError, ValueError):
+            continue
+        if w <= 0 or h <= 0:
+            continue
+        for text in texts:
+            try:
+                tx, ty, tw, _th = (float(v) for v in text["bounds"])
+            except (TypeError, ValueError):
+                continue
+            if min(x + w, tx + tw) - max(x, tx) < w * CAPTION_OVERLAP_RATIO:
+                continue
+            if not -4 <= ty - (y + h) <= CAPTION_BAND_PX:
+                continue
+            content = text.get("content", {})
+            body = content.get("text", "") if isinstance(content, dict) else ""
+            # A 来源 line that happens to land under a picture is the page's citation, not that
+            # picture's caption: it keeps its link and is not asked to explain the image.
+            if isinstance(body, str) and SOURCE_LINE.search(plain_text(body)):
+                continue
+            found[str(text.get("elementId", ""))] = text
+    return found
+
+
+def caption_link_issues(page: dict[str, Any], page_number: int, page_ref: str,
+                        size: Optional[Tuple[float, float]] = None) -> List[dict[str, Any]]:
+    """An anchor inside a picture caption.
+
+    A caption is a credit line, not a citation. A row of blue underlines under every figure pulls
+    the eye off the pictures they explain, so the clickable citation belongs on the page's 来源
+    line, where a reader looking for the evidence goes.
+    """
+    issues: List[dict[str, Any]] = []
+    for element_id, el in caption_texts(page, size).items():
+        content = el.get("content", {})
+        text = content.get("text", "") if isinstance(content, dict) else ""
+        if not isinstance(text, str) or "<a " not in text:
+            continue
+        issues.append({
+            "code": "caption-hyperlink",
+            "pageNumber": page_number,
+            "pageRef": page_ref,
+            "elementId": element_id,
+            "detail": "link inside a picture caption: write the caption as plain text (内容 · "
+                      "机构／作者 · 年份) and keep the clickable citation on the page's 来源 line",
+            "repairability": "rewrite-text",
+        })
+    return issues
+
+
 def image_caption_issues(page: dict[str, Any], page_number: int, page_ref: str,
                          size: Optional[Tuple[float, float]] = None) -> List[dict[str, Any]]:
     """A picture nobody explains is a picture the audience has to guess at.
@@ -1155,9 +1227,9 @@ def image_caption_issues(page: dict[str, Any], page_number: int, page_ref: str,
                 "pageNumber": page_number,
                 "pageRef": page_ref,
                 "elementId": el.get("elementId", ""),
-                "detail": "picture has no caption: add a text line directly under it saying what "
-                          "the picture shows and where it came from; link the source with "
-                          '<a href="...">名称</a> when it has a page',
+                "detail": "picture has no caption: add a plain-text line directly under it "
+                          "saying what the picture shows and where it came from (内容 · 机构／作者 "
+                          "· 年份); keep the clickable citation on the page's 来源 line, not here",
                 "repairability": "add-caption",
             })
     return issues
@@ -1166,7 +1238,8 @@ def image_caption_issues(page: dict[str, Any], page_number: int, page_ref: str,
 SOURCE_LINE = re.compile(r"(来源|資料來源|资料来源|出处|出處|参考(资料|文献)?|引自|图片来源)\s*[:：]")
 
 
-def unlinked_source_issues(page: dict[str, Any], page_number: int, page_ref: str) -> List[dict[str, Any]]:
+def unlinked_source_issues(page: dict[str, Any], page_number: int, page_ref: str,
+                           size: Optional[Tuple[float, float]] = None) -> List[dict[str, Any]]:
     """A citation the audience cannot follow.
 
     Every one of the 56 source lines in the 20-page batch named a source and none of them was
@@ -1178,8 +1251,12 @@ def unlinked_source_issues(page: dict[str, Any], page_number: int, page_ref: str
     elements = page.get("elements", [])
     if not isinstance(elements, list):
         return issues
+    captions = caption_texts(page, size)
     for el in elements:
         if not isinstance(el, dict) or el.get("elementType") != "text":
+            continue
+        # A caption stays plain text; asking it for a link would contradict caption-hyperlink.
+        if str(el.get("elementId", "")) in captions:
             continue
         content = el.get("content", {})
         text = content.get("text", "") if isinstance(content, dict) else ""
@@ -1474,7 +1551,8 @@ def audit_project(
         issues.extend(internal_token_leak_issues(page, page_number, str(page_ref)))
         issues.extend(caption_noise_issues(page, page_number, str(page_ref)))
         issues.extend(image_caption_issues(page, page_number, str(page_ref), slide_size))
-        advisories.extend(unlinked_source_issues(page, page_number, str(page_ref)))
+        issues.extend(caption_link_issues(page, page_number, str(page_ref), slide_size))
+        advisories.extend(unlinked_source_issues(page, page_number, str(page_ref), slide_size))
         for schema_issue in element_schema_issues(page, page_number, str(page_ref)):
             (advisories if schema_issue["code"] == "non-canonical-align" else issues).append(schema_issue)
         density = text_density_advisory(page, page_number, str(page_ref), max_page_chars)

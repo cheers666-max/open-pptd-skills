@@ -147,7 +147,7 @@ in that language. The pass shares one hash/URL dedupe set, so two
 pages cannot be handed the same photo. `imageOrientation` (`landscape`/`portrait`) and `imageRatio`
 steer the geometry gate.
 
-Caption from what the pool actually recorded: `images_pool.json` carries the backend, source URL and licence for every picture. **Every inset picture gets a caption** directly under it saying what the picture shows and where it came from — 内容 · 机构／作者 · 年份. When the pool recorded a `landing` page, make the source the link: `<a href="https://...">机构名</a>`, which the HTML viewer renders as a real anchor and the PPTX writer exports as hlinkClick. Never a retrieval date, never "许可未知", never a bare "资料图". If the pool entry cannot support a real credit line, that is a reason to drop the picture — not to leave it unexplained. Full-height art that runs off a page edge is decoration and needs no caption.
+Caption from what the pool actually recorded: `images_pool.json` carries the backend, source URL and licence for every picture. **Every inset picture gets a caption** directly under it saying what the picture shows and where it came from — 内容 · 机构／作者 · 年份. **The caption itself is plain text — no anchor.** A row of underlines under every figure pulls the eye off the pictures they explain, so the clickable citation lives on the page's 来源 line instead, where a reader looking for the evidence goes; the pool's `landing` URL belongs there (or in the notes), not under the picture. `caption-hyperlink` blocks a link inside a caption. Never a retrieval date, never "许可未知", never a bare "资料图". If the pool entry cannot support a real credit line, that is a reason to drop the picture — not to leave it unexplained. Full-height art that runs off a page edge is decoration and needs no caption.
 
 Pages then reference the pool instead of a query or a URL: `src: "pool:p6"`. After authoring, run
 `image_pool.py --project <dir> --resolve` to rewrite those references to their `media/` paths. An id
@@ -284,6 +284,7 @@ When generating a PPT, adopt different production approaches for different user 
      例：`{"query": "庄子像 商丘民权", "ratio": 1.33, "subject": "artifact"}`。缺声明由 `outline-image-slot-undeclared` 拦；`image_pool.py --resolve` 会把 `contain` 一并写进页面元素。
    - **自己下载图片时同样要对齐版位方向**，因为绕过图池就没有那道过滤；`cover` 下裁切超过 1.5 倍由 `over-cropped-image` 拦（竖图放进横版位只会保留中间一条横带，人像的头、建筑的顶就没了）。
    - **每张嵌入式配图都要有图注**，紧贴图片下方，写清"这是什么 · 机构／作者 · 年份"；整幅出血的装饰图除外。缺图注由 `image-missing-caption` 拦。
+   - **图注本身是纯文本，不带超链接**——每张图下面挂一排下划线会把视线从图上拽走；出处链接放到本页的「来源：」行里，`caption-hyperlink` 会拦图注里的 `<a>`。
    - **有公开页面的来源写成可点链接**：`来源：<a href="https://...">外交部答问</a>，2026`。HTML 渲染成真锚点、PPTX 导出成 hlinkClick，观众能直接点开核对；档案、书籍、内部数据没有链接就保持纯文本。`unlinked-source` 是提醒级，不阻断。
    - **页面上不写检索日期、"许可未知／授权待核"、"资料图"这类台账**——查不清出处就换一张图，台账留在 notes 与 `images_report.json`／`images_pool.json`。`source-caption-noise` 会拦。
 
