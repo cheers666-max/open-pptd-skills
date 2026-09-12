@@ -247,8 +247,11 @@ When generating a PPT, adopt different production approaches for different user 
    ```
 
    With `PPT_HTML2PNG_URL` set (or `--render-endpoint`), the pages are painted by the html2png
-   service from the same self-contained HTML `export_html.py` writes, and come back at CSS size:
-   a 14-page deck takes about 25s and one short-lived Chrome, against minutes of local painting.
+   service from the same self-contained HTML `export_html.py` writes, and come back at CSS size.
+   Ask for `--export html` in the same command and that bundle *is* the delivery, so the deck is
+   converted once instead of twice. Font subsets are cached under `.qa-images/font-cache`, which
+   is why a second run of the same deck skips the slowest part of the export. Measured on a
+   14-page deck: about 28s for render plus HTML plus PPTX, against roughly 55s before.
    Without an endpoint nothing changes — local Chrome renders the deck as before.
 
    This runs the existing deterministic validator, renders changed pages, rebuilds a **complete current overview**, and runs the existing auxiliary contrast/overlap audit across every page. It makes no model or scoring calls. Read the concise result and `.qa-images/prepare-report.json` for page/field errors, advisories, image paths, rendered/reused page numbers and export results. `ok` means machine checks passed; `visualReview: required` is not a visual pass. Preserve the exit code; when piping logs, use `set -o pipefail` or capture the original status.

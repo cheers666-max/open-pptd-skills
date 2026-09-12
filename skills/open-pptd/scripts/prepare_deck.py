@@ -155,9 +155,25 @@ def run(project, *, output=None, workers=4, scale=2.0, timeout=90, force=False, 
     with tempfile.TemporaryDirectory(prefix='.pptd-check-', dir=output.parent) as folder:
         staged = Path(folder)
         (staged / 'pages').mkdir()
+        # When the service renders and HTML is also a requested delivery format, the export the
+        # service needs is the delivery export: produce it once here, into the staging folder, and
+        # hand it over below only if the machine checks pass.
+        html_staged = staged / 'html' if (endpoint and 'html' in export_formats) else None
+        rendered = {}
         if changed:
-            export_images(deck, staged, scale, 30000, timeout, True, workers,
-                          page_spec=','.join(map(str, changed)), endpoint=endpoint)
+            rendered = export_images(deck, staged, scale, 30000, timeout, True, workers,
+                                     page_spec=','.join(map(str, changed)), endpoint=endpoint,
+                                     html_out=html_staged,
+                                     font_cache=output / 'font-cache') or {}
+        html_export = rendered.get('htmlExport')
+        if html_export and html_staged is not None and html_staged.is_dir():
+            carried = output / 'html-export'
+            if carried.exists():
+                shutil.rmtree(carried)
+            shutil.move(str(html_staged), str(carried))
+            html_export['output_dir'] = str(deck.parent / 'html')
+        else:
+            html_export = None
         for index in reused:
             shutil.copyfile(output / f'pages/page_{index:02d}.png', staged / f'pages/page_{index:02d}.png')
         images = [staged / f'pages/page_{i:02d}.png' for i in wanted]
@@ -183,9 +199,22 @@ def run(project, *, output=None, workers=4, scale=2.0, timeout=90, force=False, 
                   audit=dict(issues=issues, errors=sum(i.get('severity') == 'error' for i in issues),
                              scope='Auxiliary contrast/overlap only; does not certify visual quality.'))
     write_json(output / 'prepare-report.json', result)
+    # A deck that failed its machine checks delivers nothing, so the bundle staged for delivery goes
+    # rather than sitting in the QA folder pretending to be an export.
+    if not result['ok'] and (output / 'html-export').exists():
+        shutil.rmtree(output / 'html-export', ignore_errors=True)
     # Explicit final export only; generation-time review/repair remains the author's job.
     if result['ok']:
+        if html_export:
+            # Nothing rendered its way here twice: move the staged bundle into place as the delivery.
+            target = deck.parent / 'html'
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.move(str(output / 'html-export'), str(target))
+            result['exports']['html'] = html_export
         for fmt in dict.fromkeys(export_formats):
+            if fmt == 'html' and html_export:
+                continue
             command = ([sys.executable, str(SCRIPTS / 'export_html.py'), str(deck), '--json'] if fmt == 'html' else
                        ['node', str(SCRIPTS / 'export_pptx.mjs'), str(deck), '--force', '--json',
                         '--report', str(output / 'pptx-report.json')])

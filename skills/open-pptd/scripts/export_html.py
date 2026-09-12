@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import io
 import json
 import os
@@ -29,7 +30,9 @@ import subprocess
 import sys
 import time
 import zipfile
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from typing import Optional
 from urllib.parse import quote, urlencode
 
 from deck_server import start_deck_server
@@ -235,6 +238,67 @@ def _html_text_chars(html: str) -> set:
     return {c for c in chars if not c.isspace() or c == " "}
 
 
+# Subsetting a CJK face takes about 0.4s, and a deck asks for one per page per weight: the 14-page
+# 商丘 deck spent 11.4 of its 19.8 export seconds here. The work is pure CPU over an unchanged input,
+# so it parallelises, and a page whose text did not change asks for a byte-identical subset — which
+# is what the on-disk cache is for. The cache lives beside the deck, never inside the skill: an eval
+# run compares the skill copy before and after, and a cache written there would read as a mutation.
+FONT_CACHE_ENV = "OPEN_PPTD_FONT_CACHE"
+
+
+def _subset_cache_dir(out_dir: Path, explicit: Optional[Path] = None) -> Optional[Path]:
+    override = os.environ.get(FONT_CACHE_ENV, "").strip()
+    if override:
+        folder = Path(override)
+    elif explicit is not None:
+        folder = Path(explicit)
+    else:
+        folder = out_dir.resolve().parent / ".font-cache"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return folder
+
+
+def _subset_cache_key(ttf: Path, chars: set) -> str:
+    text = "".join(sorted(chars)).encode("utf-8")
+    stamp = f"{ttf.name}:{ttf.stat().st_size}".encode()
+    return hashlib.sha256(stamp + b"\x00" + text).hexdigest()[:32]
+
+
+def _cached_subset(folder: Optional[Path], key: str) -> Optional[tuple]:
+    if folder is None:
+        return None
+    for path in folder.glob(f"{key}.*"):
+        try:
+            return path.read_bytes(), path.suffix.lstrip(".")
+        except OSError:
+            return None
+    return None
+
+
+def _store_subset(folder: Optional[Path], key: str, data: bytes, flavor: str) -> None:
+    if folder is None:
+        return
+    target = folder / f"{key}.{flavor}"
+    try:
+        temporary = target.with_suffix(f".{flavor}.{os.getpid()}")
+        temporary.write_bytes(data)
+        os.replace(temporary, target)
+    except OSError:
+        pass
+
+
+def _subset_font_job(args: tuple) -> tuple:
+    """Picklable worker: (ttf path string, sorted chars) -> (bytes, flavor) or an error string."""
+    ttf, text = args
+    try:
+        return _subset_font(Path(ttf), set(text)), None
+    except Exception as exc:  # noqa: BLE001 — never fail the export because of a font
+        return None, f"{Path(ttf).name}: {exc}"
+
+
 def _subset_font(ttf: Path, chars: set) -> tuple:
     """Return (bytes, format) of a subset font, woff2 when brotli is available else woff."""
     from fontTools import subset as ft_subset  # fontTools is a declared dependency of the skill toolchain
@@ -273,7 +337,7 @@ def _families_in_html(html: str) -> set:
     return fams
 
 
-def embed_fonts(out_dir: Path, enabled: bool = True) -> dict:
+def embed_fonts(out_dir: Path, enabled: bool = True, cache_dir: Optional[Path] = None) -> dict:
     """Inject @font-face subsets into every exported HTML file. Returns a summary dict."""
     summary = {"embedded": [], "missing": [], "skipped": not enabled}
     if not enabled:
@@ -283,11 +347,17 @@ def embed_fonts(out_dir: Path, enabled: bool = True) -> dict:
         summary["missing"].append("fonts/fonts.json")
         return summary
     cache: dict = {}
+    cache_folder = _subset_cache_dir(out_dir, cache_dir)
+    # Two passes: work out what every page needs, subset each distinct (face, character set) once,
+    # then write the pages. One page's worth of text is one job, and most decks repeat both.
+    plans: list = []
     for html_path in sorted(out_dir.glob("*.html")):
         html = html_path.read_text(encoding="utf-8")
         if "/* open-pptd embedded fonts */" in html:
             continue
-        families = _families_in_html(html)
+        # Sorted, so two exports of the same deck embed the same faces in the same order: the file
+        # is otherwise byte-identical, and a diff that moves 200KB of base64 around hides real changes.
+        families = sorted(_families_in_html(html))
         wanted = []  # (css family, weight, manifest entry)
         for fam in families:
             for name, entry in manifest.items():
@@ -303,20 +373,51 @@ def embed_fonts(out_dir: Path, enabled: bool = True) -> dict:
             if w == 700 and fam not in have_regular:
                 wanted.append((fam, 400, entry))
         chars = _html_text_chars(html)
-        faces = []
+        needed = []
         for fam, weight, entry in wanted:
             ttf = FONTS_DIR / entry.get("file", "")
             if not ttf.is_file():
                 summary["missing"].append(str(ttf.name))
                 continue
+            needed.append((fam, weight, ttf))
+        if needed:
+            plans.append((html_path, html, chars, needed))
+
+    jobs = {}
+    for _path, _html, chars, needed in plans:
+        for _fam, _weight, ttf in needed:
             key = (ttf.name, frozenset(chars))
-            if key not in cache:
-                try:
-                    cache[key] = _subset_font(ttf, chars)
-                except Exception as exc:  # noqa: BLE001 — never fail the export because of a font
-                    summary["missing"].append(f"{ttf.name}: {exc}")
-                    continue
-            data, flavor = cache[key]
+            if key in cache or key in jobs:
+                continue
+            disk_key = _subset_cache_key(ttf, chars)
+            hit = _cached_subset(cache_folder, disk_key)
+            if hit is not None:
+                cache[key] = hit
+            else:
+                jobs[key] = (str(ttf), "".join(sorted(chars)), disk_key)
+    if jobs:
+        keys = list(jobs)
+        payload = [(jobs[k][0], jobs[k][1]) for k in keys]
+        workers = min(len(keys), os.cpu_count() or 1, 8)
+        if workers > 1:
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                outcomes = list(pool.map(_subset_font_job, payload))
+        else:
+            outcomes = [_subset_font_job(item) for item in payload]
+        for key, (result, error) in zip(keys, outcomes):
+            if error:
+                summary["missing"].append(error)
+                continue
+            cache[key] = result
+            _store_subset(cache_folder, jobs[key][2], result[0], result[1])
+
+    for html_path, html, chars, needed in plans:
+        faces = []
+        for fam, weight, ttf in needed:
+            entry = cache.get((ttf.name, frozenset(chars)))
+            if entry is None:
+                continue
+            data, flavor = entry
             b64 = base64.b64encode(data).decode("ascii")
             faces.append(f"@font-face{{font-family:\"{fam}\";font-weight:{weight};font-style:normal;font-display:block;"
                          f"src:url(data:font/{flavor};base64,{b64}) format(\"{flavor}\");}}")

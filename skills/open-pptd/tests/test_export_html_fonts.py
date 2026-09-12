@@ -36,3 +36,53 @@ class EmbedFontsTests(unittest.TestCase):
             self.assertTrue(export_html.embed_fonts(out, enabled=False)['skipped'])
             export_html.embed_fonts(out)
             self.assertNotIn('@font-face', (out / 'page_01.html').read_text())
+
+
+class SubsetCacheTests(unittest.TestCase):
+    """Subsetting is the slowest part of an export; the cache exists so a rerun skips it."""
+
+    def setUp(self):
+        if not (export_html.FONTS_DIR / 'NotoSansSC-Regular.ttf').is_file():
+            self.skipTest('bundled Noto font not downloaded (fonts/ is gitignored)')
+
+    def _pages(self, folder, count=2):
+        out = Path(folder) / 'html'
+        out.mkdir(parents=True, exist_ok=True)
+        page = ('<!doctype html><html><head></head><body>'
+                '<div class="el el-text" style="font-family: &quot;Noto Sans SC&quot;;"><p>商丘文化元素</p></div>'
+                '</body></html>')
+        for index in range(1, count + 1):
+            (out / f'page_{index:02d}.html').write_text(page, encoding='utf-8')
+        return out
+
+    def test_a_rerun_reads_the_cache_and_writes_the_same_bytes(self):
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            first = self._pages(folder)
+            self.assertTrue(export_html.embed_fonts(first)['embedded'])
+            cache = Path(folder) / '.font-cache'
+            self.assertTrue(any(cache.iterdir()), 'nothing was cached')
+            expected = (first / 'page_01.html').read_text(encoding='utf-8')
+
+            second = self._pages(str(Path(folder) / 'again'))
+            os.environ[export_html.FONT_CACHE_ENV] = str(cache)
+            self.addCleanup(os.environ.pop, export_html.FONT_CACHE_ENV, None)
+            export_html.embed_fonts(second)
+            self.assertEqual((second / 'page_01.html').read_text(encoding='utf-8'), expected)
+
+    def test_a_cache_it_cannot_write_is_not_a_failed_export(self):
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            out = self._pages(folder, count=1)
+            os.environ[export_html.FONT_CACHE_ENV] = '/dev/null/cache'
+            self.addCleanup(os.environ.pop, export_html.FONT_CACHE_ENV, None)
+            self.assertTrue(export_html.embed_fonts(out)['embedded'])
+            self.assertIn('@font-face', (out / 'page_01.html').read_text(encoding='utf-8'))
+
+    def test_two_exports_of_one_page_are_byte_identical(self):
+        with tempfile.TemporaryDirectory() as folder:
+            a, b = self._pages(folder, 1), self._pages(str(Path(folder) / 'b'), 1)
+            export_html.embed_fonts(a)
+            export_html.embed_fonts(b)
+            self.assertEqual((a / 'page_01.html').read_text(encoding='utf-8'),
+                             (b / 'page_01.html').read_text(encoding='utf-8'))

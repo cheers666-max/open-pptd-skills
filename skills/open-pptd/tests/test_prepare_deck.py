@@ -37,7 +37,7 @@ class PrepareTests(unittest.TestCase):
         path.write_text(json.dumps(value))
 
     def render(self, deck, output, scale, virtual_time_ms, timeout, force, workers, page_spec=None,
-               endpoint=None):
+               endpoint=None, html_out=None, font_cache=None):
         indices = [int(v) for v in page_spec.split(',')]
         self.calls.append(indices)
         (output / 'pages').mkdir(parents=True, exist_ok=True)

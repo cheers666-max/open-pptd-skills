@@ -398,7 +398,9 @@ def stitch_overview(
 
 
 def export_via_service(deck: Path, output: Path, page_indices: List[int], page_files: List[str],
-                       endpoint: str, workers: int, timeout: int) -> Dict[str, Any]:
+                       endpoint: str, workers: int, timeout: int,
+                       html_out: Path | None = None,
+                       font_cache: Path | None = None) -> Dict[str, Any]:
     """Rasterise on the html2png service instead of painting the pages on this machine.
 
     Converting a deck to pixels never needed a browser here: every element is absolutely
@@ -416,18 +418,29 @@ def export_via_service(deck: Path, output: Path, page_indices: List[int], page_f
     pages_dir.mkdir(parents=True, exist_ok=True)
 
     log(f"deck: {deck} ({len(page_files)} pages, via html2png service)")
-    with tempfile.TemporaryDirectory(prefix=".pptd-html-") as folder:
-        html_dir = Path(folder)
+    # The HTML the service renders is the same self-contained bundle a delivery export produces, so
+    # a caller that wants both asks for it here and pays for one Chrome instead of two.
+    keep = html_out is not None
+    folder = None if keep else tempfile.TemporaryDirectory(prefix=".pptd-html-")
+    html_dir = html_out if keep else Path(folder.name)
+    html_dir.mkdir(parents=True, exist_ok=True)
+    try:
         zip_bytes = export_html.run_viewer_export(viewer, deck, find_chrome(None), timeout)
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+            names = archive.namelist()
             archive.extractall(html_dir)
-        export_html.embed_fonts(html_dir, enabled=True)
+        # Font subsets are QA scaffolding that survives between runs of the same deck; they live
+        # with the other QA artefacts, not inside the project being delivered.
+        fonts = export_html.embed_fonts(html_dir, enabled=True, cache_dir=font_cache)
         try:
             rendered = render_service.capture_pages(
                 html_dir, pages_dir, endpoint=endpoint, workers=workers,
                 timeout=float(timeout), pages_wanted=page_indices)
         except render_service.RenderServiceError as exc:
             raise ExportError(f"html2png service: {exc}") from exc
+    finally:
+        if folder is not None:
+            folder.cleanup()
 
     images: List[Path] = []
     for entry in sorted(rendered, key=lambda r: r["page"]):
@@ -446,6 +459,14 @@ def export_via_service(deck: Path, output: Path, page_indices: List[int], page_f
         "renderer": "html2png",
         "renderHealth": [{"page": i, "renderer": "html2png", "endpoint": endpoint}
                          for i in page_indices],
+        "htmlExport": ({"ok": True, "deck": str(deck), "output_dir": str(html_dir),
+                        "files": sorted(names), "page_count": len(page_files),
+                        "zip_bytes": len(zip_bytes),
+                        "fonts": {"embedded": len(fonts["embedded"]),
+                                  "bytes": sum(f["bytes"] for f in fonts["embedded"]),
+                                  "families": sorted({f["family"] for f in fonts["embedded"]}),
+                                  "missing": sorted(set(fonts["missing"]))}}
+                       if keep else None),
         "images": [
             {
                 "index": index,
@@ -468,6 +489,8 @@ def export_images(
     workers: int,
     page_spec: str | None = None,
     endpoint: str | None = None,
+    html_out: Path | None = None,
+    font_cache: Path | None = None,
 ) -> Dict[str, Any]:
     yaml = ensure_yaml()
     manifest = read_manifest(deck, yaml)
@@ -500,7 +523,8 @@ def export_images(
 
     endpoint = endpoint or os.environ.get(render_service.ENDPOINT_ENV) or None
     if endpoint:
-        return export_via_service(deck, output, page_indices, page_files, endpoint, workers, timeout)
+        return export_via_service(deck, output, page_indices, page_files, endpoint, workers, timeout,
+                                  html_out=html_out, font_cache=font_cache)
 
     viewer = VIEWER_DEFAULT.resolve()
     if not viewer.is_file():
