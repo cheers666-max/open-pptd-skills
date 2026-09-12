@@ -1150,6 +1150,46 @@ def caption_texts(page: dict[str, Any],
     return found
 
 
+# A caption's job is to tell the audience what they are looking at. Where the picture came from is
+# bookkeeping the page already carries on its 来源 line: repeated under every figure it doubles the
+# caption's length, competes with the words that explain the image, and says nothing a reader of
+# this slide wanted to know. These two shapes are what a provenance tail actually looks like.
+CAPTION_SOURCE_TAIL_PATTERNS = [
+    r"[·•|]\s*(?:19|20)\d{2}\s*$",
+    r"[·•|]\s*[^·•|]{2,24}(?:网|报|社|台|局|院|馆|中心|百科|日报|周刊|官网|频道|号|新闻)\s*$",
+]
+
+
+def caption_source_tail_issues(page: dict[str, Any], page_number: int, page_ref: str,
+                               size: Optional[Tuple[float, float]] = None) -> List[dict[str, Any]]:
+    """A credit line trailing a picture caption."""
+    issues: List[dict[str, Any]] = []
+    patterns = [re.compile(pat) for pat in CAPTION_SOURCE_TAIL_PATTERNS]
+    for element_id, el in caption_texts(page, size).items():
+        content = el.get("content", {})
+        text = content.get("text", "") if isinstance(content, dict) else ""
+        plain = plain_text(text).strip() if isinstance(text, str) else ""
+        if not plain:
+            continue
+        for pattern in patterns:
+            match = pattern.search(plain)
+            if not match:
+                continue
+            issues.append({
+                "code": "caption-source-tail",
+                "pageNumber": page_number,
+                "pageRef": page_ref,
+                "elementId": element_id,
+                "matched": match.group(0).strip(),
+                "detail": f"provenance trailing a caption: '{match.group(0).strip()}' — a caption "
+                          "says what the picture shows; the source belongs to the page's 来源 line "
+                          "and to images_report.json",
+                "repairability": "rewrite-text",
+            })
+            break
+    return issues
+
+
 def caption_link_issues(page: dict[str, Any], page_number: int, page_ref: str,
                         size: Optional[Tuple[float, float]] = None) -> List[dict[str, Any]]:
     """An anchor inside a picture caption.
@@ -1228,8 +1268,8 @@ def image_caption_issues(page: dict[str, Any], page_number: int, page_ref: str,
                 "pageRef": page_ref,
                 "elementId": el.get("elementId", ""),
                 "detail": "picture has no caption: add a plain-text line directly under it "
-                          "saying what the picture shows and where it came from (内容 · 机构／作者 "
-                          "· 年份); keep the clickable citation on the page's 来源 line, not here",
+                          "saying what the picture shows; the source stays on the page's 来源 "
+                          "line, not under the image",
                 "repairability": "add-caption",
             })
     return issues
@@ -1552,6 +1592,7 @@ def audit_project(
         issues.extend(caption_noise_issues(page, page_number, str(page_ref)))
         issues.extend(image_caption_issues(page, page_number, str(page_ref), slide_size))
         issues.extend(caption_link_issues(page, page_number, str(page_ref), slide_size))
+        issues.extend(caption_source_tail_issues(page, page_number, str(page_ref), slide_size))
         advisories.extend(unlinked_source_issues(page, page_number, str(page_ref), slide_size))
         for schema_issue in element_schema_issues(page, page_number, str(page_ref)):
             (advisories if schema_issue["code"] == "non-canonical-align" else issues).append(schema_issue)

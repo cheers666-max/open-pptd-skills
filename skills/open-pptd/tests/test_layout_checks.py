@@ -374,6 +374,35 @@ class CaptionLinkTests(unittest.TestCase):
         self.assertEqual(validate.caption_link_issues(page, 1, 'p'), [])
 
 
+class CaptionSourceTailTests(unittest.TestCase):
+    """A caption says what the picture shows; where it came from is the 来源 line's job."""
+
+    def page(self, caption_text):
+        return {'elements': [
+            {'elementId': 'pic', 'elementType': 'image', 'bounds': [620, 150, 284, 200], 'src': 'media/a.jpg'},
+            {'elementId': 'cap', 'elementType': 'text', 'bounds': [620, 358, 284, 18],
+             'content': {'text': caption_text}},
+        ]}
+
+    def codes(self, caption_text):
+        return [i['code'] for i in validate.caption_source_tail_issues(self.page(caption_text), 1, 'p')]
+
+    def test_a_credit_tail_blocks(self):
+        for caption in ('柘城辣椒 · 人民网河南频道 · 2020',
+                        '阏伯台 · 商丘师范学院殷商之源文化研究院 · 2024',
+                        '火神台庙会朝台 · 大河网',
+                        '芒砀山汉梁王墓群 · 河南省人民政府门户网站 · 2026'):
+            self.assertEqual(self.codes(caption), ['caption-source-tail'], caption)
+
+    def test_a_caption_that_only_describes_the_picture_passes(self):
+        for caption in ('商丘古城城墙与城湖',
+                        '金缕玉衣（河南博物院藏）',
+                        '应天书院旧址（商丘古城南湖畔）',
+                        '北宋 · 四大书院之一',
+                        '2011 · 第三批 · 传统舞蹈（扩展）'):
+            self.assertEqual(self.codes(caption), [], caption)
+
+
 class SourceLinkTests(unittest.TestCase):
     """56 source lines in the batch name a source and none of them is clickable."""
 
