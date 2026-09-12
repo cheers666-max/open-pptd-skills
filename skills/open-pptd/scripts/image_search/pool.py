@@ -90,7 +90,9 @@ _PLATFORM_WATERMARK_DOMAINS = (
 # 电商/商品图床：白底商品图、促销角标，除非这一槽要的就是产品图。
 _ECOMMERCE_DOMAINS = (
     "alicdn", "taobao", "tmall", "jd.com", "360buy", "1688", "pinduoduo",
-    "yangkeduo", "amazon", "ebay", "shopify", "dhgate", "aliexpress",
+    "yangkeduo", "pddpic", "amazon", "ebay", "shopify", "dhgate", "aliexpress",
+    # B2B 农产品/批发图床：商品详情图，常压促销大字。2026-09-11 商丘一稿实拍到。
+    "yimutian", "ymtimg", "alibaba.com",
 )
 
 _IMG_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
