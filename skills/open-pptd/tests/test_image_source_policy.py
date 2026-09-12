@@ -1,4 +1,9 @@
-"""360 source restrictions apply to search, downloads, redirects and known caches."""
+"""The source guard: off by default on this branch, and still correct wherever it is armed.
+
+The restriction belongs to the 360 intranet version. These tests arm it explicitly so the
+machinery — host matching, downloads, redirects, landing pages, retained caches — stays covered
+and can be switched back on with confidence.
+"""
 import json
 from pathlib import Path
 import sys
@@ -15,7 +20,28 @@ import search_images
 import export_online
 
 
+ARMED = ('wikimedia.org', 'wikipedia.org', 'w.wiki')
+
+
+class DisarmedByDefaultTests(unittest.TestCase):
+    """What this branch actually ships: nothing listed, so nothing is refused."""
+
+    def test_the_shipped_list_is_empty(self):
+        self.assertEqual(policy.BLOCKED_HOSTS, (),
+                         'this branch ships the guard disarmed; arm it by listing a host')
+
+    def test_a_formerly_blocked_source_passes(self):
+        self.assertFalse(policy.blocked_source('https://upload.wikimedia.org/a.jpg'))
+        self.assertFalse(policy.blocked_record(
+            {'backend': 'openverse', 'landing': 'https://commons.wikimedia.org/wiki/File:P.jpg'}))
+
+
 class ImageSourcePolicyTests(unittest.TestCase):
+    def setUp(self):
+        armed = patch.object(policy, 'BLOCKED_HOSTS', ARMED)
+        armed.start()
+        self.addCleanup(armed.stop)
+
     def test_exact_hosts_and_subdomains_without_false_positive(self):
         for url in ['https://upload.wikimedia.org/a.jpg', 'https://COMMONS.WIKIMEDIA.ORG./a',
                     'https://en.wikipedia.org/a', 'https://w.wiki/abcd']:

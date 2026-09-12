@@ -4,8 +4,13 @@ from pathlib import Path
 import urllib.parse
 import urllib.request
 
-BLOCKED_HOSTS = ('wikimedia.org', 'wikipedia.org', 'w.wiki')
-MESSAGE = 'Wikimedia image sources are disabled in the 360 intranet version; choose another source'
+# Off on this branch. The restriction belongs to the 360 intranet version, and the reason these
+# sources reached decks here was a stale run snapshot whose BACKENDS still offered a wikimedia
+# search — the current search offers none, so nothing is asking for them. Put a host back in this
+# tuple to turn the guard on again; every consumer keeps working either way, since open_source
+# stays the fetching path whether or not anything is listed.
+BLOCKED_HOSTS = ()
+MESSAGE = 'This image source is disabled for this deck; choose another source'
 
 
 def blocked_source(url):
