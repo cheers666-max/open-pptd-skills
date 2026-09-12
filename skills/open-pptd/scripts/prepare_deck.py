@@ -18,6 +18,7 @@ import sys
 import tempfile
 
 from audit_rendered import audit_page
+import render_service
 from export_images import export_images, find_deck, stitch_overview, ensure_pillow
 from validate_deck import audit_project, load_structured, safe_project_path, write_json, yaml
 
@@ -111,9 +112,16 @@ def read_state(path):
         return {}
 
 
-def run(project, *, output=None, workers=4, scale=2.0, timeout=90, force=False, export_formats=()):
+def run(project, *, output=None, workers=4, scale=2.0, timeout=90, force=False, export_formats=(),
+        endpoint=None):
     if not math.isfinite(scale) or scale <= 0 or workers < 1 or timeout <= 0:
         raise ValueError('scale, workers and timeout must be positive')
+    # The html2png service returns a page at its CSS size; the local renderer is the only one that
+    # can be asked for a denser screenshot, so the audit is told the truth about what it will read.
+    endpoint = endpoint or os.environ.get(render_service.ENDPOINT_ENV) or None
+    if endpoint:
+        scale = 1.0
+        workers = max(workers, render_service.DEFAULT_WORKERS)
     if any(fmt not in ('html', 'pptx') for fmt in export_formats):
         raise ValueError('export formats must be html and/or pptx')
     deck = find_deck(project)
@@ -149,7 +157,7 @@ def run(project, *, output=None, workers=4, scale=2.0, timeout=90, force=False, 
         (staged / 'pages').mkdir()
         if changed:
             export_images(deck, staged, scale, 30000, timeout, True, workers,
-                          page_spec=','.join(map(str, changed)))
+                          page_spec=','.join(map(str, changed)), endpoint=endpoint)
         for index in reused:
             shutil.copyfile(output / f'pages/page_{index:02d}.png', staged / f'pages/page_{index:02d}.png')
         images = [staged / f'pages/page_{i:02d}.png' for i in wanted]
@@ -206,6 +214,9 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, help='QA directory (default: project/.qa-images)')
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--scale', type=float, default=2.0)
+    parser.add_argument('--render-endpoint', dest='endpoint',
+                        help=f'html2png service URL (default: ${render_service.ENDPOINT_ENV}); '
+                             'without one the pages are painted by local Chrome')
     parser.add_argument('--timeout', type=int, default=90, help='Per-page render timeout in seconds')
     parser.add_argument('--force', action='store_true', help='Refresh all screenshots, including after system font/browser changes')
     parser.add_argument('--export', default='', help='Explicit final export: html,pptx; run after reviewing the current overview')
@@ -213,6 +224,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         result = run(args.project, output=args.output, workers=args.workers, scale=args.scale,
+                     endpoint=args.endpoint,
                      timeout=args.timeout, force=args.force,
                      export_formats=[v.strip() for v in getattr(args, 'export').split(',') if v.strip()])
     except Exception as exc:

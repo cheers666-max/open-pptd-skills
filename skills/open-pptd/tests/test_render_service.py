@@ -103,5 +103,23 @@ class RenderServiceTests(unittest.TestCase):
             render_service.endpoint_from()
 
 
+    def test_only_the_pages_asked_for_are_rendered(self):
+        with tempfile.TemporaryDirectory() as folder:
+            html_dir = self.deck(folder, pages=4)
+            out = Path(folder) / 'png'
+            rendered = render_service.capture_pages(html_dir, out, endpoint=self.endpoint,
+                                                    pages_wanted=[2, 4])
+            self.assertEqual([r['page'] for r in rendered], ['page_02.html', 'page_04.html'])
+            self.assertEqual(len(Stub.requests), 2)
+            self.assertEqual(sorted(p.name for p in out.glob('*.png')),
+                             ['page_02.png', 'page_04.png'])
+
+    def test_an_empty_selection_is_an_error_not_an_empty_deck(self):
+        with tempfile.TemporaryDirectory() as folder:
+            html_dir = self.deck(folder, pages=2)
+            with self.assertRaises(render_service.RenderServiceError):
+                render_service.capture_pages(html_dir, Path(folder) / 'png',
+                                             endpoint=self.endpoint, pages_wanted=[9])
+
 if __name__ == '__main__':
     unittest.main()

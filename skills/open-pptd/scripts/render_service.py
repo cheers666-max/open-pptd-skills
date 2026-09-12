@@ -70,9 +70,17 @@ def capture(html: str, *, endpoint: str, selector: str = DEFAULT_SELECTOR,
 
 def capture_pages(html_dir: Path, output_dir: Path, *, endpoint: str,
                   selector: str = DEFAULT_SELECTOR, workers: int = DEFAULT_WORKERS,
-                  timeout: float = 180.0) -> List[Dict[str, Any]]:
-    """Every page_NN.html in a deck's html/ folder, rendered concurrently."""
+                  timeout: float = 180.0,
+                  pages_wanted: Optional[List[int]] = None) -> List[Dict[str, Any]]:
+    """Every page_NN.html in a deck's html/ folder, rendered concurrently.
+
+    `pages_wanted` renders only those page numbers, so a repair that touched one slide pays for
+    one request instead of the whole deck.
+    """
     pages = sorted(html_dir.glob("page_*.html"))
+    if pages_wanted is not None:
+        keep = {int(n) for n in pages_wanted}
+        pages = [p for p in pages if int(p.stem.split("_")[1]) in keep]
     if not pages:
         raise RenderServiceError(f"no page_NN.html found in {html_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)

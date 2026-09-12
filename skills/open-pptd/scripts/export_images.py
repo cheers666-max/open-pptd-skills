@@ -19,12 +19,14 @@ from __future__ import annotations
 
 import argparse
 import base64
+import io
 import json
 import math
 import os
 import signal
 import subprocess
 import tempfile
+import zipfile
 import time
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -32,6 +34,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import quote, urlencode
 
+import render_service
 from deck_server import start_deck_server
 from export_html import ensure_websocket, find_chrome, find_deck
 
@@ -394,6 +397,67 @@ def stitch_overview(
     return output
 
 
+def export_via_service(deck: Path, output: Path, page_indices: List[int], page_files: List[str],
+                       endpoint: str, workers: int, timeout: int) -> Dict[str, Any]:
+    """Rasterise on the html2png service instead of painting the pages on this machine.
+
+    Converting a deck to pixels never needed a browser here: every element is absolutely
+    positioned and `export_html.py` already writes a self-contained page. One Chrome still runs —
+    once, to produce that HTML — and the painting goes to the service, which returns pages at CSS
+    size, six at a time.
+    """
+    import export_html
+
+    image_cls, draw_cls, image_font = ensure_pillow()
+    viewer = VIEWER_DEFAULT.resolve()
+    if not viewer.is_file():
+        raise ExportError(f"viewer.html not found: {viewer}")
+    pages_dir = output / "pages"
+    pages_dir.mkdir(parents=True, exist_ok=True)
+
+    log(f"deck: {deck} ({len(page_files)} pages, via html2png service)")
+    with tempfile.TemporaryDirectory(prefix=".pptd-html-") as folder:
+        html_dir = Path(folder)
+        zip_bytes = export_html.run_viewer_export(viewer, deck, find_chrome(None), timeout)
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+            archive.extractall(html_dir)
+        export_html.embed_fonts(html_dir, enabled=True)
+        try:
+            rendered = render_service.capture_pages(
+                html_dir, pages_dir, endpoint=endpoint, workers=workers,
+                timeout=float(timeout), pages_wanted=page_indices)
+        except render_service.RenderServiceError as exc:
+            raise ExportError(f"html2png service: {exc}") from exc
+
+    images: List[Path] = []
+    for entry in sorted(rendered, key=lambda r: r["page"]):
+        index = int(Path(entry["page"]).stem.split("_")[1])
+        target = Path(entry["image"])
+        check_not_blank(target, image_cls, index)
+        images.append(target)
+        log(f"page {index}/{len(page_files)} → {target.name}")
+
+    overview = stitch_overview(images, output / "overview.jpg", image_cls, draw_cls, image_font)
+    write_review_copies(images, output, image_cls)
+    return {
+        "pages": len(images),
+        "overview": str(overview),
+        "output": str(output),
+        "renderer": "html2png",
+        "renderHealth": [{"page": i, "renderer": "html2png", "endpoint": endpoint}
+                         for i in page_indices],
+        "images": [
+            {
+                "index": index,
+                "image": f"pages/{path.name}",
+                "review": f"review/{path.stem}.jpg",
+                "page": page_files[index - 1] if index - 1 < len(page_files) else None,
+            }
+            for index, path in zip(page_indices, images)
+        ],
+    }
+
+
 def export_images(
     deck: Path,
     output: Path,
@@ -403,6 +467,7 @@ def export_images(
     force: bool,
     workers: int,
     page_spec: str | None = None,
+    endpoint: str | None = None,
 ) -> Dict[str, Any]:
     yaml = ensure_yaml()
     manifest = read_manifest(deck, yaml)
@@ -432,6 +497,10 @@ def export_images(
             raise ExportError(f"page numbers out of range: {page_spec} (deck has {len(page_files)} pages)")
     else:
         page_indices = list(range(1, len(page_files) + 1))
+
+    endpoint = endpoint or os.environ.get(render_service.ENDPOINT_ENV) or None
+    if endpoint:
+        return export_via_service(deck, output, page_indices, page_files, endpoint, workers, timeout)
 
     viewer = VIEWER_DEFAULT.resolve()
     if not viewer.is_file():
